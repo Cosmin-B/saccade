@@ -30,7 +30,13 @@ enum {
     SACCADE_ERROR_CAPACITY = -3,
     SACCADE_ERROR_STALE_HANDLE = -4,
     SACCADE_ERROR_UNSUPPORTED = -5,
-    SACCADE_ERROR_BACKEND = -6
+    SACCADE_ERROR_BACKEND = -6,
+    SACCADE_ERROR_STATE = -7,
+    SACCADE_ERROR_NOT_FOUND = -8,
+    SACCADE_ERROR_TIMEOUT = -9,
+    SACCADE_ERROR_CANCELLED = -10,
+    SACCADE_ERROR_BUSY = -11,
+    SACCADE_ERROR_ALREADY_EXISTS = -12
 };
 
 typedef uint64_t SaccadeRuntimeHandle;
@@ -98,6 +104,14 @@ extern "C" {
 #endif
 
 SACCADE_API SaccadeApiVersion SACCADE_CALL saccade_api_version(void);
+SACCADE_API SaccadeSpanU8 SACCADE_CALL saccade_last_error(void);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(
+    const SaccadeRuntimeDesc* desc,
+    SaccadeRuntimeHandle* out_runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_freeze(
+    SaccadeRuntimeHandle runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(
+    SaccadeRuntimeHandle runtime);
 
 SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(
     SaccadeRuntimeHandle runtime,

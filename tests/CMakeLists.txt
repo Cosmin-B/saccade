@@ -68,3 +68,69 @@ add_executable(saccade_backend_layout abi/backend_layout.c)
 target_include_directories(saccade_backend_layout PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(saccade_backend_layout PRIVATE saccade_build_settings)
 add_test(NAME abi.backend.layout COMMAND saccade_backend_layout)
+
+find_package(Threads REQUIRED)
+
+add_executable(saccade_core_error core/error.cpp)
+target_include_directories(saccade_core_error PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_core_error PRIVATE
+    saccade_core
+    saccade_build_settings
+    Threads::Threads)
+add_test(NAME core.error COMMAND saccade_core_error)
+
+add_executable(saccade_core_handle_table core/handle_table.cpp)
+target_include_directories(saccade_core_handle_table PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_core_handle_table PRIVATE saccade_build_settings)
+add_test(NAME core.handle_table COMMAND saccade_core_handle_table)
+
+add_executable(saccade_backend_registry backend/registry.cpp)
+target_include_directories(saccade_backend_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_backend_registry PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME backend.registry COMMAND saccade_backend_registry)
+
+add_executable(saccade_backend_registry_guard backend/registry_guard.cpp)
+target_include_directories(saccade_backend_registry_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_backend_registry_guard PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME backend.registry_guard COMMAND saccade_backend_registry_guard)
+
+add_executable(saccade_core_runtime core/runtime.cpp)
+target_include_directories(saccade_core_runtime PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_core_runtime PRIVATE saccade_core saccade_build_settings)
+add_test(NAME core.runtime COMMAND saccade_core_runtime)
+
+add_executable(saccade_core_runtime_static_destruction
+    core/runtime_static_destruction.cpp)
+target_include_directories(saccade_core_runtime_static_destruction PRIVATE
+    "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_core_runtime_static_destruction PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(
+    NAME core.runtime_static_destruction
+    COMMAND saccade_core_runtime_static_destruction)
+
+add_test(
+    NAME package.shared_build
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        "-DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/shared-build"
+        "-DGENERATOR=${CMAKE_GENERATOR}"
+        "-DC_COMPILER=${CMAKE_C_COMPILER}"
+        "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DNM_TOOL=${CMAKE_NM}"
+        "-DAPPLE_HOST=${APPLE}"
+        "-DWIN32_HOST=${WIN32}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/shared_build.cmake")
