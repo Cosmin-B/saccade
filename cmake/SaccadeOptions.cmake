@@ -1,0 +1,7 @@
+option(SACCADE_BUILD_STATIC "Build static libraries" ON)
+option(SACCADE_BUILD_SHARED "Build shared libraries" OFF)
+option(SACCADE_BUILD_TESTS "Build tests" ON)
+option(SACCADE_BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(SACCADE_BUILD_TOOLS "Build tools" ON)
+option(SACCADE_ENABLE_TRACING "Enable tracing" OFF)
+option(SACCADE_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)

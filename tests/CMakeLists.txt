@@ -1,0 +1,3 @@
+add_executable(saccade_build_smoke smoke/build_smoke.cpp)
+target_link_libraries(saccade_build_smoke PRIVATE saccade_build_settings)
+add_test(NAME smoke.build COMMAND saccade_build_smoke)
