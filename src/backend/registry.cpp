@@ -214,6 +214,55 @@ SaccadeProviderInfo normalized_info(const SaccadeProviderInfo& source) noexcept 
     return result;
 }
 
+bool is_power_of_two(uint64_t value) noexcept {
+    return value != 0 && (value & (value - 1U)) == 0;
+}
+
+SaccadeResult copy_and_validate_device_info(
+    const SaccadeDeviceInfo* info,
+    SaccadeDeviceInfo* out_info) noexcept {
+    if (info == nullptr || out_info == nullptr) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+
+    uint32_t struct_size = 0;
+    std::memcpy(&struct_size, static_cast<const void*>(info), sizeof(struct_size));
+    if (static_cast<size_t>(struct_size) < offsetof(SaccadeDeviceInfo, reserved)) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_info = {};
+    const size_t copy_size = std::min(static_cast<size_t>(struct_size), sizeof(*out_info));
+    std::memcpy(out_info, static_cast<const void*>(info), copy_size);
+    const SaccadeResult prefix = validate_prefix(
+        struct_size, out_info->api_version, offsetof(SaccadeDeviceInfo, reserved));
+    if (prefix != SACCADE_OK) {
+        return prefix;
+    }
+    if (!reserved_is_zero(
+            out_info,
+            struct_size,
+            offsetof(SaccadeDeviceInfo, reserved),
+            sizeof(*out_info))) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+    if (out_info->stable_id == 0 || out_info->format_bits == 0 ||
+        out_info->precision_bits == 0 || out_info->import_bits == 0 ||
+        out_info->queue_capacity == 0 || out_info->max_in_flight == 0 ||
+        out_info->max_in_flight > out_info->queue_capacity ||
+        !is_power_of_two(out_info->host_alignment) ||
+        (out_info->device_alignment != 0 &&
+         !is_power_of_two(out_info->device_alignment)) ||
+        (out_info->name.size != 0 && out_info->name.data == nullptr) ||
+        out_info->name.size >= 64) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+
+    out_info->struct_size = static_cast<uint32_t>(sizeof(*out_info));
+    out_info->api_version = SACCADE_API_VERSION;
+    return SACCADE_OK;
+}
+
 template <typename Descriptor>
 SaccadeResult copy_and_validate_descriptor(
     const Descriptor* desc,
@@ -258,6 +307,11 @@ SaccadeProviderHandle make_handle(
            (static_cast<uint64_t>(slot) + UINT64_C(1));
 }
 
+SaccadeDeviceHandle make_device_handle(uint32_t domain, size_t slot) noexcept {
+    return (static_cast<uint64_t>(domain) << 32U) |
+           (static_cast<uint64_t>(slot) + UINT64_C(1));
+}
+
 struct DecodedHandle {
     size_t slot = 0;
     uint32_t family = 0;
@@ -275,6 +329,22 @@ DecodedHandle decode_handle(SaccadeProviderHandle handle) noexcept {
         return {};
     }
     return {static_cast<size_t>(slot - 1U), family, domain, true};
+}
+
+struct DecodedDeviceHandle {
+    size_t slot = 0;
+    uint32_t domain = 0;
+    bool valid = false;
+};
+
+DecodedDeviceHandle decode_device_handle(SaccadeDeviceHandle handle) noexcept {
+    const uint32_t slot = static_cast<uint32_t>(handle & UINT64_C(0xFFFFFFFF));
+    const uint32_t domain = static_cast<uint32_t>(handle >> 32U);
+    if (slot == 0 || domain == 0 ||
+        static_cast<size_t>(slot) > ProviderRegistry::device_capacity) {
+        return {};
+    }
+    return {static_cast<size_t>(slot - 1U), domain, true};
 }
 
 }  // namespace
@@ -448,6 +518,74 @@ SACCADE_DEFINE_REGISTRATION(
 
 #undef SACCADE_DEFINE_REGISTRATION
 
+SaccadeResult ProviderRegistry::register_device(
+    SaccadeProviderHandle provider,
+    const SaccadeDeviceInfo* info,
+    SaccadeDeviceHandle* out_handle) noexcept {
+    if (out_handle != nullptr) {
+        *out_handle = 0;
+    }
+    if (frozen_) {
+        return SACCADE_ERROR_STATE;
+    }
+    if (domain_ == 0) {
+        return SACCADE_ERROR_CAPACITY;
+    }
+    const InferenceRecord* owner = inference(provider);
+    if (owner == nullptr) {
+        return SACCADE_ERROR_STALE_HANDLE;
+    }
+
+    SaccadeDeviceInfo normalized{};
+    const SaccadeResult validation = copy_and_validate_device_info(info, &normalized);
+    if (validation != SACCADE_OK) {
+        return validation;
+    }
+    if ((normalized.capability_bits & ~owner->info.capability_bits) != 0 ||
+        ((normalized.import_bits & SACCADE_IMPORT_HOST) != 0 &&
+         (owner->info.capability_bits & SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT) == 0) ||
+        ((normalized.import_bits &
+          ~static_cast<uint32_t>(SACCADE_IMPORT_HOST)) != 0 &&
+         (owner->info.capability_bits & SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT) == 0)) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+    for (const DeviceSlot& slot : devices_) {
+        if (slot.occupied && slot.record.provider == provider &&
+            slot.record.info.stable_id == normalized.stable_id) {
+            return SACCADE_ERROR_ALREADY_EXISTS;
+        }
+    }
+    if (device_size_ == device_capacity) {
+        return SACCADE_ERROR_CAPACITY;
+    }
+
+    for (size_t index = 0; index < device_capacity; ++index) {
+        DeviceSlot& slot = devices_[index];
+        if (slot.occupied) {
+            continue;
+        }
+
+        slot.record = {};
+        slot.record.handle = make_device_handle(domain_, index);
+        slot.record.provider = provider;
+        slot.record.registration_order = next_device_registration_order_++;
+        slot.record.info = normalized;
+        if (normalized.name.size != 0) {
+            std::memcpy(
+                slot.record.name.data(), normalized.name.data, normalized.name.size);
+        }
+        slot.record.name[normalized.name.size] = 0;
+        slot.record.info.name = {slot.record.name.data(), normalized.name.size};
+        slot.occupied = true;
+        ++device_size_;
+        if (out_handle != nullptr) {
+            *out_handle = slot.record.handle;
+        }
+        return SACCADE_OK;
+    }
+    return SACCADE_ERROR_CAPACITY;
+}
+
 #define SACCADE_DEFINE_SELECTION(method, member, family_value)                  \
     SaccadeResult ProviderRegistry::method(                                    \
         uint32_t required, uint32_t preferred,                                 \
@@ -482,6 +620,84 @@ SACCADE_DEFINE_ID_SELECTION(select_input_by_id, input_, SACCADE_PROVIDER_FAMILY_
 
 #undef SACCADE_DEFINE_ID_SELECTION
 
+SaccadeResult ProviderRegistry::select_device(
+    const DeviceRequirements& requirements,
+    DeviceSelection* out_selection) const noexcept {
+    if (out_selection == nullptr) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+    *out_selection = {};
+
+    const DeviceSlot* best = nullptr;
+    uint32_t best_score = 0;
+    for (const DeviceSlot& slot : devices_) {
+        if (!slot.occupied) {
+            continue;
+        }
+        const SaccadeDeviceInfo& info = slot.record.info;
+        if ((info.capability_bits & requirements.required_capability_bits) !=
+                requirements.required_capability_bits ||
+            (info.format_bits & requirements.required_format_bits) !=
+                requirements.required_format_bits ||
+            (info.precision_bits & requirements.required_precision_bits) !=
+                requirements.required_precision_bits ||
+            (info.import_bits & requirements.required_import_bits) !=
+                requirements.required_import_bits ||
+            info.queue_capacity < requirements.minimum_queue_capacity ||
+            info.max_in_flight < requirements.minimum_max_in_flight) {
+            continue;
+        }
+
+        const uint32_t score =
+            count_bits(info.capability_bits & requirements.preferred_capability_bits) +
+            count_bits(info.format_bits & requirements.preferred_format_bits) +
+            count_bits(info.precision_bits & requirements.preferred_precision_bits) +
+            count_bits(info.import_bits & requirements.preferred_import_bits);
+        if (best == nullptr || score > best_score) {
+            best = &slot;
+            best_score = score;
+        }
+    }
+    if (best == nullptr) {
+        return SACCADE_ERROR_NOT_FOUND;
+    }
+
+    out_selection->handle = best->record.handle;
+    out_selection->provider = best->record.provider;
+    out_selection->stable_id = best->record.info.stable_id;
+    out_selection->capability_bits = best->record.info.capability_bits;
+    out_selection->reason = best_score == 0
+        ? SelectionReason::registration_order
+        : SelectionReason::preferred_capability;
+    return SACCADE_OK;
+}
+
+SaccadeResult ProviderRegistry::select_device_by_id(
+    SaccadeProviderHandle provider,
+    uint64_t stable_id,
+    DeviceSelection* out_selection) const noexcept {
+    if (out_selection == nullptr || stable_id == 0) {
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+    *out_selection = {};
+    if (inference(provider) == nullptr) {
+        return SACCADE_ERROR_STALE_HANDLE;
+    }
+
+    for (const DeviceSlot& slot : devices_) {
+        if (slot.occupied && slot.record.provider == provider &&
+            slot.record.info.stable_id == stable_id) {
+            out_selection->handle = slot.record.handle;
+            out_selection->provider = slot.record.provider;
+            out_selection->stable_id = slot.record.info.stable_id;
+            out_selection->capability_bits = slot.record.info.capability_bits;
+            out_selection->reason = SelectionReason::explicit_id;
+            return SACCADE_OK;
+        }
+    }
+    return SACCADE_ERROR_NOT_FOUND;
+}
+
 #define SACCADE_DEFINE_LOOKUP(method, record_type, member, family_value)         \
     const ProviderRegistry::record_type* ProviderRegistry::method(              \
         SaccadeProviderHandle handle) const noexcept {                          \
@@ -498,6 +714,18 @@ SACCADE_DEFINE_LOOKUP(
 SACCADE_DEFINE_LOOKUP(input, InputRecord, input_, SACCADE_PROVIDER_FAMILY_INPUT)
 
 #undef SACCADE_DEFINE_LOOKUP
+
+const DeviceRecord* ProviderRegistry::device(SaccadeDeviceHandle handle) const noexcept {
+    const DecodedDeviceHandle decoded = decode_device_handle(handle);
+    if (!decoded.valid || decoded.domain != domain_) {
+        return nullptr;
+    }
+    const DeviceSlot& slot = devices_[decoded.slot];
+    if (!slot.occupied || slot.record.handle != handle) {
+        return nullptr;
+    }
+    return &slot.record;
+}
 
 void ProviderRegistry::freeze() noexcept {
     frozen_ = true;

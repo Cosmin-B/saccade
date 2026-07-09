@@ -97,6 +97,15 @@ target_link_libraries(saccade_backend_registry PRIVATE
     saccade_build_settings)
 add_test(NAME backend.registry COMMAND saccade_backend_registry)
 
+add_executable(saccade_backend_device_registry backend/device_registry.cpp)
+target_include_directories(saccade_backend_device_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_backend_device_registry PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME backend.device_registry COMMAND saccade_backend_device_registry)
+
 add_executable(saccade_backend_registry_guard backend/registry_guard.cpp)
 target_include_directories(saccade_backend_registry_guard PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
