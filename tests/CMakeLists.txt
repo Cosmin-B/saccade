@@ -16,3 +16,40 @@ add_executable(saccade_abi_layout abi/layout.c)
 target_include_directories(saccade_abi_layout PRIVATE "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(saccade_abi_layout PRIVATE saccade_build_settings)
 add_test(NAME abi.layout COMMAND saccade_abi_layout)
+
+add_executable(saccade_typed_facade_c abi/typed_facade_c.c)
+target_include_directories(saccade_typed_facade_c PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_typed_facade_c PRIVATE saccade_build_settings)
+add_test(NAME abi.typed_facade_c COMMAND saccade_typed_facade_c)
+
+add_executable(saccade_typed_facade_cpp abi/typed_facade_cpp.cpp)
+target_include_directories(saccade_typed_facade_cpp PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_typed_facade_cpp PRIVATE saccade_build_settings)
+add_test(NAME abi.typed_facade_cpp COMMAND saccade_typed_facade_cpp)
+
+set(typed_facade_script "${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_reject.cmake")
+set(typed_facade_common_arguments
+    "-DC_COMPILER=${CMAKE_C_COMPILER}"
+    "-DC_COMPILER_ID=${CMAKE_C_COMPILER_ID}"
+    "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+    "-DCXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}"
+    "-DINCLUDE_DIR=${PROJECT_SOURCE_DIR}/include"
+    "-DBINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
+
+add_test(
+    NAME abi.typed_facade.reject
+    COMMAND "${CMAKE_COMMAND}"
+        -DMODE=reject
+        ${typed_facade_common_arguments}
+        "-DUNSUPPORTED_C_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_unsupported.c"
+        "-DUNSUPPORTED_CXX_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_unsupported.cpp"
+        -P "${typed_facade_script}")
+
+add_test(
+    NAME abi.typed_facade.static_dispatch
+    COMMAND "${CMAKE_COMMAND}"
+        -DMODE=preprocess
+        ${typed_facade_common_arguments}
+        "-DSUPPORTED_C_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_c.c"
+        "-DSUPPORTED_CXX_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_cpp.cpp"
+        -P "${typed_facade_script}")
