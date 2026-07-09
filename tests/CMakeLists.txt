@@ -53,3 +53,18 @@ add_test(
         "-DSUPPORTED_C_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_c.c"
         "-DSUPPORTED_CXX_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/abi/typed_facade_cpp.cpp"
         -P "${typed_facade_script}")
+
+add_executable(saccade_backend_header_c abi/backend_header_c.c)
+target_include_directories(saccade_backend_header_c PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_backend_header_c PRIVATE saccade_build_settings)
+add_test(NAME abi.backend.header_c COMMAND saccade_backend_header_c)
+
+add_executable(saccade_backend_header_cpp abi/backend_header_cpp.cpp)
+target_include_directories(saccade_backend_header_cpp PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_backend_header_cpp PRIVATE saccade_build_settings)
+add_test(NAME abi.backend.header_cpp COMMAND saccade_backend_header_cpp)
+
+add_executable(saccade_backend_layout abi/backend_layout.c)
+target_include_directories(saccade_backend_layout PRIVATE "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_backend_layout PRIVATE saccade_build_settings)
+add_test(NAME abi.backend.layout COMMAND saccade_backend_layout)
