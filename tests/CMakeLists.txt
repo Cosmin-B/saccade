@@ -115,6 +115,62 @@ target_link_libraries(saccade_core_newest_frame_mailbox PRIVATE
     Threads::Threads)
 add_test(NAME core.newest_frame_mailbox COMMAND saccade_core_newest_frame_mailbox)
 
+add_executable(saccade_kernels_image_luma kernels/image_luma.cpp)
+target_include_directories(saccade_kernels_image_luma PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_kernels_image_luma PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME kernels.image_luma COMMAND saccade_kernels_image_luma)
+
+add_test(
+    NAME build.target_architecture
+    COMMAND "${CMAKE_COMMAND}"
+        "-DMODULE_DIR=${PROJECT_SOURCE_DIR}/cmake"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/target_architecture.cmake")
+
+set(saccade_symbol_tool "")
+set(saccade_symbol_tool_mode "")
+if(CMAKE_NM AND EXISTS "${CMAKE_NM}")
+    set(saccade_symbol_tool "${CMAKE_NM}")
+    get_filename_component(saccade_symbol_tool_name "${CMAKE_NM}" NAME)
+    if(saccade_symbol_tool_name MATCHES "dumpbin")
+        set(saccade_symbol_tool_mode dumpbin)
+    else()
+        set(saccade_symbol_tool_mode nm)
+    endif()
+else()
+    get_filename_component(saccade_compiler_directory
+        "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(saccade_llvm_nm
+        NAMES llvm-nm llvm-nm.exe
+        HINTS "${saccade_compiler_directory}")
+    if(saccade_llvm_nm)
+        set(saccade_symbol_tool "${saccade_llvm_nm}")
+        set(saccade_symbol_tool_mode nm)
+    else()
+        find_program(saccade_dumpbin
+            NAMES dumpbin dumpbin.exe
+            HINTS "${saccade_compiler_directory}")
+        if(saccade_dumpbin)
+            set(saccade_symbol_tool "${saccade_dumpbin}")
+            set(saccade_symbol_tool_mode dumpbin)
+        endif()
+    endif()
+endif()
+if(NOT saccade_symbol_tool)
+    message(FATAL_ERROR
+        "Tests require nm, llvm-nm, or dumpbin for allocator symbol gates")
+endif()
+add_test(
+    NAME core.no_allocator_symbols
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSYMBOL_TOOL=${saccade_symbol_tool}"
+        "-DSYMBOL_TOOL_MODE=${saccade_symbol_tool_mode}"
+        "-DLIBRARY=$<TARGET_FILE:saccade_core>"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/no_allocator_symbols.cmake")
+
 add_executable(saccade_backend_registry backend/registry.cpp)
 target_include_directories(saccade_backend_registry PRIVATE
     "${PROJECT_SOURCE_DIR}/include"

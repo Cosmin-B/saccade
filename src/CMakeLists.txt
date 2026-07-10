@@ -2,7 +2,37 @@ set(SACCADE_CORE_SOURCES
     backend/registry.cpp
     core/error.cpp
     core/runtime.cpp
-    core/version.cpp)
+    core/version.cpp
+    kernels/image/luma.cpp)
+
+include(SaccadeTargetArchitecture)
+saccade_resolve_target_architecture(
+    saccade_target_architecture
+    "${CMAKE_SYSTEM_PROCESSOR}"
+    "${CMAKE_OSX_ARCHITECTURES}"
+    "${CMAKE_VS_PLATFORM_NAME}"
+    "${CMAKE_GENERATOR_PLATFORM}"
+    "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}")
+if(NOT saccade_target_architecture)
+    message(FATAL_ERROR "Saccade kernel builds require one target architecture")
+endif()
+
+if(saccade_target_architecture STREQUAL "arm64")
+    list(APPEND SACCADE_CORE_SOURCES kernels/image/luma_neon.cpp)
+    set(SACCADE_CORE_PRIVATE_DEFINITIONS SACCADE_BUILD_LUMA_NEON=1)
+elseif(saccade_target_architecture STREQUAL "x86_64")
+    list(APPEND SACCADE_CORE_SOURCES kernels/image/luma_avx2.cpp)
+    set(SACCADE_CORE_PRIVATE_DEFINITIONS SACCADE_BUILD_LUMA_AVX2=1)
+    if(MSVC)
+        set_source_files_properties(
+            kernels/image/luma_avx2.cpp
+            PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
+    else()
+        set_source_files_properties(
+            kernels/image/luma_avx2.cpp
+            PROPERTIES COMPILE_OPTIONS "-mavx2")
+    endif()
+endif()
 
 if(NOT SACCADE_BUILD_STATIC AND NOT SACCADE_BUILD_SHARED)
     message(FATAL_ERROR "Enable SACCADE_BUILD_STATIC, SACCADE_BUILD_SHARED, or both")
@@ -18,6 +48,10 @@ function(saccade_configure_core target)
     target_link_libraries(${target} PRIVATE
         $<BUILD_INTERFACE:saccade_build_settings>
         Threads::Threads)
+    if(SACCADE_CORE_PRIVATE_DEFINITIONS)
+        target_compile_definitions(${target} PRIVATE
+            ${SACCADE_CORE_PRIVATE_DEFINITIONS})
+    endif()
 endfunction()
 
 function(saccade_configure_shared_core target)

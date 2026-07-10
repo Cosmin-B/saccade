@@ -32,20 +32,26 @@ foreach(path IN LISTS source_files)
     endif()
 endforeach()
 
-file(GLOB_RECURSE backend_sources LIST_DIRECTORIES false
+file(GLOB_RECURSE runtime_sources LIST_DIRECTORIES false
     "${SOURCE_DIR}/backends/*.c"
     "${SOURCE_DIR}/backends/*.cc"
     "${SOURCE_DIR}/backends/*.cpp"
     "${SOURCE_DIR}/backends/*.cxx"
     "${SOURCE_DIR}/backends/*.h"
-    "${SOURCE_DIR}/backends/*.hpp")
-foreach(path IN LISTS backend_sources)
+    "${SOURCE_DIR}/backends/*.hpp"
+    "${SOURCE_DIR}/src/*.c"
+    "${SOURCE_DIR}/src/*.cc"
+    "${SOURCE_DIR}/src/*.cpp"
+    "${SOURCE_DIR}/src/*.cxx"
+    "${SOURCE_DIR}/src/*.h"
+    "${SOURCE_DIR}/src/*.hpp")
+foreach(path IN LISTS runtime_sources)
     file(READ "${path}" content)
     string(REGEX MATCH
         "(^|[^A-Za-z0-9_])(malloc|calloc|realloc|aligned_alloc|posix_memalign|_aligned_malloc|make_unique|make_shared)[ \t\r\n]*\\("
         direct_allocation "${content}")
     if(direct_allocation)
-        message(FATAL_ERROR "Provider source uses a direct allocator: ${path}")
+        message(FATAL_ERROR "Runtime source uses a direct allocator: ${path}")
     endif()
 endforeach()
 
