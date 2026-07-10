@@ -14,6 +14,7 @@ application. Implemented pieces include:
 - bounded errors, generated handles, and fixed-capacity provider and device registries;
 - deterministic providers for lifecycle and fault testing;
 - a scalar CPU detector that serves as a small parity oracle;
+- exact luma conversion with portable scalar, arm64 NEON, and x64 AVX2 paths;
 - static and shared CMake packages with clean C and C++ consumer tests.
 
 Native macOS and Windows adapters, the scene scheduler, the interaction engine, and

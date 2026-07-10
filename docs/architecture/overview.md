@@ -6,8 +6,9 @@ neural inference. A late scene update can be replaced. An input event cannot.
 
 The repository currently implements the portable ABI, provider contracts, bounded
 registries, host frame leases, a newest-frame mailbox, deterministic providers, and a
-scalar CPU detector. The capture-to-action pipeline below is the contract those pieces
-are being built to support.
+scalar CPU detector. It also contains the first owned image kernel: exact luma
+conversion with scalar, arm64 NEON, and x64 AVX2 implementations. The capture-to-action
+pipeline below is the contract those pieces are being built to support.
 
 ## Data flow
 
@@ -24,11 +25,12 @@ input <--------- validated action plan <------- immutable target scene
 overlay <----------------+
 ```
 
-Capture providers produce leased frames and damage regions. Image kernels handle
-format conversion, resize, comparison, and postprocessing. Inference and accessibility
-results carry the epochs needed to decide whether they are still current. Fusion
-produces an immutable target scene. Input receives a bounded action plan, not a raw
-model prediction.
+Capture providers produce leased frames and damage regions. The current image kernel
+converts R8, BGRA8, BGRX8, and RGBA8 input to exact R8 luma. Resize, comparison, model
+preprocessing, and postprocessing are still future kernel work. Inference and
+accessibility results carry the epochs needed to decide whether they are still current.
+Fusion produces an immutable target scene. Input receives a bounded action plan, not a
+raw model prediction.
 
 Target fusion, action planning, scene workers, and native adapters are still future
 implementation work. Their contracts remain separate from the provider ABI so they do
@@ -85,7 +87,8 @@ imports remain unsupported until their platform retain and release paths are con
 
 Registries, handle tables, ticket tables, diagnostic text, test-provider state, and
 scalar detector scratch storage have fixed capacities. Contract tests replace global
-`operator new` and verify that provider operations do not allocate after construction.
+`operator new`, reject allocator references in the core archive, and verify that the
+implemented provider and image-kernel paths do not allocate after construction.
 
 Memory reports separate host commitment, host reservation, imported device memory,
 provider-owned device memory, framework residency, copied bytes, and high-water use.

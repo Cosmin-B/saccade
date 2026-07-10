@@ -92,6 +92,13 @@ target_link_libraries(saccade_core_error PRIVATE
     Threads::Threads)
 add_test(NAME core.error COMMAND saccade_core_error)
 
+add_executable(saccade_core_stack_string_builder core/stack_string_builder.cpp)
+target_include_directories(saccade_core_stack_string_builder PRIVATE
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_core_stack_string_builder PRIVATE
+    saccade_build_settings)
+add_test(NAME core.stack_string_builder COMMAND saccade_core_stack_string_builder)
+
 add_executable(saccade_core_handle_table core/handle_table.cpp)
 target_include_directories(saccade_core_handle_table PRIVATE
     "${PROJECT_SOURCE_DIR}/include"

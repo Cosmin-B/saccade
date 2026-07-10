@@ -1,8 +1,6 @@
 #include "core/error.hpp"
 
 #include <algorithm>
-#include <cstdarg>
-#include <cstdio>
 #include <cstring>
 
 namespace saccade::core {
@@ -91,27 +89,6 @@ void set_last_error(std::string_view message) noexcept {
         std::memcpy(error_state.text.data(), message.data(), size);
     }
     commit_size(size);
-}
-
-void set_last_errorf(const char* format, ...) noexcept {
-    if (format == nullptr) {
-        clear_last_error();
-        return;
-    }
-
-    va_list arguments;
-    va_start(arguments, format);
-    const int result = std::vsnprintf(
-        error_state.text.data(), error_state.text.size(), format, arguments);
-    va_end(arguments);
-
-    if (result < 0) {
-        clear_last_error();
-        return;
-    }
-
-    const size_t requested = static_cast<size_t>(result);
-    commit_size(std::min(requested, kErrorCapacity - 1));
 }
 
 void clear_last_error() noexcept {

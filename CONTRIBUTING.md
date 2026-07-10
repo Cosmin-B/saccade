@@ -23,6 +23,10 @@ ASan/UBSan and TSan.
 - Do not expose operating-system, graphics, or model-runtime types in installed headers.
 - Use fixed storage on capture, inference, interaction, and presentation paths.
 - Keep hot mutable state thread-owned and prefer thread-local or thread-affine arenas.
+- Build runtime text with bounded stack-backed builders and typed appends. Do not use
+  `printf`-family formatting on runtime paths.
+- Keep builder spill paths cold and explicit. A future spill path must use a Saccade
+  allocator; hot builders expose truncation instead of allocating.
 - Name private data members with a trailing underscore.
 - Use direct function pointers or inline callback templates; do not use `std::function`.
 - Prefer wait-free single-writer handoffs and do not use CAS retry loops on runtime paths.

@@ -29,7 +29,6 @@ private:
 
 void set_last_error(const char* message) noexcept;
 void set_last_error(std::string_view message) noexcept;
-void set_last_errorf(const char* format, ...) noexcept;
 void clear_last_error() noexcept;
 SaccadeSpanU8 last_error() noexcept;
 

@@ -89,10 +89,11 @@ and dual installs.
 ## Test lanes
 
 ABI tests compile the public headers independently as C11 and C++20. Package tests
-repeat that check from an installed prefix. Unit tests
-exercise bounded storage, handle generations, provider registration, and deterministic
-fault paths. Provider contracts cover every family, and the scalar CPU lane checks exact
-image and serialized target output.
+repeat that check from an installed prefix. Unit tests exercise bounded storage, handle
+generations, provider registration, and deterministic fault paths. Provider contracts
+cover every family, and the scalar CPU lane checks exact image and serialized target
+output. The image-kernel lane compares scalar and SIMD output, exact-sized vector tails,
+row padding, first-use dispatch, and steady-state allocation counts.
 
 Run a narrow lane with a regular expression:
 
@@ -110,7 +111,9 @@ ctest --preset asan-ubsan --output-on-failure
 
 `quality.repository`, `quality.text`, and `quality.documentation` reject build artifacts,
 downloaded model formats, dependency downloads, text damage, unfinished prose, and broken
-local links. `abi.manifest.layout` and `abi.manifest.symbols` protect the versioned ABI.
+local links. `build.target_architecture` checks host and target architecture selection.
+`core.no_allocator_symbols` rejects process-allocator references in the built core.
+`abi.manifest.layout` and `abi.manifest.symbols` protect the versioned ABI.
 
 ## Source-tree rules
 

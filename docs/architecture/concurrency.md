@@ -72,9 +72,15 @@ handoff primitive, not a 120 Hz end-to-end loop.
 
 ## Kernel work
 
-Owned CPU and GPU kernels can replace measured hotspots behind stable tensor and output
-contracts. The scalar CPU path is the parity oracle. SIMD, Metal, and Direct3D variants
-must match its integer geometry and ordering before their speed matters.
+The first owned image kernel converts packed color to exact integer luma. Its scalar
+implementation is the oracle. arm64 builds compile a NEON path, while x64 builds compile
+an AVX2 path in a separate translation unit and select it only on a compatible CPU.
+Tests force every available path, compare exact output, exercise vector tails, and check
+that row padding is untouched.
+
+Later CPU and GPU kernels use the same rule: optimize behind a stable tensor and output
+contract, and compare against the scalar path before measuring speed. Metal and Direct3D
+variants must match integer geometry and ordering before their speed matters.
 
 Kernel tuning is measured in isolation and in the full scene path. A faster kernel that
 adds copies, expands memory, blocks another queue, or changes target geometry is not an
