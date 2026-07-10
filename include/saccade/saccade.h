@@ -128,6 +128,10 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_d3d11(
     const SaccadeD3D11FrameDesc* desc,
     SaccadeFrameHandle* out_frame);
 
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_release(
+    SaccadeRuntimeHandle runtime,
+    SaccadeFrameHandle frame);
+
 #ifdef __cplusplus
 }
 

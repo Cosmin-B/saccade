@@ -24,7 +24,9 @@ int main() {
     frame.frame_id = 1;
     frame.transform_epoch = 1;
     SaccadeFrameHandle frame_handle = 0;
-    if (saccade_frame_import(runtime, &frame, &frame_handle) != SACCADE_ERROR_UNSUPPORTED) {
+    if (saccade_frame_import(runtime, &frame, &frame_handle) != SACCADE_OK ||
+        frame_handle == 0 ||
+        saccade_frame_release(runtime, frame_handle) != SACCADE_OK) {
         return 2;
     }
     return saccade_runtime_destroy(runtime) == SACCADE_OK ? 0 : 3;

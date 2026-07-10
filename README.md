@@ -9,15 +9,15 @@ This repository currently contains the portable foundation, not a finished deskt
 application. Implemented pieces include:
 
 - a C++20 runtime with a versioned C11 ABI;
-- one typed frame-import call for C11 and C++20 callers;
+- typed C11/C++20 host-frame import with bounded leases and newest-frame replacement;
 - separate inference, capture, overlay, accessibility, and input provider contracts;
 - bounded errors, generated handles, and fixed-capacity provider and device registries;
 - deterministic providers for lifecycle and fault testing;
 - a scalar CPU detector that serves as a small parity oracle;
 - static and shared CMake packages with clean C and C++ consumer tests.
 
-Native macOS and Windows adapters, frame leases, the interaction engine, and the
-shipping vision model are not implemented yet. The public
+Native macOS and Windows adapters, the scene scheduler, the interaction engine, and
+the shipping vision model are not implemented yet. The public
 [version 0.1 contract](docs/product/version-0.1.md) records the intended desktop
 behavior without claiming that it already ships.
 

@@ -38,13 +38,22 @@ when the generation space is exhausted, the slot retires instead of wrapping to 
 value. Provider and device handles also include a registry domain, so a handle from one
 runtime cannot resolve in another registry.
 
+Frame handles encode a runtime domain, a 32-bit lease generation, and a bounded slot.
+Passing a frame handle to another runtime is rejected as stale even when both runtimes
+currently use the same local slot.
+
 Provider registration copies metadata and operation tables. A provider's `context`
 pointer remains caller-owned and must outlive every registered operation that can use
 it. Names are copied into bounded registry storage.
 
-The scalar CPU provider borrows frame bytes registered through its private C++ fixture
-API. Those bytes must remain valid until the frame is released. Native frame ownership
-will be defined by the frame-lease layer before the public import calls return a handle.
+Host imports borrow their byte span without copying it. Those bytes must remain valid
+until `saccade_frame_release` returns. Releasing a pending frame removes it from the
+newest-frame mailbox before retiring caller ownership. Destroying the parent runtime
+invalidates and releases all of its outstanding frame handles.
+
+Native surface imports require an adapter that can retain and release the platform
+object. Until those adapters are connected, the IOSurface and D3D11 import symbols
+return `SACCADE_ERROR_UNSUPPORTED`.
 
 ## Errors
 
@@ -72,9 +81,10 @@ The `_Generic` expression resolves the explicit host, IOSurface, or D3D11 C symb
 compile time. C++20 receives overloads generated from the same type map. Unsupported
 descriptor types fail during compilation rather than falling through a runtime default.
 
-The current import symbols validate descriptors but return
-`SACCADE_ERROR_UNSUPPORTED`. This keeps the ABI callable while frame leases and provider
-routing are implemented.
+Host import validates the byte span, creates a generation-safe lease in fixed storage,
+and publishes the handle to a latest-only mailbox. A newer host import replaces the
+mailbox's ownership of the older pending frame without invalidating the older caller
+handle. The caller releases each successful import with `saccade_frame_release`.
 
 ## Manifests
 

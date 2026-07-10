@@ -2,6 +2,7 @@ saccade_api_version
 saccade_frame_import_d3d11
 saccade_frame_import_host
 saccade_frame_import_iosurface
+saccade_frame_release
 saccade_last_error
 saccade_register_accessibility_provider
 saccade_register_capture_provider

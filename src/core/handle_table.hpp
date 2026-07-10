@@ -28,7 +28,8 @@ public:
     HandleTable& operator=(HandleTable&&) = delete;
 
     template <typename... Arguments>
-    SaccadeResult emplace(uint64_t* out_handle, Arguments&&... arguments) {
+    SaccadeResult emplace(uint64_t* out_handle, Arguments&&... arguments)
+        noexcept(std::is_nothrow_constructible_v<T, Arguments&&...>) {
         if (out_handle == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }

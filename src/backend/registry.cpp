@@ -1,28 +1,67 @@
 #include "backend/registry.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <mutex>
+#include <new>
 
 namespace saccade::backend {
 namespace {
 
-std::atomic<uint32_t> next_registry_domain{1};
+constexpr uint64_t registry_domain_block_size = 256;
+
+struct RegistryDomainBlock {
+    uint32_t next = 0;
+    uint32_t end = 0;
+};
+
+class RegistryDomainSource final {
+public:
+    bool reserve(uint32_t* out_begin, uint32_t* out_end) noexcept {
+        if (out_begin == nullptr || out_end == nullptr) {
+            return false;
+        }
+        std::lock_guard<std::mutex> guard(lock_);
+        const uint64_t limit = std::numeric_limits<uint32_t>::max();
+        if (next_ >= limit) {
+            return false;
+        }
+        const uint64_t count = std::min(registry_domain_block_size, limit - next_);
+        *out_begin = static_cast<uint32_t>(next_);
+        next_ += count;
+        *out_end = static_cast<uint32_t>(next_);
+        return true;
+    }
+
+private:
+    std::mutex lock_{};
+    uint64_t next_ = 1;
+};
+
+RegistryDomainSource& registry_domain_source() noexcept {
+    alignas(RegistryDomainSource)
+        static std::byte storage[sizeof(RegistryDomainSource)];
+    static RegistryDomainSource* const source =
+        ::new (static_cast<void*>(storage)) RegistryDomainSource;
+    return *source;
+}
 
 uint32_t allocate_registry_domain() noexcept {
-    uint32_t current = next_registry_domain.load(std::memory_order_relaxed);
-    while (current != std::numeric_limits<uint32_t>::max()) {
-        if (next_registry_domain.compare_exchange_weak(
-                current,
-                current + 1U,
-                std::memory_order_relaxed,
-                std::memory_order_relaxed)) {
-            return current;
-        }
+    thread_local RegistryDomainBlock block{};
+    if (block.next != block.end) {
+        return block.next++;
     }
-    return 0;
+
+    uint32_t begin = 0;
+    uint32_t end = 0;
+    if (!registry_domain_source().reserve(&begin, &end)) {
+        return 0;
+    }
+    block.next = begin + 1U;
+    block.end = end;
+    return begin;
 }
 
 constexpr uint32_t api_major(uint32_t version) noexcept {

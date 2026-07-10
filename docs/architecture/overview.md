@@ -5,8 +5,9 @@ pointer feedback, and overlay presentation have a tighter deadline than capture 
 neural inference. A late scene update can be replaced. An input event cannot.
 
 The repository currently implements the portable ABI, provider contracts, bounded
-registries, deterministic providers, and a scalar CPU detector. The capture-to-action
-pipeline below is the contract those pieces are being built to support.
+registries, host frame leases, a newest-frame mailbox, deterministic providers, and a
+scalar CPU detector. The capture-to-action pipeline below is the contract those pieces
+are being built to support.
 
 ## Data flow
 
@@ -29,7 +30,7 @@ results carry the epochs needed to decide whether they are still current. Fusion
 produces an immutable target scene. Input receives a bounded action plan, not a raw
 model prediction.
 
-Frame leases, target fusion, action planning, and native adapters are still future
+Target fusion, action planning, scene workers, and native adapters are still future
 implementation work. Their contracts remain separate from the provider ABI so they do
 not force platform types into the portable core.
 
@@ -77,8 +78,8 @@ One frame descriptor map emits C11 `_Generic` dispatch and C++20 overloads. Both
 call explicit C symbols, so the convenience layer adds no runtime type switch.
 
 Platform SDK and inference-framework headers do not enter the installed include graph.
-The current frame-import functions validate their descriptors and return
-`SACCADE_ERROR_UNSUPPORTED` until frame ownership and provider routing are connected.
+Host frames enter a fixed-capacity lease pool and newest-frame mailbox. Native surface
+imports remain unsupported until their platform retain and release paths are connected.
 
 ## Memory and concurrency
 
@@ -91,8 +92,9 @@ provider-owned device memory, framework residency, copied bytes, and high-water 
 The [memory guide](memory.md) covers resolution and queue-depth scaling.
 
 Public runtime calls are serialized today. Provider test doubles also protect their
-state with a mutex. The 120 Hz scheduler, worker topology, and newest-frame mailboxes
-are not present yet; their required behavior is described in [concurrency](concurrency.md).
+state with a mutex. The newest-frame exchange is lock-free and allocation-free; the
+120 Hz scheduler and worker topology are not present yet. Their required behavior is
+described in [concurrency](concurrency.md).
 
 ## Platform boundary
 

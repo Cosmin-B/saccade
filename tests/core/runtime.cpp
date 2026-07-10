@@ -1,6 +1,8 @@
 #include <saccade/saccade.h>
 #include <saccade/saccade_backend.h>
 
+#include "../support/allocation_tracker.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -76,6 +78,10 @@ SaccadeRuntimeDesc runtime_desc() {
 }  // namespace
 
 int main() {
+    if (!saccade::test::allocation_tracker_self_test()) {
+        return 1;
+    }
+
     if (saccade_runtime_create(nullptr, nullptr) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 1;
     }
@@ -123,30 +129,94 @@ int main() {
     frame_desc.pixel_format = 1;
     frame_desc.frame_id = 1;
     frame_desc.transform_epoch = 1;
+
+    SaccadeRuntimeHandle other_runtime = 0;
+    if (saccade_runtime_create(&desc, &other_runtime) != SACCADE_OK) {
+        return 8;
+    }
+    SaccadeFrameHandle domain_frame = 0;
+    SaccadeFrameHandle other_domain_frame = 0;
+    if (saccade_frame_import(runtime, &frame_desc, &domain_frame) != SACCADE_OK ||
+        saccade_frame_import(other_runtime, &frame_desc, &other_domain_frame) !=
+            SACCADE_OK ||
+        domain_frame == other_domain_frame ||
+        saccade_frame_release(other_runtime, domain_frame) !=
+            SACCADE_ERROR_STALE_HANDLE ||
+        saccade_frame_release(runtime, other_domain_frame) !=
+            SACCADE_ERROR_STALE_HANDLE ||
+        saccade_frame_release(runtime, domain_frame) != SACCADE_OK ||
+        saccade_frame_release(other_runtime, other_domain_frame) != SACCADE_OK ||
+        saccade_runtime_destroy(other_runtime) != SACCADE_OK) {
+        return 9;
+    }
+
     SaccadeFrameHandle frame = 99;
-    if (saccade_frame_import(runtime, &frame_desc, &frame) !=
+    SaccadeFrameHandle newest_frame = 99;
+    saccade::test::begin_allocation_tracking();
+    const SaccadeResult import_result =
+        saccade_frame_import(runtime, &frame_desc, &frame);
+    frame_desc.frame_id = 2;
+    const SaccadeResult replacement_result =
+        saccade_frame_import(runtime, &frame_desc, &newest_frame);
+    const SaccadeResult release_result = saccade_frame_release(runtime, frame);
+    const SaccadeResult newest_release_result =
+        saccade_frame_release(runtime, newest_frame);
+    const size_t frame_allocations = saccade::test::end_allocation_tracking();
+    if (import_result != SACCADE_OK || replacement_result != SACCADE_OK ||
+        frame == 0 || newest_frame == 0 || frame == newest_frame ||
+        release_result != SACCADE_OK || newest_release_result != SACCADE_OK ||
+        frame_allocations != 0 ||
+        saccade_frame_release(runtime, frame) != SACCADE_ERROR_STALE_HANDLE ||
+        saccade_frame_release(runtime, newest_frame) !=
+            SACCADE_ERROR_STALE_HANDLE ||
+        saccade_frame_release(runtime, 0) != SACCADE_ERROR_INVALID_ARGUMENT) {
+        return 10;
+    }
+
+    uint8_t undersized_pixels[2] = {0, 0};
+    SaccadeHostFrameDesc undersized = frame_desc;
+    undersized.data = {undersized_pixels, sizeof(undersized_pixels)};
+    undersized.width = 2;
+    undersized.height = 1;
+    undersized.row_stride_bytes = 2;
+    frame = 99;
+    if (saccade_frame_import(runtime, &undersized, &frame) !=
+            SACCADE_ERROR_INVALID_ARGUMENT ||
+        frame != 0) {
+        return 11;
+    }
+
+    SaccadeIOSurfaceFrameDesc iosurface{};
+    iosurface.struct_size = static_cast<uint32_t>(sizeof(iosurface));
+    iosurface.api_version = SACCADE_API_VERSION;
+    iosurface.iosurface_id = 1;
+    iosurface.pixel_format = 1;
+    iosurface.width = 1;
+    iosurface.height = 1;
+    frame = 99;
+    if (saccade_frame_import(runtime, &iosurface, &frame) !=
             SACCADE_ERROR_UNSUPPORTED ||
         frame != 0) {
-        return 8;
+        return 12;
     }
 
     if (saccade_runtime_freeze(runtime) != SACCADE_OK) {
-        return 9;
+        return 13;
     }
     provider = inference_provider(2);
     if (saccade_register_inference_provider(runtime, &provider) != SACCADE_ERROR_STATE) {
-        return 10;
+        return 14;
     }
     if (saccade_runtime_destroy(runtime) != SACCADE_OK ||
         saccade_runtime_freeze(runtime) != SACCADE_ERROR_STALE_HANDLE) {
-        return 11;
+        return 15;
     }
 
     SaccadeRuntimeDesc smaller = runtime_desc();
     smaller.struct_size = static_cast<uint32_t>(offsetof(SaccadeRuntimeDesc, reserved));
     if (saccade_runtime_create(&smaller, &runtime) != SACCADE_OK ||
         saccade_runtime_destroy(runtime) != SACCADE_OK) {
-        return 12;
+        return 16;
     }
 
     struct ExtendedRuntimeDesc {
@@ -158,7 +228,7 @@ int main() {
     larger.current.struct_size = static_cast<uint32_t>(sizeof(larger));
     if (saccade_runtime_create(&larger.current, &runtime) != SACCADE_OK ||
         saccade_runtime_destroy(runtime) != SACCADE_OK) {
-        return 13;
+        return 17;
     }
 
     alignas(SaccadeRuntimeDesc)
@@ -169,11 +239,11 @@ int main() {
         runtime_storage.data() + 1);
     if (saccade_runtime_create(misaligned_runtime, &runtime) != SACCADE_OK ||
         saccade_runtime_destroy(runtime) != SACCADE_OK) {
-        return 14;
+        return 18;
     }
 
     if (saccade_runtime_create(&desc, &runtime) != SACCADE_OK) {
-        return 15;
+        return 19;
     }
     alignas(SaccadeHostFrameDesc)
         std::array<std::byte, sizeof(SaccadeHostFrameDesc) + 1> frame_storage{};
@@ -181,9 +251,10 @@ int main() {
     const auto* misaligned_frame = reinterpret_cast<const SaccadeHostFrameDesc*>(
         frame_storage.data() + 1);
     if (saccade_frame_import_host(runtime, misaligned_frame, &frame) !=
-            SACCADE_ERROR_UNSUPPORTED ||
+            SACCADE_OK ||
+        frame == 0 || saccade_frame_release(runtime, frame) != SACCADE_OK ||
         saccade_runtime_destroy(runtime) != SACCADE_OK) {
-        return 16;
+        return 20;
     }
 
     return 0;

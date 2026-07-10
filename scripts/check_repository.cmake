@@ -49,6 +49,31 @@ foreach(path IN LISTS backend_sources)
     endif()
 endforeach()
 
+file(GLOB_RECURSE cpp_sources LIST_DIRECTORIES false
+    "${SOURCE_DIR}/backends/*.cc"
+    "${SOURCE_DIR}/backends/*.cpp"
+    "${SOURCE_DIR}/backends/*.cxx"
+    "${SOURCE_DIR}/backends/*.hpp"
+    "${SOURCE_DIR}/include/*.hpp"
+    "${SOURCE_DIR}/src/*.cc"
+    "${SOURCE_DIR}/src/*.cpp"
+    "${SOURCE_DIR}/src/*.cxx"
+    "${SOURCE_DIR}/src/*.hpp"
+    "${SOURCE_DIR}/tests/*.cc"
+    "${SOURCE_DIR}/tests/*.cpp"
+    "${SOURCE_DIR}/tests/*.cxx"
+    "${SOURCE_DIR}/tests/*.hpp")
+foreach(path IN LISTS cpp_sources)
+    file(READ "${path}" content)
+    if(content MATCHES "std[ \\t\\r\\n]*::[ \\t\\r\\n]*function" OR
+       content MATCHES "#[ \\t]*include[ \\t]*<functional>")
+        message(FATAL_ERROR "C++ source uses an allocating callback wrapper: ${path}")
+    endif()
+    if(content MATCHES "compare_exchange_(weak|strong)")
+        message(FATAL_ERROR "C++ source uses a CAS primitive instead of thread-owned state: ${path}")
+    endif()
+endforeach()
+
 file(GLOB_RECURSE build_files LIST_DIRECTORIES false
     "${SOURCE_DIR}/*.cmake"
     "${SOURCE_DIR}/CMakeLists.txt")

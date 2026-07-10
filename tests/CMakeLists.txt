@@ -99,6 +99,22 @@ target_include_directories(saccade_core_handle_table PRIVATE
 target_link_libraries(saccade_core_handle_table PRIVATE saccade_build_settings)
 add_test(NAME core.handle_table COMMAND saccade_core_handle_table)
 
+add_executable(saccade_core_frame_lease core/frame_lease.cpp)
+target_include_directories(saccade_core_frame_lease PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_core_frame_lease PRIVATE saccade_build_settings)
+add_test(NAME core.frame_lease COMMAND saccade_core_frame_lease)
+
+add_executable(saccade_core_newest_frame_mailbox core/newest_frame_mailbox.cpp)
+target_include_directories(saccade_core_newest_frame_mailbox PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_core_newest_frame_mailbox PRIVATE
+    saccade_build_settings
+    Threads::Threads)
+add_test(NAME core.newest_frame_mailbox COMMAND saccade_core_newest_frame_mailbox)
+
 add_executable(saccade_backend_registry backend/registry.cpp)
 target_include_directories(saccade_backend_registry PRIVATE
     "${PROJECT_SOURCE_DIR}/include"

@@ -12,6 +12,11 @@ but the path should normally be event-driven and finish well below that budget.
 The interaction path reads an immutable target scene. It does not wait for capture,
 accessibility, neural inference, model compilation, or a GPU fence.
 
+Mutable hot state belongs to one thread. Capture staging, scene construction, input
+reduction, and presentation scratch storage use thread-local or thread-affine fixed
+buffers. Cross-thread state is reduced to bounded ownership transfers and immutable
+publication. The design does not use CAS retry loops on a steady-state path.
+
 ## Scene path
 
 Version 0.1 targets a 30 Hz full-scope neural refresh, a 33.33 ms interval. Version 0.2
@@ -48,9 +53,22 @@ device selection are control-path work. Deterministic and scalar CPU providers e
 protect their fixed state with a mutex, and contract tests cover them under
 ThreadSanitizer.
 
-The production worker topology, frame mailbox, scene publication, and action threads are
-not implemented yet. The current code therefore proves ABI and provider behavior, not a
-120 Hz end-to-end loop.
+Host imports now publish generation-safe frame handles through one atomic latest-only
+mailbox. Replacement and consumption are linearizable, fixed-capacity, and allocation
+free. Each transfer uses one bounded atomic exchange with no retry loop, and it runs on
+the 30/60 Hz scene boundary rather than the 120 Hz interaction path. Control-path
+cancellation is serialized outside the mailbox. Producer, consumer, and control
+counters are single-writer cache-line-separated fields sampled only while quiescent,
+not shared atomic accumulators. A stress test accounts for every handle as either
+replaced or consumed.
+
+Registry construction obtains domain IDs from a thread-local block. Refilling a block
+uses one statically stored, mutex-protected cold source; normal construction does not
+touch shared allocator or atomic state.
+
+The production scene worker, immutable scene publication, scheduler, and action threads
+are not implemented yet. The current code therefore proves the first capture-to-scene
+handoff primitive, not a 120 Hz end-to-end loop.
 
 ## Kernel work
 

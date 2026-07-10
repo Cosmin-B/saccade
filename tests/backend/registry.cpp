@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <new>
+#include <thread>
 
 namespace {
 
@@ -467,6 +468,48 @@ int main() {
             SACCADE_OK ||
         foreign_handle == cpu_handle || foreign_registry.inference(cpu_handle) != nullptr) {
         return 29;
+    }
+
+    constexpr size_t domain_thread_count = 16;
+    std::array<SaccadeProviderHandle, domain_thread_count> domain_handles{};
+    std::array<std::thread, domain_thread_count> domain_threads{};
+    std::atomic<bool> domain_failure{false};
+    for (size_t index = 0; index < domain_thread_count; ++index) {
+        domain_threads[index] = std::thread([&, index]() {
+            ProviderRegistry local_registry;
+            SaccadeInferenceProviderDesc local_provider = inference_provider(
+                700, SACCADE_PROVIDER_CAPABILITY_CPU);
+            if (local_registry.register_inference(
+                    &local_provider, &domain_handles[index]) != SACCADE_OK) {
+                domain_failure.store(true, std::memory_order_relaxed);
+            }
+        });
+    }
+    for (std::thread& thread : domain_threads) {
+        thread.join();
+    }
+    if (domain_failure.load(std::memory_order_relaxed)) {
+        return 30;
+    }
+    for (size_t left = 0; left < domain_thread_count; ++left) {
+        if (domain_handles[left] == 0) {
+            return 31;
+        }
+        for (size_t right = left + 1; right < domain_thread_count; ++right) {
+            if (domain_handles[left] == domain_handles[right]) {
+                return 32;
+            }
+        }
+    }
+
+    allocation_count.store(0, std::memory_order_relaxed);
+    count_allocations.store(true, std::memory_order_relaxed);
+    for (size_t index = 0; index < 1000; ++index) {
+        ProviderRegistry measured_registry;
+    }
+    count_allocations.store(false, std::memory_order_relaxed);
+    if (allocation_count.load(std::memory_order_relaxed) != 0) {
+        return 33;
     }
 
     return 0;

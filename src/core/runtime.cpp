@@ -1,6 +1,9 @@
 #include "backend/registry.hpp"
 #include "core/abi_guard.hpp"
+#include "core/frame_lease.hpp"
+#include "core/frame_validation.hpp"
 #include "core/handle_table.hpp"
+#include "core/newest_frame_mailbox.hpp"
 
 #include <saccade/saccade.h>
 #include <saccade/saccade_backend.h>
@@ -15,13 +18,103 @@
 namespace saccade::core {
 namespace {
 
-struct RuntimeState {
-    backend::ProviderRegistry providers;
+class RuntimeState final {
+public:
+    static constexpr size_t frame_capacity = 64;
+
+    explicit RuntimeState(uint32_t frame_domain) noexcept : frames_(frame_domain) {}
+    ~RuntimeState() noexcept {
+        const SaccadeFrameHandle pending = newest_frame_.clear_quiescent();
+        if (pending != 0) {
+            (void)frames_.release_owner(pending, FrameLeaseOwner::mailbox);
+        }
+        frames_.clear();
+    }
+
+    RuntimeState(const RuntimeState&) = delete;
+    RuntimeState& operator=(const RuntimeState&) = delete;
+    RuntimeState(RuntimeState&&) = delete;
+    RuntimeState& operator=(RuntimeState&&) = delete;
+
+    [[nodiscard]] backend::ProviderRegistry& providers() noexcept {
+        return providers_;
+    }
+
+    [[nodiscard]] static constexpr uint32_t maximum_frame_domain() noexcept {
+        return FrameLeasePool<frame_capacity>::maximum_domain();
+    }
+
+    SaccadeResult import_host(
+        const SaccadeHostFrameDesc& desc,
+        SaccadeFrameHandle* out_frame) noexcept {
+        const SaccadeResult import_result = frames_.import_host(desc, out_frame);
+        if (import_result != SACCADE_OK) {
+            return import_result;
+        }
+
+        const SaccadeResult owner_result =
+            frames_.add_owner(*out_frame, FrameLeaseOwner::mailbox);
+        if (owner_result != SACCADE_OK) {
+            (void)frames_.release_owner(*out_frame, FrameLeaseOwner::caller);
+            *out_frame = 0;
+            return owner_result;
+        }
+
+        const SaccadeFrameHandle replaced = newest_frame_.replace(*out_frame);
+        if (replaced != 0) {
+            (void)frames_.release_owner(replaced, FrameLeaseOwner::mailbox);
+        }
+        return SACCADE_OK;
+    }
+
+    SaccadeResult release_frame(SaccadeFrameHandle frame) noexcept {
+        const FrameLease* lease = frames_.get(frame);
+        if (lease == nullptr || !lease->has_owner(FrameLeaseOwner::caller)) {
+            return SACCADE_ERROR_STALE_HANDLE;
+        }
+
+        if (newest_frame_.remove_quiescent(frame)) {
+            const SaccadeResult mailbox_result =
+                frames_.release_owner(frame, FrameLeaseOwner::mailbox);
+            if (mailbox_result != SACCADE_OK) {
+                return SACCADE_ERROR_STATE;
+            }
+        }
+        return frames_.release_owner(frame, FrameLeaseOwner::caller);
+    }
+
+private:
+    backend::ProviderRegistry providers_{};
+    FrameLeasePool<frame_capacity> frames_;
+    NewestFrameMailbox newest_frame_{};
 };
 
-struct RuntimeStore {
-    std::mutex lock;
-    HandleTable<RuntimeState, 16> runtimes;
+class RuntimeStore final {
+public:
+    [[nodiscard]] std::mutex& lock() noexcept {
+        return lock_;
+    }
+
+    [[nodiscard]] HandleTable<RuntimeState, 16>& runtimes() noexcept {
+        return runtimes_;
+    }
+
+    SaccadeResult create_runtime(SaccadeRuntimeHandle* out_runtime) noexcept {
+        if (next_frame_domain_ > RuntimeState::maximum_frame_domain()) {
+            return SACCADE_ERROR_CAPACITY;
+        }
+        const SaccadeResult result =
+            runtimes_.emplace(out_runtime, next_frame_domain_);
+        if (result == SACCADE_OK) {
+            ++next_frame_domain_;
+        }
+        return result;
+    }
+
+private:
+    std::mutex lock_{};
+    HandleTable<RuntimeState, 16> runtimes_{};
+    uint32_t next_frame_domain_ = 1;
 };
 
 RuntimeStore& runtime_store() noexcept {
@@ -114,13 +207,13 @@ SaccadeResult register_provider(
     Method method) noexcept {
     return abi_guard([&]() -> SaccadeResult {
         RuntimeStore& store = runtime_store();
-        std::lock_guard<std::mutex> guard(store.lock);
-        RuntimeState* state = store.runtimes.get(runtime);
+        std::lock_guard<std::mutex> guard(store.lock());
+        RuntimeState* state = store.runtimes().get(runtime);
         if (state == nullptr) {
             set_last_error("runtime handle is stale");
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        const SaccadeResult result = (state->providers.*method)(desc, nullptr);
+        const SaccadeResult result = (state->providers().*method)(desc, nullptr);
         if (result != SACCADE_OK) {
             set_registry_error(result);
         }
@@ -128,12 +221,13 @@ SaccadeResult register_provider(
     });
 }
 
-template <typename Descriptor, typename Validate>
+template <typename Descriptor, typename Validate, typename Import>
 SaccadeResult import_frame(
     SaccadeRuntimeHandle runtime,
     const Descriptor* desc,
     SaccadeFrameHandle* out_frame,
-    Validate&& validate) noexcept {
+    Validate&& validate,
+    Import&& import) noexcept {
     return abi_guard([&]() -> SaccadeResult {
         if (out_frame == nullptr) {
             set_last_error("frame output pointer is null");
@@ -152,13 +246,21 @@ SaccadeResult import_frame(
         }
 
         RuntimeStore& store = runtime_store();
-        std::lock_guard<std::mutex> guard(store.lock);
-        if (store.runtimes.get(runtime) == nullptr) {
+        std::lock_guard<std::mutex> guard(store.lock());
+        RuntimeState* state = store.runtimes().get(runtime);
+        if (state == nullptr) {
             set_last_error("runtime handle is stale");
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        set_last_error("no registered frame importer accepts this descriptor");
-        return SACCADE_ERROR_UNSUPPORTED;
+        const SaccadeResult result = import(*state, normalized_desc, out_frame);
+        if (result == SACCADE_ERROR_CAPACITY) {
+            set_last_error("frame lease capacity is exhausted");
+        } else if (result == SACCADE_ERROR_UNSUPPORTED) {
+            set_last_error("no registered frame importer accepts this descriptor");
+        } else if (result != SACCADE_OK) {
+            set_last_error("frame import failed");
+        }
+        return result;
     });
 }
 
@@ -186,8 +288,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_runtime_create(
         }
 
         saccade::core::RuntimeStore& store = saccade::core::runtime_store();
-        std::lock_guard<std::mutex> guard(store.lock);
-        const SaccadeResult result = store.runtimes.emplace(out_runtime);
+        std::lock_guard<std::mutex> guard(store.lock());
+        const SaccadeResult result = store.create_runtime(out_runtime);
         if (result != SACCADE_OK) {
             saccade::core::set_last_error("runtime capacity is exhausted");
         }
@@ -199,13 +301,13 @@ extern "C" SaccadeResult SACCADE_CALL saccade_runtime_freeze(
     SaccadeRuntimeHandle runtime) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeStore& store = saccade::core::runtime_store();
-        std::lock_guard<std::mutex> guard(store.lock);
-        saccade::core::RuntimeState* state = store.runtimes.get(runtime);
+        std::lock_guard<std::mutex> guard(store.lock());
+        saccade::core::RuntimeState* state = store.runtimes().get(runtime);
         if (state == nullptr) {
             saccade::core::set_last_error("runtime handle is stale");
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        state->providers.freeze();
+        state->providers().freeze();
         return SACCADE_OK;
     });
 }
@@ -214,8 +316,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_runtime_destroy(
     SaccadeRuntimeHandle runtime) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeStore& store = saccade::core::runtime_store();
-        std::lock_guard<std::mutex> guard(store.lock);
-        const SaccadeResult result = store.runtimes.erase(runtime);
+        std::lock_guard<std::mutex> guard(store.lock());
+        const SaccadeResult result = store.runtimes().erase(runtime);
         if (result != SACCADE_OK) {
             saccade::core::set_last_error("runtime handle is stale");
         }
@@ -264,9 +366,12 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_host(
     SaccadeFrameHandle* out_frame) {
     return saccade::core::import_frame(
         runtime, desc, out_frame, [](const SaccadeHostFrameDesc& value) noexcept {
-            return value.data.data != nullptr && value.data.size != 0 &&
-                   value.width != 0 && value.height != 0 &&
-                   value.row_stride_bytes != 0 && value.pixel_format != 0;
+            return saccade::core::valid_host_frame(value);
+        },
+        [](saccade::core::RuntimeState& state,
+           const SaccadeHostFrameDesc& value,
+           SaccadeFrameHandle* out) noexcept {
+            return state.import_host(value, out);
         });
 }
 
@@ -278,6 +383,11 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(
         runtime, desc, out_frame, [](const SaccadeIOSurfaceFrameDesc& value) noexcept {
             return value.iosurface_id != 0 && value.width != 0 &&
                    value.height != 0 && value.pixel_format != 0;
+        },
+        [](saccade::core::RuntimeState&,
+           const SaccadeIOSurfaceFrameDesc&,
+           SaccadeFrameHandle*) noexcept {
+            return SACCADE_ERROR_UNSUPPORTED;
         });
 }
 
@@ -289,5 +399,36 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_d3d11(
         runtime, desc, out_frame, [](const SaccadeD3D11FrameDesc& value) noexcept {
             return value.shared_handle != 0 && value.width != 0 &&
                    value.height != 0 && value.pixel_format != 0;
+        },
+        [](saccade::core::RuntimeState&,
+           const SaccadeD3D11FrameDesc&,
+           SaccadeFrameHandle*) noexcept {
+            return SACCADE_ERROR_UNSUPPORTED;
         });
+}
+
+extern "C" SaccadeResult SACCADE_CALL saccade_frame_release(
+    SaccadeRuntimeHandle runtime,
+    SaccadeFrameHandle frame) {
+    return saccade::core::abi_guard([&]() -> SaccadeResult {
+        if (frame == 0) {
+            saccade::core::set_last_error("frame handle is null");
+            return SACCADE_ERROR_INVALID_ARGUMENT;
+        }
+
+        saccade::core::RuntimeStore& store = saccade::core::runtime_store();
+        std::lock_guard<std::mutex> guard(store.lock());
+        saccade::core::RuntimeState* state = store.runtimes().get(runtime);
+        if (state == nullptr) {
+            saccade::core::set_last_error("runtime handle is stale");
+            return SACCADE_ERROR_STALE_HANDLE;
+        }
+        const SaccadeResult result = state->release_frame(frame);
+        if (result == SACCADE_ERROR_STALE_HANDLE) {
+            saccade::core::set_last_error("frame handle is stale");
+        } else if (result != SACCADE_OK) {
+            saccade::core::set_last_error("frame release failed");
+        }
+        return result;
+    });
 }

@@ -22,6 +22,10 @@ ASan/UBSan and TSan.
 - Keep public structures size-versioned and reserve zeroed space for compatible growth.
 - Do not expose operating-system, graphics, or model-runtime types in installed headers.
 - Use fixed storage on capture, inference, interaction, and presentation paths.
+- Keep hot mutable state thread-owned and prefer thread-local or thread-affine arenas.
+- Name private data members with a trailing underscore.
+- Use direct function pointers or inline callback templates; do not use `std::function`.
+- Prefer wait-free single-writer handoffs and do not use CAS retry loops on runtime paths.
 - Make queue capacity, replacement, timeout, and cancellation behavior explicit.
 - Do not let C++ exceptions cross an exported C function or provider callback.
 - Keep ownership visible in names, descriptors, and tests.
