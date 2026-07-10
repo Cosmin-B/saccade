@@ -1,5 +1,7 @@
-if(NOT DEFINED SOURCE_DIR OR NOT DEFINED BINARY_DIR OR NOT DEFINED GENERATOR)
-    message(FATAL_ERROR "SOURCE_DIR, BINARY_DIR, and GENERATOR are required")
+if(NOT DEFINED SOURCE_DIR OR NOT DEFINED BINARY_DIR OR NOT DEFINED GENERATOR OR
+   NOT DEFINED SYMBOL_MANIFEST)
+    message(FATAL_ERROR
+        "SOURCE_DIR, BINARY_DIR, GENERATOR, and SYMBOL_MANIFEST are required")
 endif()
 
 file(REMOVE_RECURSE "${BINARY_DIR}")
@@ -42,7 +44,7 @@ if(NOT build_result EQUAL 0)
 endif()
 
 if(WIN32_HOST)
-    file(GLOB_RECURSE shared_candidates "${BINARY_DIR}/saccade_core.dll")
+    file(GLOB_RECURSE shared_candidates "${BINARY_DIR}/*saccade_core.dll")
 elseif(APPLE_HOST)
     file(GLOB_RECURSE shared_candidates "${BINARY_DIR}/libsaccade_core.dylib")
 else()
@@ -56,48 +58,62 @@ if(NOT shared_count EQUAL 1)
 endif()
 list(GET shared_candidates 0 shared_library)
 
-if(NOT WIN32_HOST)
+if(WIN32_HOST)
+    find_program(export_inspector NAMES dumpbin dumpbin.exe)
+    if(export_inspector)
+        execute_process(
+            COMMAND "${export_inspector}" /nologo /exports "${shared_library}"
+            RESULT_VARIABLE inspect_result
+            OUTPUT_VARIABLE exports
+            ERROR_VARIABLE inspect_error)
+    else()
+        unset(export_inspector CACHE)
+        find_program(export_inspector NAMES llvm-readobj llvm-readobj.exe)
+        if(NOT export_inspector)
+            message(FATAL_ERROR "dumpbin or llvm-readobj is required to inspect DLL exports")
+        endif()
+        execute_process(
+            COMMAND "${export_inspector}" --coff-exports "${shared_library}"
+            RESULT_VARIABLE inspect_result
+            OUTPUT_VARIABLE exports
+            ERROR_VARIABLE inspect_error)
+    endif()
+else()
     file(GLOB_RECURSE static_candidates "${BINARY_DIR}/libsaccade_core.a")
     if(static_candidates)
         message(FATAL_ERROR "shared-only build also produced a static library")
     endif()
 
+    if(NOT DEFINED NM_TOOL OR NM_TOOL STREQUAL "")
+        message(FATAL_ERROR "NM_TOOL is required to inspect shared exports")
+    endif()
     if(APPLE_HOST)
         execute_process(
             COMMAND "${NM_TOOL}" -gU "${shared_library}"
-            RESULT_VARIABLE nm_result
+            RESULT_VARIABLE inspect_result
             OUTPUT_VARIABLE exports
-            ERROR_VARIABLE nm_error)
+            ERROR_VARIABLE inspect_error)
     else()
         execute_process(
             COMMAND "${NM_TOOL}" -D --defined-only "${shared_library}"
-            RESULT_VARIABLE nm_result
+            RESULT_VARIABLE inspect_result
             OUTPUT_VARIABLE exports
-            ERROR_VARIABLE nm_error)
+            ERROR_VARIABLE inspect_error)
     endif()
-    if(NOT nm_result EQUAL 0)
-        message(FATAL_ERROR "could not inspect shared exports: ${nm_error}")
+endif()
+
+if(NOT inspect_result EQUAL 0)
+    message(FATAL_ERROR "could not inspect shared exports: ${inspect_error}")
+endif()
+
+file(STRINGS "${SYMBOL_MANIFEST}" public_symbols REGEX "^saccade_[a-z0-9_]+$")
+foreach(symbol IN LISTS public_symbols)
+    if(NOT exports MATCHES "(^|[ \t_])${symbol}([ \t\r\n]|$)")
+        message(FATAL_ERROR "shared library does not export ${symbol}")
     endif()
+endforeach()
 
-    foreach(symbol IN ITEMS
-        saccade_api_version
-        saccade_last_error
-        saccade_runtime_create
-        saccade_runtime_freeze
-        saccade_runtime_destroy
-        saccade_frame_import_host
-        saccade_frame_import_iosurface
-        saccade_frame_import_d3d11
-        saccade_register_inference_provider
-        saccade_register_capture_provider
-        saccade_register_overlay_provider
-        saccade_register_accessibility_provider
-        saccade_register_input_provider)
-        if(NOT exports MATCHES "(^|[ \t_])${symbol}([ \t\r\n]|$)")
-            message(FATAL_ERROR "shared library does not export ${symbol}")
-        endif()
-    endforeach()
-
+if(NOT WIN32_HOST)
     if(exports MATCHES "_ZN7saccade|__ZN7saccade")
         message(FATAL_ERROR "shared library exports private C++ symbols")
     endif()

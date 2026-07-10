@@ -69,7 +69,18 @@ target_include_directories(saccade_backend_layout PRIVATE "${PROJECT_SOURCE_DIR}
 target_link_libraries(saccade_backend_layout PRIVATE saccade_build_settings)
 add_test(NAME abi.backend.layout COMMAND saccade_backend_layout)
 
-find_package(Threads REQUIRED)
+add_executable(saccade_abi_manifest abi/manifest.c)
+target_include_directories(saccade_abi_manifest PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(saccade_abi_manifest PRIVATE saccade_build_settings)
+add_test(NAME abi.manifest.layout COMMAND saccade_abi_manifest)
+
+add_test(
+    NAME abi.manifest.symbols
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/symbol_manifest.cmake")
 
 add_executable(saccade_core_error core/error.cpp)
 target_include_directories(saccade_core_error PRIVATE
@@ -105,6 +116,31 @@ target_link_libraries(saccade_backend_device_registry PRIVATE
     saccade_core
     saccade_build_settings)
 add_test(NAME backend.device_registry COMMAND saccade_backend_device_registry)
+
+if(TARGET saccade_backend_mock)
+    add_executable(saccade_backend_mock_contract backend/mock_contract.cpp)
+    target_include_directories(saccade_backend_mock_contract PRIVATE
+        "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(saccade_backend_mock_contract PRIVATE
+        saccade_backend_mock
+        saccade_core
+        saccade_build_settings)
+    add_test(NAME backend.mock_contract COMMAND saccade_backend_mock_contract)
+endif()
+
+if(TARGET saccade_backend_reference_cpu)
+    add_executable(saccade_backend_reference_cpu_contract
+        backend/reference_cpu_contract.cpp)
+    target_include_directories(saccade_backend_reference_cpu_contract PRIVATE
+        "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(saccade_backend_reference_cpu_contract PRIVATE
+        saccade_backend_reference_cpu
+        saccade_core
+        saccade_build_settings)
+    add_test(
+        NAME backend.reference_cpu_contract
+        COMMAND saccade_backend_reference_cpu_contract)
+endif()
 
 add_executable(saccade_backend_registry_guard backend/registry_guard.cpp)
 target_include_directories(saccade_backend_registry_guard PRIVATE
@@ -142,4 +178,52 @@ add_test(
         "-DNM_TOOL=${CMAKE_NM}"
         "-DAPPLE_HOST=${APPLE}"
         "-DWIN32_HOST=${WIN32}"
+        "-DSYMBOL_MANIFEST=${PROJECT_SOURCE_DIR}/abi/symbols-v1.txt"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/shared_build.cmake")
+
+set(install_consumer_arguments
+    "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    "-DCONSUMER_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/install-consumer"
+    "-DBINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/install-consumer"
+    "-DGENERATOR=${CMAKE_GENERATOR}"
+    "-DC_COMPILER=${CMAKE_C_COMPILER}"
+    "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}")
+
+add_test(
+    NAME package.install.static
+    COMMAND "${CMAKE_COMMAND}"
+        -DMODE=static
+        ${install_consumer_arguments}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_consumer.cmake")
+
+add_test(
+    NAME package.install.shared
+    COMMAND "${CMAKE_COMMAND}"
+        -DMODE=shared
+        ${install_consumer_arguments}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_consumer.cmake")
+
+add_test(
+    NAME package.install.both
+    COMMAND "${CMAKE_COMMAND}"
+        -DMODE=both
+        ${install_consumer_arguments}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_consumer.cmake")
+
+add_test(
+    NAME quality.repository
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${PROJECT_SOURCE_DIR}/scripts/check_repository.cmake")
+
+add_test(
+    NAME quality.text
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${PROJECT_SOURCE_DIR}/scripts/check_text.cmake")
+
+add_test(
+    NAME quality.documentation
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
+        -P "${PROJECT_SOURCE_DIR}/scripts/check_documentation.cmake")

@@ -12,10 +12,12 @@ function(saccade_configure_core target)
     target_include_directories(${target}
         PUBLIC
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-            $<INSTALL_INTERFACE:include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         PRIVATE
             "${PROJECT_SOURCE_DIR}/src")
-    target_link_libraries(${target} PRIVATE saccade_build_settings)
+    target_link_libraries(${target} PRIVATE
+        $<BUILD_INTERFACE:saccade_build_settings>
+        Threads::Threads)
 endfunction()
 
 function(saccade_configure_shared_core target)
@@ -32,17 +34,24 @@ endfunction()
 if(SACCADE_BUILD_STATIC)
     add_library(saccade_core STATIC ${SACCADE_CORE_SOURCES})
     saccade_configure_core(saccade_core)
+    set_target_properties(saccade_core PROPERTIES EXPORT_NAME core)
+    if(WIN32 AND SACCADE_BUILD_SHARED)
+        set_target_properties(saccade_core PROPERTIES OUTPUT_NAME saccade_core_static)
+    endif()
     add_library(Saccade::core ALIAS saccade_core)
 
     if(SACCADE_BUILD_SHARED)
         add_library(saccade_core_shared SHARED ${SACCADE_CORE_SOURCES})
         saccade_configure_shared_core(saccade_core_shared)
-        set_target_properties(saccade_core_shared PROPERTIES OUTPUT_NAME saccade_core)
+        set_target_properties(saccade_core_shared PROPERTIES
+            EXPORT_NAME shared
+            OUTPUT_NAME saccade_core)
         add_library(Saccade::shared ALIAS saccade_core_shared)
     endif()
 else()
     add_library(saccade_core SHARED ${SACCADE_CORE_SOURCES})
     saccade_configure_shared_core(saccade_core)
+    set_target_properties(saccade_core PROPERTIES EXPORT_NAME core)
     add_library(Saccade::core ALIAS saccade_core)
     add_library(Saccade::shared ALIAS saccade_core)
 endif()

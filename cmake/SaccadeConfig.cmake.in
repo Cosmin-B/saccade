@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(Threads)
+
+include("${CMAKE_CURRENT_LIST_DIR}/SaccadeTargets.cmake")
+
+if(@SACCADE_PACKAGE_SHARED_AS_CORE@ AND NOT TARGET Saccade::shared)
+    add_library(Saccade::shared INTERFACE IMPORTED)
+    set_property(
+        TARGET Saccade::shared
+        PROPERTY INTERFACE_LINK_LIBRARIES Saccade::core)
+endif()
+
+check_required_components(Saccade)
