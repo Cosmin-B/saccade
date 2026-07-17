@@ -14,6 +14,7 @@
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <mach-o/dyld.h>
+#import <os/log.h>
 
 #include <algorithm>
 #include <array>
@@ -501,6 +502,8 @@ SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcep
     result = initialize_pipeline(now_ns);
     if (result != SACCADE_OK) {
         fault_ = result;
+        os_log_error(OS_LOG_DEFAULT, "Pipeline initialization failed: result=%{public}d stage=%{public}u", result,
+                     static_cast<uint32_t>(pipeline_.last_stage()));
         if (result == SACCADE_ERROR_BACKEND) pipeline_recovery_.start(now_ns);
         if (result == SACCADE_ERROR_STATE && pipeline_cleanup_required_) (void)restart_application(this);
         return SACCADE_OK;

@@ -20,7 +20,10 @@ enum class TestResult : int {
     hello_read_failed,
     request_write_failed,
     request_read_failed,
-    shutdown_failed
+    shutdown_failed,
+    stale_endpoint_failed,
+    duplicate_listener_not_rejected,
+    listener_handoff_failed
 };
 
 struct RequestSink {
@@ -60,6 +63,19 @@ bool write_frame(int client, const void* message, uint32_t size) noexcept {
     return send(client, &size, sizeof(size), 0) == sizeof(size) && send(client, message, size, 0) == size;
 }
 
+bool leave_stale_endpoint(const char* endpoint) noexcept {
+    const int listener = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (listener < 0) return false;
+
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::memcpy(address.sun_path, endpoint, std::strlen(endpoint) + 1U);
+    (void)unlink(endpoint);
+    const bool bound = bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0;
+    close(listener);
+    return bound;
+}
+
 template <typename T>
 bool read_response(saccade::platform::macos::AgentSocket* server, int client, uint64_t* now_ns, T* output) noexcept {
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
@@ -83,12 +99,23 @@ int main() {
     std::array<char, 104> endpoint{};
     if (snprintf(endpoint.data(), endpoint.size(), "/tmp/saccade-agent-test-%u-%d.sock", geteuid(), getpid()) <= 0)
         return result(TestResult::initialization_failed);
+    if (!leave_stale_endpoint(endpoint.data())) return result(TestResult::stale_endpoint_failed);
+
     RequestSink sink{};
     saccade::platform::macos::AgentSocket server;
+    saccade::platform::macos::AgentSocket contender;
     static saccade::platform::macos::AgentSocketStorage storage;
+    static saccade::platform::macos::AgentSocketStorage contender_storage;
     if (server.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE},
                           &storage) != SACCADE_OK)
         return result(TestResult::initialization_failed);
+    if (contender.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE},
+                             &contender_storage) != SACCADE_ERROR_ALREADY_EXISTS)
+        return result(TestResult::duplicate_listener_not_rejected);
+    uint64_t now_ns = 1;
+    if (server.advance(now_ns++) != SACCADE_OK || server.advance(now_ns++) != SACCADE_OK)
+        return result(TestResult::connection_failed);
+
     const int client = socket(AF_UNIX, SOCK_STREAM, 0);
     if (client < 0) return result(TestResult::connection_failed);
     sockaddr_un address{};
@@ -96,7 +123,6 @@ int main() {
     std::memcpy(address.sun_path, endpoint.data(), std::strlen(endpoint.data()) + 1U);
     if (connect(client, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
         return result(TestResult::connection_failed);
-    uint64_t now_ns = 1;
     if (server.advance(now_ns++) != SACCADE_OK) return result(TestResult::connection_failed);
 
     SaccadeAgentHelloRequest hello{};
@@ -126,5 +152,9 @@ int main() {
 
     close(client);
     if (server.shutdown() != SACCADE_OK || sink.disconnects != 1) return result(TestResult::shutdown_failed);
+    if (contender.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE},
+                             &contender_storage) != SACCADE_OK ||
+        contender.shutdown() != SACCADE_OK)
+        return result(TestResult::listener_handoff_failed);
     return result(TestResult::success);
 }

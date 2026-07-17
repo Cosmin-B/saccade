@@ -44,11 +44,11 @@ int main() {
             return 2;
         }
 
+        SaccadeCaptureSourceInfo source = output_structure<SaccadeCaptureSourceInfo>();
         if (!CGPreflightScreenCaptureAccess()) {
-            return 77;
+            return backend.ops.enumerate_sources(backend.context, 0, &source) == SACCADE_ERROR_PERMISSION ? 77 : 26;
         }
 
-        SaccadeCaptureSourceInfo source = output_structure<SaccadeCaptureSourceInfo>();
         SaccadeResult result = backend.ops.enumerate_sources(backend.context, 0, &source);
         if (result == SACCADE_ERROR_BACKEND) {
             return 77;

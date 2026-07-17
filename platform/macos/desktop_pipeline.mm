@@ -385,6 +385,7 @@ SaccadeResult DesktopPipeline::initialize(const DesktopPipelineConfig& config) n
     result = captures_.initialize(&capture_provider_, 0, 0);
     if (result == SACCADE_OK) captures_initialized_ = true;
     if (result == SACCADE_OK) result = captures_.synchronize(displays_.snapshot());
+    if (result == SACCADE_ERROR_PERMISSION) result = SACCADE_OK;
     if (result != SACCADE_OK) return fail(result, DesktopPipelineStage::capture_set);
     result = initialize_bridge();
     if (result != SACCADE_OK) return fail(result, DesktopPipelineStage::bridge);
@@ -1293,7 +1294,7 @@ SaccadeResult DesktopPipeline::refresh_permissions(uint64_t now_ns) noexcept {
 
     next_permission_check_ns_ =
         now_ns > UINT64_MAX - permission_check_period_ns ? UINT64_MAX : now_ns + permission_check_period_ns;
-    const bool capture = CGPreflightScreenCaptureAccess();
+    bool capture = CGPreflightScreenCaptureAccess();
     const bool accessibility = accessibility_.permission_granted();
     const bool input = input_permission_granted();
     const bool basic_environment = basic_input_environment_available();
@@ -1305,6 +1306,13 @@ SaccadeResult DesktopPipeline::refresh_permissions(uint64_t now_ns) noexcept {
         qualified_surface = surface_qualified(true);
     }
     const bool input_available = input && basic_environment && qualified_surface;
+    if (capture && !capture_permission_available_) {
+        const SaccadeResult synchronized = captures_.synchronize(displays_.snapshot());
+        if (synchronized == SACCADE_ERROR_PERMISSION)
+            capture = false;
+        else if (synchronized != SACCADE_OK)
+            return fail(synchronized, DesktopPipelineStage::capture_set);
+    }
     if (capture == capture_permission_available_ && accessibility == accessibility_permission_available_ &&
         input == input_permission_available_ && input_available == input_available_) {
         return SACCADE_OK;
@@ -1381,7 +1389,11 @@ SaccadeResult DesktopPipeline::synchronize_pending_topology(uint64_t now_ns) noe
         ++stats_.capture_stops;
     }
 
-    SaccadeResult result = captures_.synchronize(displays_.snapshot());
+    SaccadeResult result = capture_permission_available_ ? captures_.synchronize(displays_.snapshot()) : SACCADE_OK;
+    if (result == SACCADE_ERROR_PERMISSION) {
+        capture_permission_available_ = false;
+        result = SACCADE_OK;
+    }
     if (result != SACCADE_OK) return result;
     result = overlays_.synchronize(displays_.snapshot());
     if (result != SACCADE_OK) return result;
