@@ -12,6 +12,7 @@
 #include "platform/windows/global_hotkeys.hpp"
 #include "platform/windows/keyboard.hpp"
 #include "platform/windows/operating_system.hpp"
+#include "resource.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -146,7 +147,7 @@ enum DiagnosticsControl : int {
 };
 
 LPCWSTR application_icon() noexcept {
-    return MAKEINTRESOURCEW(32512);
+    return MAKEINTRESOURCEW(IDI_SACCADE);
 }
 
 bool settings_path(std::array<wchar_t, 32768>* output) noexcept {
@@ -1163,7 +1164,8 @@ SaccadeResult Application::initialize(HINSTANCE instance, int show_command) noex
     klass.cbSize = sizeof(klass);
     klass.lpfnWndProc = window_proc;
     klass.hInstance = instance_;
-    klass.hIcon = LoadIconW(nullptr, application_icon());
+    klass.hIcon = LoadIconW(instance_, application_icon());
+    klass.hIconSm = klass.hIcon;
     klass.lpszClassName = window_class_name;
     if (RegisterClassExW(&klass) == 0) {
         owner_ = nullptr;
@@ -1173,7 +1175,8 @@ SaccadeResult Application::initialize(HINSTANCE instance, int show_command) noex
     settings_class.cbSize = sizeof(settings_class);
     settings_class.lpfnWndProc = settings_proc;
     settings_class.hInstance = instance_;
-    settings_class.hIcon = LoadIconW(nullptr, application_icon());
+    settings_class.hIcon = LoadIconW(instance_, application_icon());
+    settings_class.hIconSm = settings_class.hIcon;
     settings_class.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
     settings_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     settings_class.lpszClassName = settings_class_name;
@@ -1244,7 +1247,7 @@ SaccadeResult Application::initialize(HINSTANCE instance, int show_command) noex
     tray_.uID = tray_identifier;
     tray_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     tray_.uCallbackMessage = tray_message;
-    tray_.hIcon = LoadIconW(nullptr, application_icon());
+    tray_.hIcon = LoadIconW(instance_, application_icon());
     (void)wcscpy_s(tray_.szTip, application_name);
     if (Shell_NotifyIconW(NIM_ADD, &tray_) == 0) return SACCADE_ERROR_BACKEND;
     tray_added_ = true;

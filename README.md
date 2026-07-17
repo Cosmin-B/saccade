@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/saccade-icon.png" width="112" height="112" alt="Saccade">
+</p>
+
 # Saccade
 
 Saccade is a native keyboard-driven pointer system for macOS and Windows. It combines

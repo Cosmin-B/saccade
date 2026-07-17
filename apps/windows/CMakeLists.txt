@@ -1,4 +1,6 @@
-add_executable(saccade_app WIN32 main.cpp)
+add_executable(saccade_app WIN32
+    main.cpp
+    app.rc)
 if(SACCADE_WINDOWS_UIACCESS)
     set(SACCADE_WINDOWS_UIACCESS_VALUE true)
 else()

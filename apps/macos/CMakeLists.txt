@@ -1,4 +1,13 @@
-add_executable(saccade_app MACOSX_BUNDLE main.mm)
+set(_saccade_macos_icon_files
+    Saccade.icns
+    SaccadeStatus.png
+    SaccadeStatus@2x.png)
+set_source_files_properties(${_saccade_macos_icon_files} PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources)
+
+add_executable(saccade_app MACOSX_BUNDLE
+    main.mm
+    ${_saccade_macos_icon_files})
 target_include_directories(saccade_app PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src")
@@ -73,6 +82,7 @@ set_target_properties(saccade_app PROPERTIES
     OUTPUT_NAME Saccade
     MACOSX_BUNDLE_BUNDLE_NAME Saccade
     MACOSX_BUNDLE_GUI_IDENTIFIER com.cosmin.saccade
+    MACOSX_BUNDLE_ICON_FILE Saccade.icns
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in")
 if(NOT "${SACCADE_MACOS_CODESIGN_IDENTITY}" STREQUAL "")
     find_program(_saccade_codesign codesign REQUIRED)

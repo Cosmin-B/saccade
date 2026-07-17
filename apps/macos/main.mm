@@ -845,7 +845,10 @@ static SaccadeResult run_binding_editor() {
     (void)notification;
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength];
-    self.statusItem.button.title = @"S";
+    NSImage* status_icon = [NSImage imageNamed:@"SaccadeStatus"];
+    [status_icon setTemplate:YES];
+    status_icon.size = NSMakeSize(18.0, 18.0);
+    self.statusItem.button.image = status_icon;
     self.statusItem.button.toolTip = @"Saccade";
     const SaccadeResult started = application.initialize(self);
     if (started != SACCADE_OK) application.fault_ = started;
