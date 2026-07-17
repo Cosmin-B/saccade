@@ -1,17 +1,18 @@
 # Version 0.1 product contract
 
-This document defines the desktop behavior required for a version 0.1 release. It is an
-acceptance contract, not a statement that the current foundation already implements the
-features below. The README lists what exists today.
+This document defines the cross-platform desktop behavior for version 0.1.
 
 Version 0.1 targets macOS 14 or newer on Apple Silicon and Windows 11 24H2 or newer on
-x64 and arm64. A feature is complete only when both applications pass the same shared
-behavior fixture and their native platform checks. Linux remains a future platform.
+x64 and arm64.
 
 ## Activation and scope
 
 Saccade runs as a menu bar application on macOS and a notification-area application on
 Windows. Capture and inference stop while the application is idle.
+
+Global commands are reduced through one physical-key command schema on both platforms.
+Physical keyboard or pointer activity neutralizes any active synthetic hold, drag, or
+continuous stream before another action is considered.
 
 The release includes:
 
@@ -25,29 +26,35 @@ The release includes:
 - 4K and 8K operation without changing command semantics.
 
 Activation freezes visible hint labels. New damage may update target geometry before an
-action, but a label cannot jump to another target during the same session.
+action, but a label cannot jump to another target during the same activation. Changing
+scope ends that activation and starts a new one with a newly frozen target set and label
+map.
 
-The signed Windows build is tested with normal and elevated application windows at every
-integrity level permitted by UIAccess. The signed macOS build uses granted Accessibility
-permission. Neither platform acts on a login, lock, consent, password, or other secure
-screen.
+On Windows, UIAccess builds may act at integrity levels allowed by the signed installation.
+On macOS, input requires Accessibility permission. Neither platform acts on a login, lock,
+consent, password, or other secure screen.
 
 ## Target sources
 
-Every targeting session offers three sources:
+Every targeting session offers four sources:
 
 - Pixel finds text and controls from captured pixels across the selected scope.
 - Semantic reads the operating-system accessibility tree for the foreground window.
 - Grid places targets at predictable positions when detection does not cover the desired
   point.
+- Fused correlates frame-matched Pixel and Semantic evidence into one deduplicated scene.
 
-Pixel is the default. A command can switch source while hints are visible. Fusion may
-combine evidence, but the overlay presents one deduplicated scene.
+Pixel is the default. A command can switch source while hints are visible. The switch ends
+the current activation and starts a new one, so frozen labels remain stable within an
+activation rather than across source changes. Fused waits for matching capture,
+transform, and topology epochs before combining evidence; the overlay presents one
+deduplicated scene.
 
-Pixel settings include confidence, minimum target size, text sensitivity, merge policy,
-and duplicate suppression. Semantic mode reports an inaccessible or incomplete tree
-instead of pretending that no targets exist. Grid settings include rows, columns,
-margins, and monitor scope.
+Pixel and Fused settings include confidence, minimum target size, text sensitivity, merge
+policy, and duplicate suppression. Disabling the merge policy keeps overlapping source
+records separate. Semantic mode reports an inaccessible or incomplete tree instead of
+pretending that no targets exist. Grid settings include rows, columns, margins, and
+monitor scope.
 
 ## Hints and target adjustment
 
@@ -68,8 +75,8 @@ The release supports:
 - configurable label placement, font, size, weight, color, outline, and glow;
 - high-contrast, light, dark, and user-defined themes.
 
-Labels use each display's scale and color space. A label cannot cover its own safe point
-or prevent a neighboring label from being typed.
+Labels use each display's scale. A label cannot cover its own safe point or prevent a
+neighboring label from being typed.
 
 ## Selection modes
 
@@ -116,11 +123,28 @@ Window mode includes:
 - hint-based selection of visible windows;
 - restoration and activation of minimized windows when the operating system permits it;
 - exclusion of Saccade windows from candidates;
-- stable ordering across displays and scale factors.
+- deterministic geometry ordering across displays and scale factors; overlap cycling
+  follows the operating system's current z-order.
 
 Version 0.1 activates and cycles windows on the current desktop. It does not move another
 application's windows between macOS Spaces or Windows virtual desktops. It uses public
 workspace and window APIs only.
+
+## Local agent control
+
+Local agents can observe the latest immutable target generation, query its structured
+targets, and submit bounded action batches through an authenticated platform channel.
+The binary C11 wire ABI is shared by macOS and Windows. It exposes no platform handle or
+C++ library type.
+
+Observation, pointer, keyboard, clipboard, window, and settings capabilities are
+negotiated independently. Version 0.1 applications grant observation, pointer, keyboard,
+and window actions. Images and crops are not part of the version 0.1 protocol.
+
+Agent actions use the same generation, focus, transform, permission, safe-point, and
+physical-input validation as interactive actions. A client disconnect, physical user
+override, timeout, session loss, permission loss, secure surface, backend failure, or
+application shutdown cannot leave a synthetic key or button held.
 
 ## Settings
 
@@ -137,7 +161,7 @@ Settings cover:
 - desktop, active-window, monitor, and mixed-DPI scope behavior;
 - final pointer position and movement speed;
 - theme, font, size, appearance, animation, and reduced motion;
-- automatic, CPU-only, GPU-only, accelerator, and named-device compute policies;
+- automatic, CPU-only, CPU-plus-GPU, CPU-plus-accelerator, and named-device compute policies;
 - import and export of the complete versioned settings document;
 - per-page reset and full reset.
 
@@ -154,12 +178,13 @@ User-facing diagnostics report:
 - model identity, precision, and fallback policy;
 - host and device memory high-water marks;
 - queue pressure, replaced frames, cancellation, and late results;
+- overlay slot pressure, presentation deadlines, and active instance counts;
 - the most recent bounded local trace.
 
-Developer tools include a provider and device explorer, frame and transform inspector,
-target-scene inspector, overlay debugger, input-plan dry run, deterministic replay,
-memory audit, latency trace, and backend fault controls. Debug captures are explicit,
-local, bounded, and excluded from normal operation.
+One bounded debugger host presents views for providers and devices, frames and transforms,
+target scenes and fusion, overlays, memory, timing, and GPU counters. It also provides
+input-plan dry run, deterministic replay, and backend fault controls. Debug captures are
+explicit, local, bounded, and excluded from normal operation.
 
 ## Privacy and updates
 
@@ -167,29 +192,28 @@ Normal operation has no network path. Saccade has no account, cloud inference,
 telemetry, screenshot history, recognized-text history, or interaction history. A
 packaged release works offline after installation.
 
-Update checks are manual and explicit. An accepted update uses signed packages, verifies
-the installed version, and supports rollback. Model and accelerator files are shipped
-with the package or supplied by the operating system; activation never downloads them.
+Version 0.1 has no in-application update client. A user installs a signed replacement
+package explicitly; installation, repair, and removal remain offline-capable. Model and
+accelerator files are shipped with the package or supplied by the operating system;
+activation never downloads them.
 
 ## Performance contract
 
 Input reduction, pointer feedback, and overlay presentation target 120 Hz. The version
-0.1 neural path targets a complete 30 Hz refresh of the selected full scope on qualified
-hardware. Region priority is allowed for scheduling and overload recovery but does not
-replace full-scope qualification.
+0.1 neural path targets a complete 30 Hz refresh of the selected full scope on supported
+hardware. Region priority may schedule work and recover from overload, but every visible
+point must still be able to affect a full-scope result.
 
 Inference never blocks the interaction path. The scheduler keeps bounded work, replaces
-superseded frames, and records missed deadlines. CPU execution is always available in a
-supported release. A GPU or accelerator path ships only with measured accuracy, memory,
-latency, power, startup, and fallback evidence.
+superseded frames, and records missed deadlines. Providers report latency, memory, startup,
+fallback, and precision through the common diagnostics contract.
 
-Version 0.2 keeps the 120 Hz interaction path and raises qualified accelerated
-full-scope inference to 60 Hz.
+The overlay accepts the same fixed target packet on every platform. Static instances are
+expanded when a scene or transform epoch changes. A display tick updates only active
+state and submits one bounded draw. Native backends do not read neural intermediates
+back to the CPU for presentation.
 
-## Cross-platform release rule
+## Cross-platform behavior
 
-The maintained feature evidence has one macOS result and one Windows result for every
-behavior above. A version 0.1 release cannot omit a platform result, waive it, or use a
-deterministic test provider as native evidence. The applications share settings,
-commands, target semantics, action semantics, and replay fixtures even where their
-native APIs differ.
+The macOS and Windows applications share settings, commands, target semantics, action
+semantics, and replay fixtures even where their native APIs differ.

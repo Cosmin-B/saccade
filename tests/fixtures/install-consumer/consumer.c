@@ -9,8 +9,8 @@ int main(void) {
     SaccadeFrameHandle frame_handle = 0;
     desc.struct_size = (uint32_t)sizeof(desc);
     desc.api_version = SACCADE_API_VERSION;
-    if (saccade_api_version() != SACCADE_API_VERSION ||
-        saccade_runtime_create(&desc, &runtime) != SACCADE_OK || runtime == 0) {
+    if (saccade_api_version() != SACCADE_API_VERSION || saccade_runtime_create(&desc, &runtime) != SACCADE_OK ||
+        runtime == 0) {
         return 1;
     }
 
@@ -24,8 +24,7 @@ int main(void) {
     frame.pixel_format = 1;
     frame.frame_id = 1;
     frame.transform_epoch = 1;
-    if (saccade_frame_import(runtime, &frame, &frame_handle) != SACCADE_OK ||
-        frame_handle == 0 ||
+    if (saccade_frame_import(runtime, &frame, &frame_handle) != SACCADE_OK || frame_handle == 0 ||
         saccade_frame_release(runtime, frame_handle) != SACCADE_OK) {
         return 2;
     }

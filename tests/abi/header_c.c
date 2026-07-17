@@ -2,6 +2,7 @@
 
 _Static_assert(sizeof(SaccadeRuntimeHandle) == 8, "runtime handle ABI");
 _Static_assert(sizeof(SaccadeSpanU8) == 16, "span ABI");
+_Static_assert(SACCADE_ERROR_PERMISSION == -13, "permission result ABI");
 
 int main(void) {
     SaccadeRuntimeDesc desc = {0};

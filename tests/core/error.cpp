@@ -17,11 +17,10 @@ std::atomic<size_t> allocation_count{0};
 
 bool span_equals(SaccadeSpanU8 span, const char* text) {
     const size_t size = std::strlen(text);
-    return span.size == size &&
-           std::memcmp(span.data, text, size) == 0;
+    return span.size == size && std::memcmp(span.data, text, size) == 0;
 }
 
-}  // namespace
+} // namespace
 
 void* operator new(std::size_t size) {
     if (count_allocations.load(std::memory_order_relaxed)) {
@@ -54,8 +53,8 @@ void operator delete[](void* memory, std::size_t size) noexcept {
 }
 
 int main() {
-    using saccade::core::ErrorScope;
     using saccade::core::clear_last_error;
+    using saccade::core::ErrorScope;
     using saccade::core::set_last_error;
 
     clear_last_error();
@@ -83,9 +82,7 @@ int main() {
         return 5;
     }
 
-    {
-        ErrorScope successful_call;
-    }
+    { ErrorScope successful_call; }
     if (saccade_last_error().size != 0) {
         return 6;
     }
@@ -129,9 +126,8 @@ int main() {
         return 10;
     }
 
-    const SaccadeResult guarded = saccade::core::abi_guard([]() -> SaccadeResult {
-        throw std::runtime_error("test exception");
-    });
+    const SaccadeResult guarded =
+        saccade::core::abi_guard([]() -> SaccadeResult { throw std::runtime_error("test exception"); });
     if (guarded != SACCADE_ERROR_BACKEND || saccade_last_error().size == 0) {
         return 11;
     }

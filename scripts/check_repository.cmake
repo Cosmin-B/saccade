@@ -17,7 +17,7 @@ set(blocked_extensions
     .pyc)
 
 foreach(path IN LISTS source_files)
-    if(path MATCHES "/[.]git/" OR path MATCHES "/build/")
+    if(path MATCHES "/[.]git/" OR path MATCHES "/build(-[^/]+)?/")
         continue()
     endif()
     get_filename_component(name "${path}" NAME)
@@ -37,8 +37,16 @@ file(GLOB_RECURSE runtime_sources LIST_DIRECTORIES false
     "${SOURCE_DIR}/backends/*.cc"
     "${SOURCE_DIR}/backends/*.cpp"
     "${SOURCE_DIR}/backends/*.cxx"
+    "${SOURCE_DIR}/backends/*.mm"
     "${SOURCE_DIR}/backends/*.h"
     "${SOURCE_DIR}/backends/*.hpp"
+    "${SOURCE_DIR}/platform/*.c"
+    "${SOURCE_DIR}/platform/*.cc"
+    "${SOURCE_DIR}/platform/*.cpp"
+    "${SOURCE_DIR}/platform/*.cxx"
+    "${SOURCE_DIR}/platform/*.mm"
+    "${SOURCE_DIR}/platform/*.h"
+    "${SOURCE_DIR}/platform/*.hpp"
     "${SOURCE_DIR}/src/*.c"
     "${SOURCE_DIR}/src/*.cc"
     "${SOURCE_DIR}/src/*.cpp"
@@ -59,7 +67,13 @@ file(GLOB_RECURSE cpp_sources LIST_DIRECTORIES false
     "${SOURCE_DIR}/backends/*.cc"
     "${SOURCE_DIR}/backends/*.cpp"
     "${SOURCE_DIR}/backends/*.cxx"
+    "${SOURCE_DIR}/backends/*.mm"
     "${SOURCE_DIR}/backends/*.hpp"
+    "${SOURCE_DIR}/platform/*.cc"
+    "${SOURCE_DIR}/platform/*.cpp"
+    "${SOURCE_DIR}/platform/*.cxx"
+    "${SOURCE_DIR}/platform/*.mm"
+    "${SOURCE_DIR}/platform/*.hpp"
     "${SOURCE_DIR}/include/*.hpp"
     "${SOURCE_DIR}/src/*.cc"
     "${SOURCE_DIR}/src/*.cpp"
@@ -75,7 +89,13 @@ foreach(path IN LISTS cpp_sources)
        content MATCHES "#[ \\t]*include[ \\t]*<functional>")
         message(FATAL_ERROR "C++ source uses an allocating callback wrapper: ${path}")
     endif()
-    if(content MATCHES "compare_exchange_(weak|strong)")
+    if((content MATCHES "std[ \t\r\n]*::[ \t\r\n]*mutex" OR
+        content MATCHES "std[ \t\r\n]*::[ \t\r\n]*(lock_guard|unique_lock|scoped_lock)" OR
+        content MATCHES "#[ \t]*include[ \t]*<mutex>") )
+        message(FATAL_ERROR "C++ source uses a mutex instead of owned state: ${path}")
+    endif()
+    if(content MATCHES "compare_exchange_(weak|strong)" AND
+       NOT path STREQUAL "${SOURCE_DIR}/src/core/rare_global_gate.hpp")
         message(FATAL_ERROR "C++ source uses a CAS primitive instead of thread-owned state: ${path}")
     endif()
 endforeach()

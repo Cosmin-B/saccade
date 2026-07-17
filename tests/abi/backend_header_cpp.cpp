@@ -1,9 +1,7 @@
 #include <saccade/saccade_backend.h>
 
-extern "C" SaccadeResult SACCADE_CALL enumerate_sources(
-    void* context,
-    uint32_t index,
-    SaccadeCaptureSourceInfo* out_source) {
+extern "C" SaccadeResult SACCADE_CALL enumerate_sources(void* context, uint32_t index,
+                                                        SaccadeCaptureSourceInfo* out_source) {
     (void)context;
     (void)index;
     (void)out_source;
@@ -13,6 +11,11 @@ extern "C" SaccadeResult SACCADE_CALL enumerate_sources(
 int main() {
     SaccadeCaptureOps ops{};
     SaccadeCaptureProviderDesc provider{};
+    SaccadeOverlayFrameDesc frame{};
+
+    if ((frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) != 0) {
+        return 1;
+    }
 
     ops.struct_size = static_cast<uint32_t>(sizeof(ops));
     ops.api_version = SACCADE_API_VERSION;

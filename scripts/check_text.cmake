@@ -13,11 +13,13 @@ file(GLOB_RECURSE candidates LIST_DIRECTORIES false
     "${SOURCE_DIR}/*.in"
     "${SOURCE_DIR}/*.json"
     "${SOURCE_DIR}/*.md"
+    "${SOURCE_DIR}/*.metal"
+    "${SOURCE_DIR}/*.mm"
     "${SOURCE_DIR}/*.txt"
     "${SOURCE_DIR}/CMakeLists.txt")
 
 foreach(path IN LISTS candidates)
-    if(path MATCHES "/build/")
+    if(path MATCHES "/build(-[^/]+)?/" OR path MATCHES "/third_party/")
         continue()
     endif()
     file(READ "${path}" content)

@@ -18,7 +18,12 @@ endif()
 
 file(READ "${SOURCE_DIR}/include/saccade/saccade.h" core_header)
 file(READ "${SOURCE_DIR}/include/saccade/saccade_backend.h" backend_header)
-set(headers "${core_header}\n${backend_header}")
+file(READ "${SOURCE_DIR}/include/saccade/saccade_overlay.h" overlay_header)
+file(READ "${SOURCE_DIR}/include/saccade/saccade_scene.h" scene_header)
+file(READ "${SOURCE_DIR}/include/saccade/saccade_input.h" input_header)
+file(READ "${SOURCE_DIR}/include/saccade/saccade_agent.h" agent_header)
+set(headers
+    "${core_header}\n${backend_header}\n${overlay_header}\n${scene_header}\n${input_header}\n${agent_header}")
 string(REGEX MATCHALL
     "SACCADE_API[^\n]*saccade_[a-z0-9_]+\\("
     declarations "${headers}")
@@ -38,7 +43,7 @@ if(NOT "${manifest_symbols}" STREQUAL "${header_symbols}")
 endif()
 
 string(REGEX MATCHALL
-    "typedef (u?int(32|64)_t) (Saccade[A-Za-z0-9_]+);"
+    "typedef (u?int(16|32|64)_t) (Saccade[A-Za-z0-9_]+);"
     fixed_type_declarations "${headers}")
 string(REGEX MATCHALL
     "typedef struct (Saccade[A-Za-z0-9_]+)"

@@ -23,10 +23,8 @@ bool output_prefixes_are_bounded(SaccadeEnumerateDevicesFn enumerate, void* cont
     const uint32_t short_size = static_cast<uint32_t>(prefix_size);
     const uint32_t api_version = SACCADE_API_VERSION;
     std::memcpy(short_output.data(), &short_size, sizeof(short_size));
-    std::memcpy(short_output.data() + offsetof(SaccadeDeviceInfo, api_version), &api_version,
-                sizeof(api_version));
-    if (enumerate(context, 0, reinterpret_cast<SaccadeDeviceInfo*>(short_output.data())) !=
-        SACCADE_OK) {
+    std::memcpy(short_output.data() + offsetof(SaccadeDeviceInfo, api_version), &api_version, sizeof(api_version));
+    if (enumerate(context, 0, reinterpret_cast<SaccadeDeviceInfo*>(short_output.data())) != SACCADE_OK) {
         return false;
     }
     uint32_t returned_size = 0;
@@ -44,14 +42,14 @@ bool output_prefixes_are_bounded(SaccadeEnumerateDevicesFn enumerate, void* cont
         SaccadeDeviceInfo current;
         std::array<uint64_t, 2> future;
     };
+
     ExtendedDeviceInfo extended{};
     extended.current.struct_size = static_cast<uint32_t>(sizeof(extended));
     extended.current.api_version = SACCADE_API_VERSION;
     extended.future.fill(UINT64_C(0xA5A5A5A5A5A5A5A5));
     if (enumerate(context, 0, &extended.current) != SACCADE_OK ||
         extended.current.struct_size != sizeof(SaccadeDeviceInfo) ||
-        extended.future[0] != UINT64_C(0xA5A5A5A5A5A5A5A5) ||
-        extended.future[1] != UINT64_C(0xA5A5A5A5A5A5A5A5)) {
+        extended.future[0] != UINT64_C(0xA5A5A5A5A5A5A5A5) || extended.future[1] != UINT64_C(0xA5A5A5A5A5A5A5A5)) {
         return false;
     }
     return true;
@@ -63,6 +61,30 @@ void set_bgra(std::array<uint8_t, 8 * 6 * 4>& image, uint32_t x, uint32_t y, uin
     image[offset + 1] = value;
     image[offset + 2] = value;
     image[offset + 3] = 255;
+}
+
+SaccadeInferenceDispatchDesc inference_dispatch(const saccade::backend::reference_cpu::FrameView& frame) noexcept {
+    SaccadeInferenceDispatchDesc value{};
+    value.struct_size = sizeof(value);
+    value.api_version = SACCADE_API_VERSION;
+    value.frame.struct_size = sizeof(value.frame);
+    value.frame.api_version = SACCADE_API_VERSION;
+    value.frame.storage = SACCADE_FRAME_STORAGE_HOST;
+    value.frame.pixel_format = frame.pixel_format;
+    value.frame.host_data = {frame.data, frame.size};
+    value.frame.width = frame.width;
+    value.frame.height = frame.height;
+    value.frame.row_stride_bytes = frame.row_stride_bytes;
+    value.frame.frame_id = frame.frame_id;
+    value.frame.transform_epoch = 7;
+    value.scope = {0, 0, static_cast<int32_t>(frame.width), static_cast<int32_t>(frame.height)};
+    value.output_capacity = static_cast<uint32_t>(saccade::backend::reference_cpu::maximum_output_size);
+    value.model_epoch = 5;
+    value.session_epoch = 6;
+    value.transform_epoch = 7;
+    value.topology_epoch = 8;
+    value.source_id = 9;
+    return value;
 }
 
 } // namespace
@@ -97,13 +119,12 @@ int main() {
     parameters.luma_threshold = 200;
     parameters.minimum_area = 4;
     DetectionResult direct{};
-    if (saccade::backend::reference_cpu::detect(frame, parameters, &direct) != SACCADE_OK ||
-        direct.target_count != 2 || direct.targets[0].x != 1 || direct.targets[0].y != 1 ||
-        direct.targets[0].width != 2 || direct.targets[0].height != 2 ||
-        direct.targets[0].safe_x != 2 || direct.targets[0].safe_y != 2 ||
+    if (saccade::backend::reference_cpu::detect(frame, parameters, &direct) != SACCADE_OK || direct.target_count != 2 ||
+        direct.targets[0].x != 1 || direct.targets[0].y != 1 || direct.targets[0].width != 2 ||
+        direct.targets[0].height != 2 || direct.targets[0].safe_x != 2 || direct.targets[0].safe_y != 2 ||
         direct.targets[0].area != 4 || direct.targets[1].x != 5 || direct.targets[1].y != 3 ||
-        direct.targets[1].width != 3 || direct.targets[1].height != 2 ||
-        direct.targets[1].area != 6 || direct.targets[0].stable_id == direct.targets[1].stable_id) {
+        direct.targets[1].width != 3 || direct.targets[1].height != 2 || direct.targets[1].area != 6 ||
+        direct.targets[0].stable_id == direct.targets[1].stable_id) {
         return 1;
     }
 
@@ -128,11 +149,10 @@ int main() {
     bridge_parameters.luma_threshold = 200;
     bridge_parameters.minimum_area = 1;
     DetectionResult bridge_result{};
-    if (saccade::backend::reference_cpu::detect(bridge, bridge_parameters, &bridge_result) !=
-            SACCADE_OK ||
-        bridge_result.target_count != 1 || bridge_result.targets[0].x != 0 ||
-        bridge_result.targets[0].y != 0 || bridge_result.targets[0].width != 5 ||
-        bridge_result.targets[0].height != 2 || bridge_result.targets[0].area != 7) {
+    if (saccade::backend::reference_cpu::detect(bridge, bridge_parameters, &bridge_result) != SACCADE_OK ||
+        bridge_result.target_count != 1 || bridge_result.targets[0].x != 0 || bridge_result.targets[0].y != 0 ||
+        bridge_result.targets[0].width != 5 || bridge_result.targets[0].height != 2 ||
+        bridge_result.targets[0].area != 7) {
         return 16;
     }
 
@@ -147,7 +167,8 @@ int main() {
     saccade::test::begin_allocation_tracking();
     Backend backend;
     SaccadeFrameHandle frame_handle = 0;
-    if (backend.register_frame(frame, &frame_handle) != SACCADE_OK || frame_handle == 0) {
+    if (backend.register_frame(frame, &frame_handle) != SACCADE_OK || frame_handle == 0 ||
+        backend.release_frame(frame_handle) != SACCADE_OK) {
         return 3;
     }
     SaccadeInferenceProviderDesc provider = backend.provider();
@@ -165,14 +186,13 @@ int main() {
 
     const auto model_bytes = saccade::backend::reference_cpu::encode_model(parameters);
     SaccadeModelInfo queried = output_structure<SaccadeModelInfo>();
-    if (provider.ops.query_model(provider.context, {model_bytes.data(), model_bytes.size()},
-                                 &queried) != SACCADE_OK ||
+    if (provider.ops.query_model(provider.context, {model_bytes.data(), model_bytes.size()}, &queried) != SACCADE_OK ||
         queried.max_output_bytes != saccade::backend::reference_cpu::maximum_output_size) {
         return 5;
     }
     std::array<uint8_t, saccade::backend::reference_cpu::model_byte_count> bad_model{};
-    if (provider.ops.query_model(provider.context, {bad_model.data(), bad_model.size()},
-                                 &queried) != SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (provider.ops.query_model(provider.context, {bad_model.data(), bad_model.size()}, &queried) !=
+        SACCADE_ERROR_INVALID_ARGUMENT) {
         return 6;
     }
 
@@ -199,21 +219,11 @@ int main() {
         return 8;
     }
 
-    SaccadeInferenceSubmitDesc submit{};
-    submit.struct_size = static_cast<uint32_t>(sizeof(submit));
-    submit.api_version = SACCADE_API_VERSION;
-    submit.frame = frame_handle;
-    submit.scope = {0, 0, 8, 6};
-    submit.output_capacity =
-        static_cast<uint32_t>(saccade::backend::reference_cpu::maximum_output_size);
-    submit.model_epoch = 5;
-    submit.session_epoch = 6;
-    submit.transform_epoch = 7;
+    SaccadeInferenceDispatchDesc submit = inference_dispatch(frame);
     SaccadeTicketHandle ticket = 0;
     SaccadeTicketHandle extra = 0;
     if (provider.ops.submit(provider.context, context, &submit, &ticket) != SACCADE_OK ||
         provider.ops.submit(provider.context, context, &submit, &extra) != SACCADE_ERROR_BUSY ||
-        backend.release_frame(frame_handle) != SACCADE_ERROR_BUSY ||
         provider.ops.cancel(provider.context, context, ticket) != SACCADE_OK) {
         return 9;
     }
@@ -224,26 +234,24 @@ int main() {
     }
     size_t required = 0;
     std::array<uint8_t, saccade::backend::reference_cpu::maximum_output_size> output{};
-    if (provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()},
-                             &required) != SACCADE_ERROR_CANCELLED ||
+    if (provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) !=
+            SACCADE_ERROR_CANCELLED ||
         provider.ops.submit(provider.context, context, &submit, &ticket) != SACCADE_OK ||
         provider.ops.poll(provider.context, context, ticket, &status) != SACCADE_OK ||
-        status.state != SACCADE_TICKET_COMPLETE || status.frame_id != 123 ||
-        status.model_epoch != 5 || status.session_epoch != 6 || status.transform_epoch != 7 ||
-        status.produced_bytes == 0) {
+        status.state != SACCADE_TICKET_COMPLETE || status.frame_id != 123 || status.model_epoch != 5 ||
+        status.session_epoch != 6 || status.transform_epoch != 7 || status.produced_bytes == 0) {
         return 11;
     }
 
     if (provider.ops.collect(provider.context, context, ticket, {output.data(), 8}, &required) !=
             SACCADE_ERROR_CAPACITY ||
         required != status.produced_bytes ||
-        provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()},
-                             &required) != SACCADE_OK) {
+        provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) !=
+            SACCADE_OK) {
         return 12;
     }
     DecodedOutput decoded{};
-    if (saccade::backend::reference_cpu::decode_output({output.data(), required}, &decoded) !=
-            SACCADE_OK ||
+    if (saccade::backend::reference_cpu::decode_output({output.data(), required}, &decoded) != SACCADE_OK ||
         decoded.frame_id != 123 || decoded.model_epoch != 5 || decoded.session_epoch != 6 ||
         decoded.transform_epoch != 7 || decoded.detections.target_count != direct.target_count ||
         decoded.detections.targets[0].stable_id != direct.targets[0].stable_id ||
@@ -252,13 +260,11 @@ int main() {
     }
 
     SaccadeMemoryStats memory = output_structure<SaccadeMemoryStats>();
-    if (provider.ops.memory_stats(provider.context, context, &memory) != SACCADE_OK ||
-        memory.host_reserved == 0 || memory.device_owned != 0 || memory.framework_opaque != 0 ||
-        memory.copied_bytes < required ||
+    if (provider.ops.memory_stats(provider.context, context, &memory) != SACCADE_OK || memory.host_reserved == 0 ||
+        memory.device_owned != 0 || memory.framework_opaque != 0 || memory.copied_bytes < required ||
         provider.ops.synchronize(provider.context, context, 0) != SACCADE_OK ||
         provider.ops.destroy_context(provider.context, context) != SACCADE_OK ||
-        provider.ops.destroy_model(provider.context, model) != SACCADE_OK ||
-        backend.release_frame(frame_handle) != SACCADE_OK) {
+        provider.ops.destroy_model(provider.context, model) != SACCADE_OK) {
         return 14;
     }
     if (saccade::test::end_allocation_tracking() != 0) {

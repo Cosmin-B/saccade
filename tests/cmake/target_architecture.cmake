@@ -29,3 +29,21 @@ expect_architecture(x86_64 AMD64 "" "" "" "")
 expect_architecture(arm64 aarch64 "" "" "" "")
 expect_architecture(arm64 AMD64 "" "" "" ARM64)
 expect_architecture(x86_64 ARM64 "" "" "" x64)
+
+function(expect_package_architecture expected system_name target_architecture)
+    saccade_resolve_package_architecture(
+        actual
+        "${system_name}"
+        "${target_architecture}")
+    if(NOT actual STREQUAL expected)
+        message(FATAL_ERROR
+            "expected package architecture ${expected}, got ${actual} for "
+            "system=${system_name}, target=${target_architecture}")
+    endif()
+endfunction()
+
+expect_package_architecture(arm64 Windows arm64)
+expect_package_architecture(x64 Windows x86_64)
+expect_package_architecture(arm64 Darwin arm64)
+expect_package_architecture("" Darwin x86_64)
+expect_package_architecture("" Windows riscv64)

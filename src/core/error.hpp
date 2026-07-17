@@ -12,7 +12,7 @@ namespace saccade::core {
 inline constexpr size_t kErrorCapacity = 512;
 
 class ErrorScope final {
-public:
+  public:
     ErrorScope() noexcept;
     ~ErrorScope() noexcept;
 
@@ -21,7 +21,7 @@ public:
     ErrorScope(ErrorScope&&) = delete;
     ErrorScope& operator=(ErrorScope&&) = delete;
 
-private:
+  private:
     std::array<char, kErrorCapacity> saved_{};
     size_t saved_size_ = 0;
     bool restore_ = false;
@@ -32,6 +32,6 @@ void set_last_error(std::string_view message) noexcept;
 void clear_last_error() noexcept;
 SaccadeSpanU8 last_error() noexcept;
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

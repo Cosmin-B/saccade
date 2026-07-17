@@ -16,7 +16,7 @@ struct RuntimeOwner {
 
 RuntimeOwner owner;
 
-}  // namespace
+} // namespace
 
 int main() {
     SaccadeRuntimeDesc desc{};

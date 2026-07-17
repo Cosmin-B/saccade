@@ -11,10 +11,9 @@ namespace saccade::backend::reference_cpu {
 
 constexpr size_t model_byte_count = 12;
 constexpr size_t maximum_targets = 32;
-constexpr size_t serialized_header_size = 40;
-constexpr size_t serialized_target_size = 40;
-constexpr size_t maximum_output_size =
-    serialized_header_size + maximum_targets * serialized_target_size;
+constexpr size_t serialized_header_size = sizeof(SaccadeTargetPacketHeader);
+constexpr size_t serialized_target_size = sizeof(SaccadeTargetRecord);
+constexpr size_t maximum_output_size = serialized_header_size + maximum_targets * serialized_target_size;
 
 struct FrameView {
     const uint8_t* data = nullptr;
@@ -53,6 +52,8 @@ struct DecodedOutput {
     uint64_t model_epoch = 0;
     uint64_t session_epoch = 0;
     uint64_t transform_epoch = 0;
+    uint64_t topology_epoch = 0;
+    uint64_t source_id = 0;
     DetectionResult detections{};
 };
 

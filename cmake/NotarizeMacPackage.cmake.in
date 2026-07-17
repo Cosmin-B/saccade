@@ -1,0 +1,37 @@
+foreach(package IN LISTS CPACK_PACKAGE_FILES)
+    execute_process(
+        COMMAND "@SACCADE_MACOS_CODESIGN@" --force
+            --sign "@SACCADE_MACOS_CODESIGN_IDENTITY@"
+            --timestamp
+            "${package}"
+        RESULT_VARIABLE signed)
+    if(NOT signed EQUAL 0)
+        message(FATAL_ERROR "Developer ID signing failed for ${package}: ${signed}")
+    endif()
+    execute_process(
+        COMMAND "@SACCADE_MACOS_CODESIGN@" --verify --strict --verbose=2 "${package}"
+        RESULT_VARIABLE verified)
+    if(NOT verified EQUAL 0)
+        message(FATAL_ERROR "Strict code-signature verification failed for ${package}: ${verified}")
+    endif()
+    execute_process(
+        COMMAND "@SACCADE_MACOS_XCRUN@" notarytool submit "${package}"
+            --keychain-profile "@SACCADE_MACOS_NOTARY_PROFILE@"
+            --wait
+        RESULT_VARIABLE notarized)
+    if(NOT notarized EQUAL 0)
+        message(FATAL_ERROR "Notarization failed for ${package}: ${notarized}")
+    endif()
+    execute_process(
+        COMMAND "@SACCADE_MACOS_XCRUN@" stapler staple "${package}"
+        RESULT_VARIABLE stapled)
+    if(NOT stapled EQUAL 0)
+        message(FATAL_ERROR "Notarization stapling failed for ${package}: ${stapled}")
+    endif()
+    execute_process(
+        COMMAND "@SACCADE_MACOS_XCRUN@" stapler validate "${package}"
+        RESULT_VARIABLE validated)
+    if(NOT validated EQUAL 0)
+        message(FATAL_ERROR "Notarization validation failed for ${package}: ${validated}")
+    endif()
+endforeach()

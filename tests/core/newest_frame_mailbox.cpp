@@ -19,19 +19,16 @@ int main() {
     }
 
     NewestFrameMailbox mailbox;
-    if (mailbox.replace(1) != 0 || mailbox.replace(2) != 1 || mailbox.take() != 2 ||
-        mailbox.take() != 0) {
+    if (mailbox.replace(1) != 0 || mailbox.replace(2) != 1 || mailbox.take() != 2 || mailbox.take() != 0) {
         return 2;
     }
-    if (mailbox.replace(3) != 0 || mailbox.remove_quiescent(4) ||
-        !mailbox.remove_quiescent(3) || mailbox.replace(4) != 0 ||
-        mailbox.clear_quiescent() != 4 || mailbox.take() != 0) {
+    if (mailbox.replace(3) != 0 || mailbox.remove_quiescent(4) || !mailbox.remove_quiescent(3) ||
+        mailbox.replace(4) != 0 || mailbox.clear_quiescent() != 4 || mailbox.take() != 0) {
         return 3;
     }
 
     const saccade::core::NewestFrameMailboxStats stats = mailbox.stats_quiescent();
-    if (stats.published != 4 || stats.replaced != 1 || stats.consumed != 1 ||
-        stats.discarded != 2) {
+    if (stats.published != 4 || stats.replaced != 1 || stats.consumed != 1 || stats.discarded != 2) {
         return 4;
     }
 
@@ -64,8 +61,7 @@ int main() {
 
     std::thread producer([&]() {
         for (size_t index = 1; index <= stress_count; ++index) {
-            const SaccadeFrameHandle replaced =
-                concurrent.replace(static_cast<SaccadeFrameHandle>(index));
+            const SaccadeFrameHandle replaced = concurrent.replace(static_cast<SaccadeFrameHandle>(index));
             if (replaced != 0) {
                 claim(replaced);
             }
@@ -100,11 +96,9 @@ int main() {
             return 8;
         }
     }
-    const saccade::core::NewestFrameMailboxStats concurrent_stats =
-        concurrent.stats_quiescent();
+    const saccade::core::NewestFrameMailboxStats concurrent_stats = concurrent.stats_quiescent();
     if (concurrent_stats.published != stress_count ||
-        concurrent_stats.replaced + concurrent_stats.consumed != stress_count ||
-        concurrent_stats.discarded != 0) {
+        concurrent_stats.replaced + concurrent_stats.consumed != stress_count || concurrent_stats.discarded != 0) {
         return 9;
     }
 

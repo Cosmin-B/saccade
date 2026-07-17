@@ -6,11 +6,12 @@ binary boundary. C++ callers use the same symbols plus small inline conveniences
 ## Headers
 
 `<saccade/saccade.h>` contains the runtime, results, frame descriptors, and typed frame
-import facade. `<saccade/saccade_backend.h>` contains the five provider operation tables
-and registration functions.
+import facade. `<saccade/saccade_overlay.h>` contains the target, style, and expanded
+instance packet layouts. `<saccade/saccade_backend.h>` contains the five provider
+operation tables and registration functions.
 
 The headers do not include C++ standard-library, operating-system, graphics, or model
-runtime headers. Both are compiled independently as C11 and C++20 in every test lane.
+runtime headers. Each is compiled independently as C11 and C++20 in every test lane.
 
 ## Versions and structure sizes
 
@@ -51,9 +52,10 @@ until `saccade_frame_release` returns. Releasing a pending frame removes it from
 newest-frame mailbox before retiring caller ownership. Destroying the parent runtime
 invalidates and releases all of its outstanding frame handles.
 
-Native surface imports require an adapter that can retain and release the platform
-object. Until those adapters are connected, the IOSurface and D3D11 import symbols
-return `SACCADE_ERROR_UNSUPPORTED`.
+Native surface imports retain the platform object for the complete frame-lease lifetime.
+The Win32 capture import takes one COM reference to the borrowed texture. IOSurface import
+looks up and retains the named surface. A platform import returns
+`SACCADE_ERROR_UNSUPPORTED` when called on another operating system.
 
 ## Errors
 
@@ -67,6 +69,11 @@ implementations are required to keep exceptions inside their own boundary. The m
 providers route every C callback through a common exception guard and translate an
 unexpected exception to `SACCADE_ERROR_BACKEND`.
 
+`SACCADE_ERROR_PERMISSION` is distinct from unsupported hardware and backend failure.
+It means the operating system has not granted a required capture, Accessibility, or
+input capability. A provider must not translate permission denial into an empty
+successful result.
+
 ## Typed frame imports
 
 C11 callers can write:
@@ -77,14 +84,30 @@ SaccadeFrameHandle handle = 0;
 SaccadeResult result = saccade_frame_import(runtime, &frame, &handle);
 ```
 
-The `_Generic` expression resolves the explicit host, IOSurface, or D3D11 C symbol at
-compile time. C++20 receives overloads generated from the same type map. Unsupported
-descriptor types fail during compilation rather than falling through a runtime default.
+The `_Generic` expression resolves the explicit host, IOSurface, or Win32 capture C
+symbol at compile time. C++20 receives overloads generated from the same type map.
+Unsupported descriptor types fail during compilation rather than falling through a
+runtime default.
 
 Host import validates the byte span, creates a generation-safe lease in fixed storage,
 and publishes the handle to a latest-only mailbox. A newer host import replaces the
 mailbox's ownership of the older pending frame without invalidating the older caller
 handle. The caller releases each successful import with `saccade_frame_release`.
+
+## Overlay packet
+
+The overlay packet is an in-process, native-endian byte block with explicit offsets and
+fixed record strides. It contains no pointers or platform handles. Version 1 uses a
+64-byte header, 32-byte targets, 64-byte styles, 8-byte rectangles, and 4-byte metadata.
+The 88-byte `SaccadeOverlayFrameDesc` references the packet and carries the display-rate
+active target index separately. Its active flag is opt-in, so a zero-initialized descriptor
+does not select target zero.
+
+Packet parsing copies records from bytes before typed access. The validator checks every
+offset, count, stride, reserved field, style reference, rectangle, and glyph count before
+publishing a view. Version 1 also requires the canonical exact packet size and rejects
+gaps or trailing bytes. The [overlay architecture](overlay.md) defines expansion and GPU
+use.
 
 ## Manifests
 

@@ -107,11 +107,11 @@ elseif(MODE STREQUAL "preprocess")
         message(FATAL_ERROR "C11 IOSurface descriptor association is missing")
     endif()
     if(NOT c_output MATCHES
-       "SaccadeD3D11FrameDesc[ \t]*\\*[ \t]*:[ \t]*saccade_frame_import_d3d11")
-        message(FATAL_ERROR "C11 D3D11 descriptor association is missing")
+       "SaccadeWin32CaptureFrameDesc[ \t]*\\*[ \t]*:[ \t]*saccade_frame_import_win32_capture")
+        message(FATAL_ERROR "C11 Win32 capture descriptor association is missing")
     endif()
 
-    foreach(function IN ITEMS host iosurface d3d11)
+    foreach(function IN ITEMS host iosurface win32_capture)
         if(NOT cxx_output MATCHES
            "return saccade_frame_import_${function}\\(runtime, desc, out_frame\\);")
             message(FATAL_ERROR "C++20 ${function} overload is missing")

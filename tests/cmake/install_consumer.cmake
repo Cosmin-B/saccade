@@ -1,5 +1,6 @@
 foreach(required IN ITEMS
-        SOURCE_DIR CONSUMER_SOURCE_DIR BINARY_ROOT GENERATOR C_COMPILER CXX_COMPILER MODE)
+        SOURCE_DIR CONSUMER_SOURCE_DIR BINARY_ROOT GENERATOR C_COMPILER CXX_COMPILER
+        METAL_BACKEND MODE)
     if(NOT DEFINED ${required} OR "${${required}}" STREQUAL "")
         message(FATAL_ERROR "${required} is required")
     endif()
@@ -49,6 +50,7 @@ execute_process(
         -DSACCADE_BUILD_TOOLS=OFF
         -DSACCADE_BACKEND_MOCK=OFF
         -DSACCADE_BACKEND_REFERENCE_CPU=OFF
+        "-DSACCADE_BACKEND_METAL=${METAL_BACKEND}"
     RESULT_VARIABLE configure_result
     OUTPUT_VARIABLE configure_output
     ERROR_VARIABLE configure_error)

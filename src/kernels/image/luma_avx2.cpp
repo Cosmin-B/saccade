@@ -19,13 +19,12 @@ void convert_avx2_format(const InterleavedU8View& source, const PlaneU8View& des
 
     for (uint32_t y = 0; y < source.height; ++y) {
         const uint8_t* source_row = source.data + static_cast<size_t>(y) * source.row_stride_bytes;
-        uint8_t* destination_row =
-            destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
+        uint8_t* destination_row = destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
 
         uint32_t x = 0;
         for (; source.width - x >= 8U; x += 8U) {
-            const __m256i bytes = _mm256_loadu_si256(
-                reinterpret_cast<const __m256i*>(source_row + static_cast<size_t>(x) * 4U));
+            const __m256i bytes =
+                _mm256_loadu_si256(reinterpret_cast<const __m256i*>(source_row + static_cast<size_t>(x) * 4U));
             const __m256i low = _mm256_cvtepu8_epi16(_mm256_castsi256_si128(bytes));
             const __m256i high = _mm256_cvtepu8_epi16(_mm256_extracti128_si256(bytes, 1));
             const __m256i low_pairs = _mm256_madd_epi16(low, coefficients);

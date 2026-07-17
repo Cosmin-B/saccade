@@ -6,5 +6,5 @@ target_include_directories(saccade_backend_mock
     PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(saccade_backend_mock
     PUBLIC Threads::Threads
-    PRIVATE saccade_build_settings)
+    PRIVATE saccade_core saccade_build_settings)
 add_library(Saccade::mock ALIAS saccade_backend_mock)

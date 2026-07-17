@@ -20,8 +20,7 @@ struct ValidatedLayout {
     size_t destination_required_bytes = 0;
 };
 
-bool required_bytes(uint32_t height, uint32_t row_stride_bytes, size_t row_bytes,
-                    size_t* out_required) noexcept {
+bool required_bytes(uint32_t height, uint32_t row_stride_bytes, size_t row_bytes, size_t* out_required) noexcept {
     if (height == 0 || out_required == nullptr || row_stride_bytes < row_bytes) {
         return false;
     }
@@ -48,8 +47,8 @@ bool overlap(const void* left, size_t left_size, const void* right, size_t right
 
 bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destination,
                      ValidatedLayout* out_layout) noexcept {
-    if (source.data == nullptr || destination.data == nullptr || out_layout == nullptr ||
-        source.width == 0 || source.height == 0) {
+    if (source.data == nullptr || destination.data == nullptr || out_layout == nullptr || source.width == 0 ||
+        source.height == 0) {
         return false;
     }
 
@@ -76,16 +75,14 @@ bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destina
                         &layout.source_required_bytes) ||
         !required_bytes(source.height, destination.row_stride_bytes, source.width,
                         &layout.destination_required_bytes) ||
-        source.size < layout.source_required_bytes ||
-        destination.size < layout.destination_required_bytes) {
+        source.size < layout.source_required_bytes || destination.size < layout.destination_required_bytes) {
         return false;
     }
 
-    const bool exact_r8_alias = source.pixel_format == SACCADE_FORMAT_R8 &&
-                                source.data == destination.data &&
+    const bool exact_r8_alias = source.pixel_format == SACCADE_FORMAT_R8 && source.data == destination.data &&
                                 source.row_stride_bytes == destination.row_stride_bytes;
-    if (!exact_r8_alias && overlap(source.data, layout.source_required_bytes, destination.data,
-                                   layout.destination_required_bytes)) {
+    if (!exact_r8_alias &&
+        overlap(source.data, layout.source_required_bytes, destination.data, layout.destination_required_bytes)) {
         return false;
     }
 
@@ -94,14 +91,12 @@ bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destina
 }
 
 void copy_r8(const InterleavedU8View& source, const PlaneU8View& destination) noexcept {
-    if (source.data == destination.data &&
-        source.row_stride_bytes == destination.row_stride_bytes) {
+    if (source.data == destination.data && source.row_stride_bytes == destination.row_stride_bytes) {
         return;
     }
     for (uint32_t y = 0; y < source.height; ++y) {
         const uint8_t* source_row = source.data + static_cast<size_t>(y) * source.row_stride_bytes;
-        uint8_t* destination_row =
-            destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
+        uint8_t* destination_row = destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
         std::memcpy(destination_row, source_row, source.width);
     }
 }
@@ -144,8 +139,7 @@ void convert_scalar(const InterleavedU8View& source, const PlaneU8View& destinat
     const bool rgba = source.pixel_format == SACCADE_FORMAT_RGBA8;
     for (uint32_t y = 0; y < source.height; ++y) {
         const uint8_t* source_row = source.data + static_cast<size_t>(y) * source.row_stride_bytes;
-        uint8_t* destination_row =
-            destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
+        uint8_t* destination_row = destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
         for (uint32_t x = 0; x < source.width; ++x) {
             const uint8_t* pixel = source_row + static_cast<size_t>(x) * 4U;
             const uint8_t red = rgba ? pixel[0] : pixel[2];
@@ -193,16 +187,14 @@ LumaPath selected_luma_path() noexcept {
 #if defined(SACCADE_BUILD_LUMA_NEON)
     return LumaPath::neon;
 #elif defined(SACCADE_BUILD_LUMA_AVX2)
-    thread_local const LumaPath selected =
-        detail::avx2_cpu_available() ? LumaPath::avx2 : LumaPath::scalar;
+    thread_local const LumaPath selected = detail::avx2_cpu_available() ? LumaPath::avx2 : LumaPath::scalar;
     return selected;
 #else
     return LumaPath::scalar;
 #endif
 }
 
-SaccadeResult convert_to_luma(const InterleavedU8View& source, const PlaneU8View& destination,
-                              LumaPath path) noexcept {
+SaccadeResult convert_to_luma(const InterleavedU8View& source, const PlaneU8View& destination, LumaPath path) noexcept {
     ValidatedLayout layout{};
     if (!validate_layout(source, destination, &layout)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;

@@ -9,9 +9,8 @@
 
 namespace saccade::core {
 
-template <size_t Capacity>
-class StackStringBuilder final {
-public:
+template <size_t Capacity> class StackStringBuilder final {
+  public:
     constexpr StackStringBuilder() noexcept = default;
 
     bool append(std::string_view text) noexcept {
@@ -55,9 +54,7 @@ public:
 
     bool append_signed(int64_t value) noexcept {
         const bool negative = value < 0;
-        const uint64_t magnitude = negative
-            ? static_cast<uint64_t>(-(value + 1)) + 1U
-            : static_cast<uint64_t>(value);
+        const uint64_t magnitude = negative ? static_cast<uint64_t>(-(value + 1)) + 1U : static_cast<uint64_t>(value);
         const bool sign_complete = !negative || append('-');
         const bool digits_complete = append_unsigned(magnitude);
         return sign_complete && digits_complete;
@@ -69,36 +66,24 @@ public:
         storage_[0] = '\0';
     }
 
-    [[nodiscard]] std::string_view view() const noexcept {
-        return {storage_.data(), size_};
-    }
+    [[nodiscard]] std::string_view view() const noexcept { return {storage_.data(), size_}; }
 
-    [[nodiscard]] const char* c_str() const noexcept {
-        return storage_.data();
-    }
+    [[nodiscard]] const char* c_str() const noexcept { return storage_.data(); }
 
-    [[nodiscard]] size_t size() const noexcept {
-        return size_;
-    }
+    [[nodiscard]] size_t size() const noexcept { return size_; }
 
-    [[nodiscard]] static constexpr size_t capacity() noexcept {
-        return Capacity;
-    }
+    [[nodiscard]] static constexpr size_t capacity() noexcept { return Capacity; }
 
-    [[nodiscard]] bool empty() const noexcept {
-        return size_ == 0;
-    }
+    [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
 
-    [[nodiscard]] bool truncated() const noexcept {
-        return truncated_;
-    }
+    [[nodiscard]] bool truncated() const noexcept { return truncated_; }
 
-private:
+  private:
     std::array<char, Capacity + 1> storage_{};
     size_t size_ = 0;
     bool truncated_ = false;
 };
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

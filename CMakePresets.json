@@ -2,7 +2,7 @@
   "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 25,
+    "minor": 30,
     "patch": 0
   },
   "configurePresets": [
@@ -83,39 +83,41 @@
   ],
   "testPresets": [
     {
-      "name": "dev",
-      "configurePreset": "dev",
+      "name": "base",
+      "hidden": true,
+      "filter": {
+        "exclude": {
+          "label": "live"
+        }
+      },
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "dev",
+      "inherits": "base",
+      "configurePreset": "dev"
     },
     {
       "name": "release",
-      "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "base",
+      "configurePreset": "release"
     },
     {
       "name": "asan-ubsan",
-      "configurePreset": "asan-ubsan",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "base",
+      "configurePreset": "asan-ubsan"
     },
     {
       "name": "tsan",
-      "configurePreset": "tsan",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "base",
+      "configurePreset": "tsan"
     },
     {
       "name": "profile",
-      "configurePreset": "profile",
-      "output": {
-        "outputOnFailure": true
-      }
+      "inherits": "base",
+      "configurePreset": "profile"
     }
   ]
 }

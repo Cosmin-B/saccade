@@ -7,8 +7,7 @@ namespace saccade::backend::detail {
 
 template <auto Callback> struct CallbackGuard;
 
-template <typename... Arguments, SaccadeResult(SACCADE_CALL* Callback)(Arguments...)>
-struct CallbackGuard<Callback> {
+template <typename... Arguments, SaccadeResult(SACCADE_CALL* Callback)(Arguments...)> struct CallbackGuard<Callback> {
     static SaccadeResult SACCADE_CALL invoke(Arguments... arguments) noexcept {
         try {
             return Callback(arguments...);

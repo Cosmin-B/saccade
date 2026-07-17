@@ -1,9 +1,47 @@
 set(SACCADE_CORE_SOURCES
+    agent/service.cpp
+    application/binding_editor.cpp
+    application/desktop_host.cpp
+    application/desktop_runtime.cpp
+    application/debugger.cpp
+    application/debugger_layout.cpp
+    application/interaction_controller.cpp
+    application/inference_runtime.cpp
+    application/overlay_composer.cpp
+    application/scene_coordinator.cpp
+    application/session.cpp
+    application/settings.cpp
+    application/settings_controller.cpp
+    application/session_key_router.cpp
+    application/window_navigator.cpp
     backend/registry.cpp
     core/error.cpp
     core/runtime.cpp
     core/version.cpp
-    kernels/image/luma.cpp)
+    geometry/coordinate_transform.cpp
+    geometry/display_catalog.cpp
+    geometry/scope_atlas.cpp
+    input/execution_preflight.cpp
+    input/plan.cpp
+    input/physical_reducer.cpp
+    interaction/action_planner.cpp
+    interaction/hints.cpp
+    interaction/selection_reducer.cpp
+    kernels/image/luma.cpp
+    kernels/targets/postprocess.cpp
+    model/artifact.cpp
+    model/coreml_contract.cpp
+    model/directml_contract.cpp
+    model/mapped_artifact.cpp
+    overlay/packet.cpp
+    scene/packet.cpp
+    scene/fusion.cpp
+    scene/grid.cpp
+    scene/store.cpp
+    scene/windows.cpp
+    scheduler/dual_rate_scheduler.cpp
+    scheduler/desktop_neural_coordinator.cpp
+    scheduler/neural_coordinator.cpp)
 
 include(SaccadeTargetArchitecture)
 saccade_resolve_target_architecture(
@@ -48,6 +86,11 @@ function(saccade_configure_core target)
     target_link_libraries(${target} PRIVATE
         $<BUILD_INTERFACE:saccade_build_settings>
         Threads::Threads)
+    if(APPLE)
+        target_link_libraries(${target} PRIVATE
+            "-framework CoreFoundation"
+            "-framework IOSurface")
+    endif()
     if(SACCADE_CORE_PRIVATE_DEFINITIONS)
         target_compile_definitions(${target} PRIVATE
             ${SACCADE_CORE_PRIVATE_DEFINITIONS})

@@ -4,11 +4,11 @@ Saccade separates desktop interaction from scene understanding. Keyboard input,
 pointer feedback, and overlay presentation have a tighter deadline than capture or
 neural inference. A late scene update can be replaced. An input event cannot.
 
-The repository currently implements the portable ABI, provider contracts, bounded
-registries, host frame leases, a newest-frame mailbox, deterministic providers, and a
-scalar CPU detector. It also contains the first owned image kernel: exact luma
-conversion with scalar, arm64 NEON, and x64 AVX2 implementations. The capture-to-action
-pipeline below is the contract those pieces are being built to support.
+One desktop owner advances the 120/30 Hz scheduler, publishes immutable scenes, freezes
+hint sessions, validates actions, and composes per-display overlays. Capture, inference,
+accessibility, presentation, and input remain separate providers with bounded ownership.
+The local agent service reads the same scene and submits actions through the same checks
+as interactive input.
 
 ## Data flow
 
@@ -22,19 +22,27 @@ accessibility ---- semantic snapshot -------------------------+
                                                               v
 input <--------- validated action plan <------- immutable target scene
                          |
-overlay <----------------+
+                         +------> overlay packet ------> compute expansion ------> overlay
 ```
 
-Capture providers produce leased frames and damage regions. The current image kernel
-converts R8, BGRA8, BGRX8, and RGBA8 input to exact R8 luma. Resize, comparison, model
-preprocessing, and postprocessing are still future kernel work. Inference and
-accessibility results carry the epochs needed to decide whether they are still current.
-Fusion produces an immutable target scene. Input receives a bounded action plan, not a
-raw model prediction.
+Capture providers produce leased frames and damage regions. The current CPU image kernel
+converts R8, BGRA8, BGRX8, and RGBA8 input to exact R8 luma. The Metal and D3D12 GPU paths
+fuse source cropping, aspect fit, letterboxing, bilinear sampling, channel normalization,
+and planar FP16 or INT8 output. Metal also emits the IOSurface-backed BGRA image required
+by Core ML. Inference and accessibility results carry the epochs needed to decide
+whether they are still current.
+The interaction-thread scene coordinator polls one semantic ticket without waiting,
+selects the newest source epoch, fuses exactly matching neural and semantic packets, and
+publishes directly into the final immutable scene store. Input receives a bounded action
+plan, not a raw model prediction.
 
-Target fusion, action planning, scene workers, and native adapters are still future
-implementation work. Their contracts remain separate from the provider ABI so they do
-not force platform types into the portable core.
+Native capture-to-model workers, process event loops, and the portable desktop owner keep
+their contracts separate from the provider ABI so platform types do not enter the
+portable core. The process hosts admit a configured model manifest, initialize the native
+provider, and own capture, inference, fusion, interaction, and presentation through one
+ordered lifecycle. Production admission additionally requires the payload checks defined
+in the [inference policy](inference.md). Builds without required model inputs remain inert
+and report a bounded fault.
 
 ## Two clocks
 
@@ -42,9 +50,12 @@ The interaction clock covers keyboard handling, pointer motion, action state, an
 overlay presentation. Its design target is 120 Hz.
 
 The scene clock covers capture, accessibility refresh, image preparation, inference,
-and target fusion. Version 0.1 targets a 30 Hz full-scope neural refresh on qualified
-hardware. Version 0.2 raises the accelerated target to 60 Hz. The clocks exchange
-bounded snapshots. Neither waits for the other.
+and target fusion. Version 0.1 targets a 30 Hz full-scope neural refresh on supported
+hardware. The clocks exchange bounded snapshots. Neither waits for the other.
+
+Isolated model timing, deterministic replay, offscreen rendering, and source scaling
+measure components. End-to-end timing runs from capture to scene publication and from
+input to physical presentation.
 
 A full-scope pass means every visible point can affect the result. It does not mean
 that every model layer operates on a native-resolution RGB tensor. Tiling, compact
@@ -68,7 +79,14 @@ uses domain-tagged handles rather than exposing storage addresses.
 
 The deterministic providers implement all five families for contract tests. The
 scalar CPU provider implements the inference family and exact image fixtures. Neither
-is evidence that a native platform backend is complete.
+substitutes for a native platform backend.
+
+The [overlay path](overlay.md) defines target and instance records, scene-rate compute
+expansion, display scheduling, and fixed memory. The [inference policy](inference.md)
+defines compiled-model ownership, native buffer rules, mixed precision, and backend
+requirements. [Coordinates and display topology](coordinates.md) defines direct
+capture, desktop, surface, and window mapping. The [local agent protocol](agent-protocol.md)
+defines observation, query, action batching, capability negotiation, and platform channels.
 
 ## ABI boundary
 
@@ -80,31 +98,47 @@ One frame descriptor map emits C11 `_Generic` dispatch and C++20 overloads. Both
 call explicit C symbols, so the convenience layer adds no runtime type switch.
 
 Platform SDK and inference-framework headers do not enter the installed include graph.
-Host frames enter a fixed-capacity lease pool and newest-frame mailbox. Native surface
-imports remain unsupported until their platform retain and release paths are connected.
+Host frames enter a fixed-capacity lease pool and newest-frame mailbox. macOS capture
+frames retain their CVPixelBuffer and IOSurface through a generation-safe lease and expose
+a direct Metal texture view; platform types remain outside the installed headers.
 
 ## Memory and concurrency
 
 Registries, handle tables, ticket tables, diagnostic text, test-provider state, and
 scalar detector scratch storage have fixed capacities. Contract tests replace global
-`operator new`, reject allocator references in the core archive, and verify that the
-implemented provider and image-kernel paths do not allocate after construction.
+`operator new`, reject allocator references in the core archive, and verify selected
+Saccade-owned C++ paths. They do not observe Objective-C, Core ML, ONNX Runtime, COM,
+driver, or compositor allocations.
 
 Memory reports separate host commitment, host reservation, imported device memory,
 provider-owned device memory, framework residency, copied bytes, and high-water use.
 The [memory guide](memory.md) covers resolution and queue-depth scaling.
 
-Public runtime calls are serialized today. Provider test doubles also protect their
-state with a mutex. The newest-frame exchange is lock-free and allocation-free; the
-120 Hz scheduler and worker topology are not present yet. Their required behavior is
-described in [concurrency](concurrency.md).
+Runtime and provider hot paths are scheduler-owned. Only cold global lifecycle mutation
+uses the bounded CAS gate; repository checks reject mutexes and reject CAS anywhere else.
+The newest-frame exchange is allocation-free and uses one atomic exchange per ownership
+transfer. The 120 Hz scheduler and worker topology are described in
+[concurrency](concurrency.md).
 
 ## Platform boundary
 
-The macOS adapter will use public ScreenCaptureKit, Accessibility, CGEvent, Metal, and
-window APIs. The Windows adapter will use public Windows Graphics Capture, UI
-Automation, SendInput, Direct3D, and DirectComposition APIs. Platform code will be
-translated into the same provider and coordinate contracts.
+The macOS display collector uses public AppKit and Core Graphics APIs. The Metal backend
+implements bounded compute expansion, rasterization, and presentation through public
+Metal, QuartzCore, and nonactivating AppKit panels. ScreenCaptureKit supplies bounded
+native display and window frames. Accessibility and CGEvent provide semantic targets
+and validated input. The Windows adapter publishes per-monitor-v2 physical geometry,
+translates validated plans into fixed `SendInput` batches, and uses Windows Graphics Capture for
+display and visible top-level window sources. Production WGC frames are copied once on
+the GPU into a bounded shared D3D12 resource, accompanied by a shared-fence dependency,
+and retired after inference. The capture owner does not access the inference queue. The
+D3D12 worker consumes the dependency and implements preprocessing, DirectML inference,
+and GPU target postprocessing. The application owner currently performs compute expansion,
+indirect rendering, and serial per-display presentation through nonactivating
+DirectComposition surfaces. A fixed 16-display set reconciles them against topology
+epochs. UI Automation remains
+on a dedicated MTA worker and publishes bounded desktop-Q8 target packets without
+blocking the display-rate owner. Platform code is translated into the same provider
+and coordinate contracts.
 
 Version 0.1 includes activation and cycling on the current desktop. It does not promise
 to move another application's windows between macOS Spaces or Windows virtual desktops.

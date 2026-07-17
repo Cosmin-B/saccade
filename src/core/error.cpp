@@ -53,7 +53,7 @@ void commit_size(size_t size) noexcept {
     error_state.text[error_state.size] = '\0';
 }
 
-}  // namespace
+} // namespace
 
 ErrorScope::ErrorScope() noexcept {
     restore_ = error_state.depth != 0;
@@ -97,13 +97,10 @@ void clear_last_error() noexcept {
 }
 
 SaccadeSpanU8 last_error() noexcept {
-    return {
-        reinterpret_cast<const uint8_t*>(error_state.text.data()),
-        error_state.size
-    };
+    return {reinterpret_cast<const uint8_t*>(error_state.text.data()), error_state.size};
 }
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 extern "C" SaccadeSpanU8 SACCADE_CALL saccade_last_error(void) {
     return saccade::core::last_error();

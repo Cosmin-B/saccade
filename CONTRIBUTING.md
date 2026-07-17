@@ -38,6 +38,38 @@ ASan/UBSan and TSan.
 Avoid a new abstraction unless it removes repeated policy or makes a lifetime boundary
 testable. Avoid an optimization unless a parity test and a measurement can describe it.
 
+## Formatting
+
+Format production C, C++, and Objective-C++ with the repository `.clang-format` file.
+The 120-column limit is intentional: use the available horizontal space instead of
+creating narrow staircases of continuation lines. Treat a function body as short semantic
+paragraphs. Separate setup, validation, fast paths, state derivation, branching,
+publication, and statistics with one empty line. Separate consecutive control blocks
+unless they are one tightly coupled decision. Do not add empty lines between statements
+that form one operation.
+
+The formatter preserves those deliberate empty lines, keeps definition return types and
+short parameter lists attached, and removes trailing whitespace. Run it on files you
+change before building:
+
+```sh
+clang-format -i path/to/file.cpp
+```
+
+At major implementation milestones, format the complete native source manifest rather
+than only the files changed by the latest patch:
+
+```sh
+rg --files apps backends benchmarks include platform src tests tools \
+  | rg '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|m|mm)$' \
+  | sort -u \
+  | xargs clang-format -i
+git diff --check
+```
+
+Follow the exhaustive pass with the normal build and test presets on every supported
+host affected by the milestone.
+
 ## Tests
 
 Tests scale with the boundary being changed:

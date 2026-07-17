@@ -7,7 +7,8 @@ Use direct sentences, concrete nouns, and measured claims.
 
 Write what a component owns, accepts, returns, and refuses. Do not narrate how a draft
 was produced or preserve abandoned approaches in product documentation. A design target
-must be labeled as a target. A supported feature must point to passing evidence.
+must be labeled as a target. A supported feature must have reproducible verification
+criteria.
 
 Prefer:
 

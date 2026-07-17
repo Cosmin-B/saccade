@@ -15,8 +15,7 @@ int main() {
     SYSTEM_INFO system_info{};
     GetSystemInfo(&system_info);
     const size_t page_size = static_cast<size_t>(system_info.dwPageSize);
-    auto* pages = static_cast<uint8_t*>(VirtualAlloc(
-        nullptr, page_size * 2, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    auto* pages = static_cast<uint8_t*>(VirtualAlloc(nullptr, page_size * 2, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     if (pages == nullptr) {
         return 1;
     }
@@ -31,13 +30,8 @@ int main() {
         return 1;
     }
     const size_t page_size = static_cast<size_t>(queried_page_size);
-    auto* pages = static_cast<uint8_t*>(mmap(
-        nullptr,
-        page_size * 2,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANON,
-        -1,
-        0));
+    auto* pages =
+        static_cast<uint8_t*>(mmap(nullptr, page_size * 2, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0));
     if (pages == MAP_FAILED) {
         return 2;
     }

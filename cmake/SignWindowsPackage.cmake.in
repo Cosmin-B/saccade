@@ -1,0 +1,22 @@
+foreach(package IN LISTS CPACK_PACKAGE_FILES)
+    execute_process(
+        COMMAND "@SACCADE_WINDOWS_SIGNTOOL@" sign
+            /sha1 "@SACCADE_WINDOWS_SIGNING_CERTIFICATE_SHA1@"
+            /fd SHA256
+            /tr "@SACCADE_WINDOWS_TIMESTAMP_URL@"
+            /td SHA256
+            "${package}"
+        RESULT_VARIABLE result)
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "Authenticode signing failed for ${package}: ${result}")
+    endif()
+    execute_process(
+        COMMAND "@SACCADE_WINDOWS_SIGNTOOL@" verify
+            /pa
+            /all
+            "${package}"
+        RESULT_VARIABLE verified)
+    if(NOT verified EQUAL 0)
+        message(FATAL_ERROR "Authenticode verification failed for ${package}: ${verified}")
+    endif()
+endforeach()

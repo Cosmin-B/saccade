@@ -1,0 +1,13 @@
+<CPackWiXPatch>
+  <CPackWiXFragment Id="#PRODUCT">
+    <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
+      <RegistrySearch Id="SaccadeWindowsBuildNumberSearch"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+        Name="CurrentBuildNumber"
+        Type="raw" />
+    </Property>
+    <Launch Condition="Installed OR (WINDOWSBUILDNUMBER &gt;= 26100)"
+      Message="Saccade requires Windows 11 version 24H2 (build 26100) or newer." />
+  </CPackWiXFragment>
+</CPackWiXPatch>

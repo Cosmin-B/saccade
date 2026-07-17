@@ -9,11 +9,7 @@
 
 namespace saccade::backend {
 
-enum class SelectionReason : uint32_t {
-    registration_order = 1,
-    preferred_capability = 2,
-    explicit_id = 3
-};
+enum class SelectionReason : uint32_t { registration_order = 1, preferred_capability = 2, explicit_id = 3 };
 
 struct ProviderSelection {
     SaccadeProviderHandle handle = 0;
@@ -51,8 +47,7 @@ struct DeviceRecord {
     std::array<uint8_t, 64> name{};
 };
 
-template <typename Operations>
-struct ProviderRecord {
+template <typename Operations> struct ProviderRecord {
     SaccadeProviderHandle handle = 0;
     uint64_t registration_order = 0;
     void* context = nullptr;
@@ -62,7 +57,7 @@ struct ProviderRecord {
 };
 
 class ProviderRegistry final {
-public:
+  public:
     static constexpr size_t capacity_per_family = 8;
     static constexpr size_t device_capacity = 32;
 
@@ -78,41 +73,26 @@ public:
     ProviderRegistry(ProviderRegistry&&) = delete;
     ProviderRegistry& operator=(ProviderRegistry&&) = delete;
 
-    SaccadeResult register_inference(
-        const SaccadeInferenceProviderDesc*, SaccadeProviderHandle*) noexcept;
-    SaccadeResult register_capture(
-        const SaccadeCaptureProviderDesc*, SaccadeProviderHandle*) noexcept;
-    SaccadeResult register_overlay(
-        const SaccadeOverlayProviderDesc*, SaccadeProviderHandle*) noexcept;
-    SaccadeResult register_accessibility(
-        const SaccadeAccessibilityProviderDesc*, SaccadeProviderHandle*) noexcept;
-    SaccadeResult register_input(
-        const SaccadeInputProviderDesc*, SaccadeProviderHandle*) noexcept;
-    SaccadeResult register_device(
-        SaccadeProviderHandle,
-        const SaccadeDeviceInfo*,
-        SaccadeDeviceHandle*) noexcept;
+    SaccadeResult register_inference(const SaccadeInferenceProviderDesc*, SaccadeProviderHandle*) noexcept;
+    SaccadeResult register_capture(const SaccadeCaptureProviderDesc*, SaccadeProviderHandle*) noexcept;
+    SaccadeResult register_overlay(const SaccadeOverlayProviderDesc*, SaccadeProviderHandle*) noexcept;
+    SaccadeResult register_accessibility(const SaccadeAccessibilityProviderDesc*, SaccadeProviderHandle*) noexcept;
+    SaccadeResult register_input(const SaccadeInputProviderDesc*, SaccadeProviderHandle*) noexcept;
+    SaccadeResult register_device(SaccadeProviderHandle, const SaccadeDeviceInfo*, SaccadeDeviceHandle*) noexcept;
 
-    SaccadeResult select_inference(
-        uint32_t, uint32_t, ProviderSelection*) const noexcept;
-    SaccadeResult select_capture(
-        uint32_t, uint32_t, ProviderSelection*) const noexcept;
-    SaccadeResult select_overlay(
-        uint32_t, uint32_t, ProviderSelection*) const noexcept;
-    SaccadeResult select_accessibility(
-        uint32_t, uint32_t, ProviderSelection*) const noexcept;
-    SaccadeResult select_input(
-        uint32_t, uint32_t, ProviderSelection*) const noexcept;
+    SaccadeResult select_inference(uint32_t, uint32_t, ProviderSelection*) const noexcept;
+    SaccadeResult select_capture(uint32_t, uint32_t, ProviderSelection*) const noexcept;
+    SaccadeResult select_overlay(uint32_t, uint32_t, ProviderSelection*) const noexcept;
+    SaccadeResult select_accessibility(uint32_t, uint32_t, ProviderSelection*) const noexcept;
+    SaccadeResult select_input(uint32_t, uint32_t, ProviderSelection*) const noexcept;
 
     SaccadeResult select_inference_by_id(uint64_t, ProviderSelection*) const noexcept;
     SaccadeResult select_capture_by_id(uint64_t, ProviderSelection*) const noexcept;
     SaccadeResult select_overlay_by_id(uint64_t, ProviderSelection*) const noexcept;
     SaccadeResult select_accessibility_by_id(uint64_t, ProviderSelection*) const noexcept;
     SaccadeResult select_input_by_id(uint64_t, ProviderSelection*) const noexcept;
-    SaccadeResult select_device(
-        const DeviceRequirements&, DeviceSelection*) const noexcept;
-    SaccadeResult select_device_by_id(
-        SaccadeProviderHandle, uint64_t, DeviceSelection*) const noexcept;
+    SaccadeResult select_device(const DeviceRequirements&, DeviceSelection*) const noexcept;
+    SaccadeResult select_device_by_id(SaccadeProviderHandle, uint64_t, DeviceSelection*) const noexcept;
 
     const InferenceRecord* inference(SaccadeProviderHandle) const noexcept;
     const CaptureRecord* capture(SaccadeProviderHandle) const noexcept;
@@ -124,15 +104,13 @@ public:
     void freeze() noexcept;
     [[nodiscard]] bool frozen() const noexcept;
 
-private:
-    template <typename Operations>
-    struct Slot {
+  private:
+    template <typename Operations> struct Slot {
         ProviderRecord<Operations> record{};
         bool occupied = false;
     };
 
-    template <typename Operations>
-    struct FamilyStore {
+    template <typename Operations> struct FamilyStore {
         std::array<Slot<Operations>, capacity_per_family> slots{};
         size_t size = 0;
     };
@@ -143,34 +121,19 @@ private:
     };
 
     template <typename Operations>
-    SaccadeResult insert(
-        FamilyStore<Operations>&,
-        uint32_t,
-        const SaccadeProviderInfo&,
-        void*,
-        const Operations&,
-        SaccadeProviderHandle*) noexcept;
+    SaccadeResult insert(FamilyStore<Operations>&, uint32_t, const SaccadeProviderInfo&, void*, const Operations&,
+                         SaccadeProviderHandle*) noexcept;
 
     template <typename Operations>
-    SaccadeResult select(
-        const FamilyStore<Operations>&,
-        uint32_t,
-        uint32_t,
-        uint32_t,
-        ProviderSelection*) const noexcept;
+    SaccadeResult select(const FamilyStore<Operations>&, uint32_t, uint32_t, uint32_t,
+                         ProviderSelection*) const noexcept;
 
     template <typename Operations>
-    SaccadeResult select_by_id(
-        const FamilyStore<Operations>&,
-        uint32_t,
-        uint64_t,
-        ProviderSelection*) const noexcept;
+    SaccadeResult select_by_id(const FamilyStore<Operations>&, uint32_t, uint64_t, ProviderSelection*) const noexcept;
 
     template <typename Operations>
-    const ProviderRecord<Operations>* lookup(
-        const FamilyStore<Operations>&,
-        uint32_t,
-        SaccadeProviderHandle) const noexcept;
+    const ProviderRecord<Operations>* lookup(const FamilyStore<Operations>&, uint32_t,
+                                             SaccadeProviderHandle) const noexcept;
 
     FamilyStore<SaccadeInferenceOps> inference_{};
     FamilyStore<SaccadeCaptureOps> capture_{};
@@ -185,6 +148,6 @@ private:
     bool frozen_ = false;
 };
 
-}  // namespace saccade::backend
+} // namespace saccade::backend
 
 #endif

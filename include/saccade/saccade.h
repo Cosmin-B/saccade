@@ -36,7 +36,8 @@ enum {
     SACCADE_ERROR_TIMEOUT = -9,
     SACCADE_ERROR_CANCELLED = -10,
     SACCADE_ERROR_BUSY = -11,
-    SACCADE_ERROR_ALREADY_EXISTS = -12
+    SACCADE_ERROR_ALREADY_EXISTS = -12,
+    SACCADE_ERROR_PERMISSION = -13
 };
 
 typedef uint64_t SaccadeRuntimeHandle;
@@ -81,23 +82,25 @@ typedef struct SaccadeIOSurfaceFrameDesc {
     uint64_t reserved[3];
 } SaccadeIOSurfaceFrameDesc;
 
-typedef struct SaccadeD3D11FrameDesc {
+typedef struct SaccadeWin32CaptureFrameDesc {
     uint32_t struct_size;
     uint32_t api_version;
-    uint64_t shared_handle;
+    void* texture;
     uint32_t subresource;
     uint32_t pixel_format;
     uint32_t width;
     uint32_t height;
     uint64_t frame_id;
     uint64_t transform_epoch;
-    uint64_t reserved[3];
-} SaccadeD3D11FrameDesc;
+    void* ready_fence;
+    uint64_t ready_value;
+    uint64_t reserved[1];
+} SaccadeWin32CaptureFrameDesc;
 
-#define SACCADE_DETAIL_FRAME_IMPORT_TYPES(FIRST, NEXT)                         \
-    FIRST(SaccadeHostFrameDesc,      saccade_frame_import_host)                \
-    NEXT (SaccadeIOSurfaceFrameDesc, saccade_frame_import_iosurface)           \
-    NEXT (SaccadeD3D11FrameDesc,     saccade_frame_import_d3d11)
+#define SACCADE_DETAIL_FRAME_IMPORT_TYPES(FIRST, NEXT)                                                                 \
+    FIRST(SaccadeHostFrameDesc, saccade_frame_import_host)                                                             \
+    NEXT(SaccadeIOSurfaceFrameDesc, saccade_frame_import_iosurface)                                                    \
+    NEXT(SaccadeWin32CaptureFrameDesc, saccade_frame_import_win32_capture)
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,59 +108,44 @@ extern "C" {
 
 SACCADE_API SaccadeApiVersion SACCADE_CALL saccade_api_version(void);
 SACCADE_API SaccadeSpanU8 SACCADE_CALL saccade_last_error(void);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(
-    const SaccadeRuntimeDesc* desc,
-    SaccadeRuntimeHandle* out_runtime);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_freeze(
-    SaccadeRuntimeHandle runtime);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(
-    SaccadeRuntimeHandle runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc,
+                                                              SaccadeRuntimeHandle* out_runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_freeze(SaccadeRuntimeHandle runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(SaccadeRuntimeHandle runtime);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(
-    SaccadeRuntimeHandle runtime,
-    const SaccadeHostFrameDesc* desc,
-    SaccadeFrameHandle* out_frame);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime,
+                                                                 const SaccadeHostFrameDesc* desc,
+                                                                 SaccadeFrameHandle* out_frame);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(
-    SaccadeRuntimeHandle runtime,
-    const SaccadeIOSurfaceFrameDesc* desc,
-    SaccadeFrameHandle* out_frame);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime,
+                                                                      const SaccadeIOSurfaceFrameDesc* desc,
+                                                                      SaccadeFrameHandle* out_frame);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_d3d11(
-    SaccadeRuntimeHandle runtime,
-    const SaccadeD3D11FrameDesc* desc,
-    SaccadeFrameHandle* out_frame);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_win32_capture(SaccadeRuntimeHandle runtime,
+                                                                          const SaccadeWin32CaptureFrameDesc* desc,
+                                                                          SaccadeFrameHandle* out_frame);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_release(
-    SaccadeRuntimeHandle runtime,
-    SaccadeFrameHandle frame);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_release(SaccadeRuntimeHandle runtime, SaccadeFrameHandle frame);
 
 #ifdef __cplusplus
 }
 
-#define SACCADE_DETAIL_IMPORT_OVERLOAD(type, function)                         \
-    inline SaccadeResult saccade_frame_import(                                 \
-        SaccadeRuntimeHandle runtime,                                          \
-        const type* desc,                                                      \
-        SaccadeFrameHandle* out_frame) noexcept {                              \
-        return function(runtime, desc, out_frame);                             \
+#define SACCADE_DETAIL_IMPORT_OVERLOAD(type, function)                                                                 \
+    inline SaccadeResult saccade_frame_import(SaccadeRuntimeHandle runtime, const type* desc,                          \
+                                              SaccadeFrameHandle* out_frame) noexcept {                                \
+        return function(runtime, desc, out_frame);                                                                     \
     }
 
-SACCADE_DETAIL_FRAME_IMPORT_TYPES(
-    SACCADE_DETAIL_IMPORT_OVERLOAD, SACCADE_DETAIL_IMPORT_OVERLOAD)
+SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_OVERLOAD, SACCADE_DETAIL_IMPORT_OVERLOAD)
 
 #undef SACCADE_DETAIL_IMPORT_OVERLOAD
 #else
-#define SACCADE_DETAIL_IMPORT_FIRST(type, function)                            \
-    type*: function, const type*: function
-#define SACCADE_DETAIL_IMPORT_NEXT(type, function)                             \
-    , type*: function, const type*: function
+#define SACCADE_DETAIL_IMPORT_FIRST(type, function) type* : function, const type* : function
+#define SACCADE_DETAIL_IMPORT_NEXT(type, function) , type* : function, const type* : function
 
-#define saccade_frame_import(runtime, desc, out_frame)                         \
-    _Generic((desc),                                                           \
-        SACCADE_DETAIL_FRAME_IMPORT_TYPES(                                     \
-            SACCADE_DETAIL_IMPORT_FIRST, SACCADE_DETAIL_IMPORT_NEXT)           \
-    )((runtime), (desc), (out_frame))
+#define saccade_frame_import(runtime, desc, out_frame)                                                                 \
+    _Generic((desc), SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_FIRST, SACCADE_DETAIL_IMPORT_NEXT))(      \
+        (runtime), (desc), (out_frame))
 #endif
 
 #endif

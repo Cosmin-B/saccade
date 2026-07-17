@@ -7,44 +7,55 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <optional>
+#include <memory>
+#include <new>
 #include <type_traits>
 #include <utility>
 
 namespace saccade::core {
 
-template <typename T, size_t Capacity, typename Generation = uint32_t>
-class HandleTable final {
+template <typename T, size_t Capacity, typename Generation = uint32_t> class HandleTable final {
     static_assert(Capacity > 0);
     static_assert(Capacity <= std::numeric_limits<uint32_t>::max());
     static_assert(std::is_integral_v<Generation> && std::is_unsigned_v<Generation>);
     static_assert(sizeof(Generation) <= sizeof(uint32_t));
+    static_assert(std::is_nothrow_destructible_v<T>);
 
-public:
+  public:
     HandleTable() = default;
+
+    ~HandleTable() {
+        for (size_t index = 0; index < Capacity; ++index) {
+            if (metadata_[index].occupied) {
+                std::destroy_at(value(index));
+            }
+        }
+    }
+
     HandleTable(const HandleTable&) = delete;
     HandleTable& operator=(const HandleTable&) = delete;
     HandleTable(HandleTable&&) = delete;
     HandleTable& operator=(HandleTable&&) = delete;
 
     template <typename... Arguments>
-    SaccadeResult emplace(uint64_t* out_handle, Arguments&&... arguments)
-        noexcept(std::is_nothrow_constructible_v<T, Arguments&&...>) {
+    SaccadeResult emplace(uint64_t* out_handle,
+                          Arguments&&... arguments) noexcept(std::is_nothrow_constructible_v<T, Arguments&&...>) {
         if (out_handle == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         *out_handle = 0;
 
         for (size_t index = 0; index < Capacity; ++index) {
-            Slot& slot = slots_[index];
-            if (slot.retired || slot.value.has_value()) {
+            Metadata& metadata = metadata_[index];
+            if (metadata.retired || metadata.occupied) {
                 continue;
             }
 
-            slot.value.emplace(std::forward<Arguments>(arguments)...);
-            slot.sequence = next_sequence();
+            std::construct_at(value(index), std::forward<Arguments>(arguments)...);
+            metadata.sequence = next_sequence();
+            metadata.occupied = true;
             ++size_;
-            *out_handle = encode(index, slot.generation);
+            *out_handle = encode(index, metadata.generation);
             return SACCADE_OK;
         }
         return SACCADE_ERROR_CAPACITY;
@@ -55,12 +66,11 @@ public:
         if (!decoded.valid) {
             return nullptr;
         }
-        Slot& slot = slots_[decoded.index];
-        if (!slot.value.has_value() ||
-            static_cast<uint32_t>(slot.generation) != decoded.generation) {
+        Metadata& metadata = metadata_[decoded.index];
+        if (!metadata.occupied || static_cast<uint32_t>(metadata.generation) != decoded.generation) {
             return nullptr;
         }
-        return &slot.value.value();
+        return value(decoded.index);
     }
 
     const T* get(uint64_t handle) const noexcept {
@@ -68,12 +78,11 @@ public:
         if (!decoded.valid) {
             return nullptr;
         }
-        const Slot& slot = slots_[decoded.index];
-        if (!slot.value.has_value() ||
-            static_cast<uint32_t>(slot.generation) != decoded.generation) {
+        const Metadata& metadata = metadata_[decoded.index];
+        if (!metadata.occupied || static_cast<uint32_t>(metadata.generation) != decoded.generation) {
             return nullptr;
         }
-        return &slot.value.value();
+        return value(decoded.index);
     }
 
     SaccadeResult erase(uint64_t handle) noexcept {
@@ -81,35 +90,33 @@ public:
         if (!decoded.valid) {
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        Slot& slot = slots_[decoded.index];
-        if (!slot.value.has_value() ||
-            static_cast<uint32_t>(slot.generation) != decoded.generation) {
+        Metadata& metadata = metadata_[decoded.index];
+        if (!metadata.occupied || static_cast<uint32_t>(metadata.generation) != decoded.generation) {
             return SACCADE_ERROR_STALE_HANDLE;
         }
 
-        slot.value.reset();
-        slot.sequence = 0;
-        advance_generation(slot);
+        std::destroy_at(value(decoded.index));
+        metadata.occupied = false;
+        metadata.sequence = 0;
+        advance_generation(metadata);
         --size_;
         return SACCADE_OK;
     }
 
-    template <typename Function>
-    void for_each(Function&& function) {
+    template <typename Function> void for_each(Function&& function) {
         for (size_t index = 0; index < Capacity; ++index) {
-            Slot& slot = slots_[index];
-            if (slot.value.has_value()) {
-                function(encode(index, slot.generation), slot.value.value());
+            Metadata& metadata = metadata_[index];
+            if (metadata.occupied) {
+                function(encode(index, metadata.generation), *value(index));
             }
         }
     }
 
-    template <typename Function>
-    void for_each(Function&& function) const {
+    template <typename Function> void for_each(Function&& function) const {
         for (size_t index = 0; index < Capacity; ++index) {
-            const Slot& slot = slots_[index];
-            if (slot.value.has_value()) {
-                function(encode(index, slot.generation), slot.value.value());
+            const Metadata& metadata = metadata_[index];
+            if (metadata.occupied) {
+                function(encode(index, metadata.generation), *value(index));
             }
         }
     }
@@ -120,7 +127,7 @@ public:
         std::array<size_t, Capacity> order{};
         size_t count = 0;
         for (size_t index = 0; index < Capacity; ++index) {
-            if (slots_[index].value.has_value()) {
+            if (metadata_[index].occupied) {
                 order[count++] = index;
             }
         }
@@ -128,8 +135,7 @@ public:
         for (size_t index = 1; index < count; ++index) {
             const size_t candidate = order[index];
             size_t position = index;
-            while (position > 0 &&
-                   slots_[order[position - 1]].sequence < slots_[candidate].sequence) {
+            while (position > 0 && metadata_[order[position - 1]].sequence < metadata_[candidate].sequence) {
                 order[position] = order[position - 1];
                 --position;
             }
@@ -138,28 +144,29 @@ public:
 
         for (size_t position = 0; position < count; ++position) {
             const size_t index = order[position];
-            Slot& slot = slots_[index];
-            before_destroy(encode(index, slot.generation), slot.value.value());
-            slot.value.reset();
-            slot.sequence = 0;
-            advance_generation(slot);
+            Metadata& metadata = metadata_[index];
+            before_destroy(encode(index, metadata.generation), *value(index));
+            std::destroy_at(value(index));
+            metadata.occupied = false;
+            metadata.sequence = 0;
+            advance_generation(metadata);
         }
         size_ = 0;
     }
 
-    [[nodiscard]] size_t size() const noexcept {
-        return size_;
-    }
+    [[nodiscard]] size_t size() const noexcept { return size_; }
 
-    [[nodiscard]] static constexpr size_t capacity() noexcept {
-        return Capacity;
-    }
+    [[nodiscard]] static constexpr size_t capacity() noexcept { return Capacity; }
 
-private:
-    struct Slot {
-        std::optional<T> value;
-        Generation generation = 1;
+  private:
+    struct alignas(T) Storage {
+        std::array<std::byte, sizeof(T)> bytes{};
+    };
+
+    struct Metadata {
         uint64_t sequence = 0;
+        Generation generation = 1;
+        bool occupied = false;
         bool retired = false;
     };
 
@@ -183,12 +190,12 @@ private:
         return {static_cast<size_t>(slot - 1U), generation, true};
     }
 
-    static void advance_generation(Slot& slot) noexcept {
-        if (slot.generation == std::numeric_limits<Generation>::max()) {
-            slot.retired = true;
+    static void advance_generation(Metadata& metadata) noexcept {
+        if (metadata.generation == std::numeric_limits<Generation>::max()) {
+            metadata.retired = true;
             return;
         }
-        ++slot.generation;
+        ++metadata.generation;
     }
 
     uint64_t next_sequence() noexcept {
@@ -199,11 +206,20 @@ private:
         return next_sequence_;
     }
 
-    std::array<Slot, Capacity> slots_{};
+    T* value(size_t index) noexcept { return std::launder(reinterpret_cast<T*>(storage_[index].bytes.data())); }
+
+    const T* value(size_t index) const noexcept {
+        return std::launder(reinterpret_cast<const T*>(storage_[index].bytes.data()));
+    }
+
+    static_assert(sizeof(Storage) == sizeof(T));
+
+    std::array<Storage, Capacity> storage_{};
+    std::array<Metadata, Capacity> metadata_{};
     size_t size_ = 0;
     uint64_t next_sequence_ = 0;
 };
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

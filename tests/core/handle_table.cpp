@@ -12,6 +12,7 @@ std::atomic<size_t> allocation_count{0};
 
 struct Item {
     explicit Item(int value) noexcept : id(value) {}
+
     int id;
 };
 
@@ -25,14 +26,12 @@ struct NoexceptDestroy {
 
 using ConstraintTable = saccade::core::HandleTable<Item, 1>;
 template <typename Destroy>
-concept CanClearReverse = requires(ConstraintTable& table, Destroy destroy) {
-    table.clear_reverse(destroy);
-};
+concept CanClearReverse = requires(ConstraintTable& table, Destroy destroy) { table.clear_reverse(destroy); };
 
 static_assert(!CanClearReverse<ThrowingDestroy>);
 static_assert(CanClearReverse<NoexceptDestroy>);
 
-}  // namespace
+} // namespace
 
 void* operator new(std::size_t size) {
     if (count_allocations.load(std::memory_order_relaxed)) {
@@ -58,12 +57,11 @@ int main() {
     SaccadeRuntimeHandle second = 0;
     SaccadeRuntimeHandle third = 0;
 
-    if (table.get(0) != nullptr ||
-        table.emplace(nullptr, 1) != SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (table.get(0) != nullptr || table.emplace(nullptr, 1) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 1;
     }
-    if (table.emplace(&first, 1) != SACCADE_OK || first == 0 ||
-        table.emplace(&second, 2) != SACCADE_OK || second == 0) {
+    if (table.emplace(&first, 1) != SACCADE_OK || first == 0 || table.emplace(&second, 2) != SACCADE_OK ||
+        second == 0) {
         return 2;
     }
     if (table.emplace(&third, 3) != SACCADE_ERROR_CAPACITY || third != 0) {
@@ -73,8 +71,7 @@ int main() {
     std::array<int, 2> iteration{};
     size_t iteration_size = 0;
     table.for_each([&](uint64_t handle, Item& item) {
-        if ((iteration_size == 0 && handle != first) ||
-            (iteration_size == 1 && handle != second)) {
+        if ((iteration_size == 0 && handle != first) || (iteration_size == 1 && handle != second)) {
             iteration_size = iteration.size() + 1;
             return;
         }
@@ -108,11 +105,9 @@ int main() {
 
     std::array<int, 2> destruction{};
     size_t destruction_size = 0;
-    table.clear_reverse([&](uint64_t, Item& item) noexcept {
-        destruction[destruction_size++] = item.id;
-    });
-    if (destruction_size != 2 || destruction[0] != 3 || destruction[1] != 2 ||
-        table.size() != 0 || table.get(second) != nullptr || table.get(third) != nullptr) {
+    table.clear_reverse([&](uint64_t, Item& item) noexcept { destruction[destruction_size++] = item.id; });
+    if (destruction_size != 2 || destruction[0] != 3 || destruction[1] != 2 || table.size() != 0 ||
+        table.get(second) != nullptr || table.get(third) != nullptr) {
         return 9;
     }
 
@@ -128,14 +123,13 @@ int main() {
             saturating_table.erase(current_handle) != SACCADE_OK) {
             return 11;
         }
-        if (generation != UINT8_MAX &&
-            saturating_table.emplace(&current_handle, 1) != SACCADE_OK) {
+        if (generation != UINT8_MAX && saturating_table.emplace(&current_handle, 1) != SACCADE_OK) {
             return 12;
         }
     }
     current_handle = 99;
-    if (saturating_table.emplace(&current_handle, 1) != SACCADE_ERROR_CAPACITY ||
-        current_handle != 0 || saturating_table.get(first_generation_handle) != nullptr) {
+    if (saturating_table.emplace(&current_handle, 1) != SACCADE_ERROR_CAPACITY || current_handle != 0 ||
+        saturating_table.get(first_generation_handle) != nullptr) {
         return 13;
     }
 

@@ -36,10 +36,9 @@ struct MemoryConfig {
 struct Config {
     uint32_t completion_polls = 1;
     uint32_t queue_capacity = 2;
-    uint32_t capability_bits =
-        SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT |
-        SACCADE_PROVIDER_CAPABILITY_ASYNC | SACCADE_PROVIDER_CAPABILITY_CANCELLATION |
-        SACCADE_PROVIDER_CAPABILITY_DAMAGE;
+    uint32_t capability_bits = SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT |
+                               SACCADE_PROVIDER_CAPABILITY_ASYNC | SACCADE_PROVIDER_CAPABILITY_CANCELLATION |
+                               SACCADE_PROVIDER_CAPABILITY_DAMAGE;
     uint32_t format_bits = SACCADE_FORMAT_BGRA8 | SACCADE_FORMAT_RGBA8;
     uint32_t precision_bits = SACCADE_PRECISION_FP32;
     uint32_t import_bits = SACCADE_IMPORT_HOST;
@@ -58,7 +57,9 @@ struct Observations {
     uint64_t release_all_calls = 0;
     uint64_t last_scene_epoch = 0;
     uint64_t last_transform_epoch = 0;
-    uint64_t last_command_hash = 0;
+    uint64_t last_packet_hash = 0;
+    uint32_t overlay_has_active_target = 0;
+    uint32_t last_active_target_index = 0;
     uint32_t overlay_visible = 0;
 };
 

@@ -1,9 +1,6 @@
 #include <saccade/saccade_backend.h>
 
-static SaccadeResult SACCADE_CALL enumerate_devices(
-    void* context,
-    uint32_t index,
-    SaccadeDeviceInfo* out_device) {
+static SaccadeResult SACCADE_CALL enumerate_devices(void* context, uint32_t index, SaccadeDeviceInfo* out_device) {
     (void)context;
     (void)index;
     (void)out_device;
@@ -13,6 +10,11 @@ static SaccadeResult SACCADE_CALL enumerate_devices(
 int main(void) {
     SaccadeInferenceOps ops = {0};
     SaccadeInferenceProviderDesc provider = {0};
+    SaccadeOverlayFrameDesc frame = {0};
+
+    if ((frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) != 0) {
+        return 1;
+    }
 
     ops.struct_size = (uint32_t)sizeof(ops);
     ops.api_version = SACCADE_API_VERSION;

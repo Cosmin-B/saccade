@@ -40,6 +40,20 @@ The portable runtime does not call provider code while holding a future schedule
 queue lock. That rule matters once native providers begin completing work on framework
 threads.
 
+## Device failure recovery
+
+The desktop owner treats a native backend failure as loss of the complete platform
+pipeline, not as an operator-level retry. It disconnects local agent clients, neutralizes
+synthetic input, tears capture, inference, overlay, and device objects down in ownership
+order, then rebuilds the pipeline after a 250 ms delay. Repeated initialization failures
+back off to an eight-second ceiling without blocking 120 Hz message processing.
+
+Recovery state belongs to the desktop owner thread and uses no lock, atomic, allocation,
+or background retry task. A successful rebuild reconnects the local agent endpoint and
+clears the visible fault. If teardown itself cannot prove that native ownership ended,
+the application launches a clean replacement process instead of constructing a second
+GPU stack over uncertain resources.
+
 ## Deterministic providers
 
 `Saccade::mock` implements all five families for tests. Its configuration controls:
@@ -90,3 +104,82 @@ DirectML, and owned kernels can all fit behind the inference contract.
 Native capture and input providers must also pass platform permission, secure-screen,
 focus, display-change, and teardown tests before the corresponding desktop mode is
 considered supported.
+
+The macOS Core ML provider loads one signed compiled bundle and imports one BGRA8
+IOSurface-backed frame at a time. A dedicated worker owns synchronous Core ML prediction;
+submit and poll do not run the model on the interaction owner. Fixed provider storage
+contains the ticket, compact output packet, decoded candidates, and postprocess
+workspace. Framework-owned model and accelerator allocations remain opaque and require
+separate measurement. The contract fixture covers execution mechanics; model accuracy is
+a separate concern.
+
+The Windows accessibility provider enumerates visible top-level windows and traverses
+UI Automation's control view on one dedicated MTA thread. The caller-facing path has
+one fixed in-flight request and uses release/acquire publication plus Win32 events for
+sleep and explicit waits. A 10,000-record snapshot arena is reserved once with
+`VirtualAlloc`; queries do not allocate Saccade-owned memory. Completed snapshots are
+ordinary `SaccadeTargetPacketHeader` and `SaccadeTargetRecord` bytes in desktop-Q8
+coordinates, with runtime-derived target IDs and monitor IDs. UI Automation's own COM
+allocations remain confined to the worker.
+
+The macOS accessibility provider enumerates layer-zero Core Graphics windows and maps a
+selected public window ID to its owning application's AX window by process and geometry.
+One pthread owns synchronous Accessibility calls and wakes through Mach semaphores.
+Traversal is depth-first through public `AXChildren` values with a retained, bounded
+10,000-entry stack and a 100,000-element visit ceiling. Position, size, role, subrole,
+enabled, hidden, and identifier attributes are fetched together. Provider messaging has
+a 500 ms timeout, and TCC denial reports `SACCADE_ERROR_PERMISSION` rather than an empty
+scene.
+
+The macOS provider reserves one 1,040,000-byte `mmap` arena at initialization: 800,000
+bytes for target records and 240,000 bytes for retained traversal entries. It allocates
+no Saccade-owned memory per query. Capacity, depth, malformed-child, or visit limits set
+`SACCADE_TARGET_PACKET_INCOMPLETE`; fusion preserves that flag in the published scene.
+Secure and disabled AX elements remain visible as safety evidence but carry no action
+capabilities.
+
+Overlay providers consume the versioned packet from
+`<saccade/saccade_overlay.h>`. Native providers expand targets on the GPU when the scene
+or transform epoch changes, read dynamic active selection from
+`SaccadeOverlayFrameDesc` at display rate, and issue one instanced draw. The scalar
+expander is the parity oracle, not the preferred presentation path. See
+[overlay packets and presentation](overlay.md).
+
+The current macOS implementation contains a Metal 4 compute-to-render path with a Metal
+3 fallback, one-draw fragment rendering, main-run-loop display-link scheduling,
+nonactivating per-display panels, and a main-thread display collector backed by the
+portable fixed-point catalog. Its ScreenCaptureKit provider captures displays or
+desktop-independent windows at 30 Hz, excludes the current application, publishes only
+the newest pending frame, and creates a Metal texture view directly from each IOSurface.
+Zero capture limits preserve native resolution; nonzero limits form an
+aspect-preserving model-input box. Accessibility, scene publication, and input remain
+separate adapter stages. See [coordinates and display topology](coordinates.md).
+
+The Windows GPU owner selects a physical adapter explicitly and creates one D3D12 device
+and direct queue. Production Windows Graphics Capture uses a native D3D11 device on the
+same adapter because WGC's public surface contract is D3D11. Display and visible
+top-level window sources use the same bounded free-threaded frame pools. Acquisition
+drains queued frames to the newest, borrows the capture texture until explicit release,
+and reports dirty regions without a CPU pixel copy. Content-size changes advance the
+stream transform epoch and recreate the pool after the outstanding texture lease is
+returned.
+
+Live capture crosses the API boundary through an on-demand ring of shared resources. A
+free D3D12 texture is opened by the producer D3D11 device, `CopyResource` performs one
+GPU-local copy, and the producer signals a shared fence value. The imported frame retains
+the D3D12 texture and `{fence, value}` dependency. The capture owner never submits work
+to the DirectML queue. The inference worker waits on that dependency and then runs one
+Shader Model 6 preprocessing dispatch for source crop, aspect fit, letterbox, bilinear
+resize, channel scale, channel bias, and planar FP16 or INT8 output. Slot retirement is
+coupled to frame retirement, so capture storage remains bounded and reusable.
+
+The preprocessing root signature, pipeline, two-entry descriptor heap, output buffer,
+allocator, command list, and completion fence are persistent; the 96-byte parameters are
+root constants. Exact GPU-readback tests cover channel order, FP16 conversion, INT8
+quantization, crop, and letterbox output. Benchmarks report live transfer bytes separately
+from preprocessing so the required GPU copy cannot be mistaken for zero-copy import.
+
+Inference runtimes are selected at the whole-model boundary. Their graph, tensor,
+workspace, and fence types remain private to the provider. Optional runtimes must pass
+binary-size, memory, parity, zero-copy, startup, and device-loss gates before becoming a
+platform default. See [inference execution and model tooling](inference.md).

@@ -1,0 +1,50 @@
+if(NOT DEFINED SOURCE_DIR)
+    message(FATAL_ERROR "SOURCE_DIR is required")
+endif()
+
+file(READ "${SOURCE_DIR}/CMakeLists.txt" project_cmake)
+file(READ "${SOURCE_DIR}/cmake/SaccadePackaging.cmake" packaging_cmake)
+file(READ "${SOURCE_DIR}/cmake/NotarizeMacPackage.cmake.in" notarize_script)
+file(READ "${SOURCE_DIR}/cmake/SaccadeWixLaunchCondition.xml" wix_patch)
+
+if(NOT project_cmake MATCHES "cmake_minimum_required\\(VERSION 3\\.30\\)")
+    message(FATAL_ERROR "The project minimum CMake version is not 3.30")
+endif()
+if(NOT project_cmake MATCHES "requires SACCADE_MSVC_STATIC_RUNTIME=ON")
+    message(FATAL_ERROR "Windows distribution builds do not require a self-contained MSVC runtime")
+endif()
+
+foreach(contract IN ITEMS
+        "CPACK_WIX_VERSION 4"
+        "CPACK_WIX_ARCHITECTURE"
+        "SaccadeWixLaunchCondition\\.xml")
+    if(NOT packaging_cmake MATCHES "${contract}")
+        message(FATAL_ERROR "Missing packaging contract: ${contract}")
+    endif()
+endforeach()
+
+if(NOT wix_patch MATCHES "WINDOWSBUILDNUMBER")
+    message(FATAL_ERROR "WiX patch does not define WINDOWSBUILDNUMBER")
+endif()
+if(NOT wix_patch MATCHES "26100")
+    message(FATAL_ERROR "WiX patch does not require Windows build 26100")
+endif()
+if(NOT wix_patch MATCHES "Installed OR")
+    message(FATAL_ERROR "WiX patch does not preserve installed-product maintenance")
+endif()
+if(NOT wix_patch MATCHES "SaccadeWindowsBuildNumberSearch")
+    message(FATAL_ERROR "WiX patch does not search the Windows build registry value")
+endif()
+
+string(FIND "${notarize_script}" "--sign" sign_position)
+string(FIND "${notarize_script}" "--verify --strict" verify_position)
+string(FIND "${notarize_script}" "notarytool submit" submit_position)
+if(sign_position LESS 0 OR verify_position LESS 0 OR submit_position LESS 0 OR
+   NOT sign_position LESS verify_position OR NOT verify_position LESS submit_position)
+    message(FATAL_ERROR "macOS package signing and strict verification must precede notary submission")
+endif()
+foreach(contract IN ITEMS "--timestamp" "stapler staple" "stapler validate")
+    if(NOT notarize_script MATCHES "${contract}")
+        message(FATAL_ERROR "Missing macOS notarization contract: ${contract}")
+    endif()
+endforeach()

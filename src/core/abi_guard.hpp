@@ -8,8 +8,7 @@
 
 namespace saccade::core {
 
-template <typename Function>
-SaccadeResult abi_guard(Function&& function) noexcept {
+template <typename Function> SaccadeResult abi_guard(Function&& function) noexcept {
     ErrorScope scope;
 #if defined(__cpp_exceptions) || defined(_CPPUNWIND)
     try {
@@ -26,6 +25,6 @@ SaccadeResult abi_guard(Function&& function) noexcept {
 #endif
 }
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

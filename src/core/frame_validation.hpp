@@ -12,16 +12,16 @@ namespace saccade::core {
 
 inline constexpr size_t host_frame_bytes_per_pixel(uint32_t pixel_format) noexcept {
     switch (pixel_format) {
-        case SACCADE_FORMAT_BGRA8:
-        case SACCADE_FORMAT_RGBA8:
-        case SACCADE_FORMAT_BGRX8:
-            return 4;
-        case SACCADE_FORMAT_R8:
-            return 1;
-        case SACCADE_FORMAT_RGB_F16:
-            return 6;
-        default:
-            return 0;
+    case SACCADE_FORMAT_BGRA8:
+    case SACCADE_FORMAT_RGBA8:
+    case SACCADE_FORMAT_BGRX8:
+        return 4;
+    case SACCADE_FORMAT_R8:
+        return 1;
+    case SACCADE_FORMAT_RGB_F16:
+        return 6;
+    default:
+        return 0;
     }
 }
 
@@ -51,6 +51,6 @@ inline bool valid_host_frame(const SaccadeHostFrameDesc& desc) noexcept {
     return desc.data.size >= required_bytes;
 }
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

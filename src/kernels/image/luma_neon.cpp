@@ -20,8 +20,7 @@ void convert_neon_format(const InterleavedU8View& source, const PlaneU8View& des
     const uint8x8_t blue_weight = vdup_n_u8(UINT8_C(29));
     for (uint32_t y = 0; y < source.height; ++y) {
         const uint8_t* source_row = source.data + static_cast<size_t>(y) * source.row_stride_bytes;
-        uint8_t* destination_row =
-            destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
+        uint8_t* destination_row = destination.data + static_cast<size_t>(y) * destination.row_stride_bytes;
 
         uint32_t x = 0;
         for (; source.width - x >= vector_width; x += vector_width) {

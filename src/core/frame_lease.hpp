@@ -17,70 +17,109 @@ enum class FrameLeaseOwner : uint8_t {
     worker = UINT8_C(1) << 2U
 };
 
-template <size_t Capacity>
-class FrameLeasePool;
+enum class FrameStorage : uint8_t { host = 1, iosurface = 2, win32_capture = 3 };
+
+using ReleaseFrameResource = void (*)(void*) noexcept;
+
+struct NativeFrameResource {
+    void* resource = nullptr;
+    ReleaseFrameResource release = nullptr;
+    void* ready_fence = nullptr;
+    ReleaseFrameResource release_ready_fence = nullptr;
+    uint64_t ready_value = 0;
+    uint64_t native_id = 0;
+    uint32_t plane_index = 0;
+    uint32_t pixel_format = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint64_t frame_id = 0;
+    uint64_t transform_epoch = 0;
+    FrameStorage storage = FrameStorage::host;
+};
+
+template <size_t Capacity> class FrameLeasePool;
 
 class FrameLease final {
-public:
+  public:
     explicit FrameLease(const SaccadeHostFrameDesc& desc) noexcept
-        : data_(desc.data.data),
-          byte_size_(desc.data.size),
-          width_(desc.width),
-          height_(desc.height),
-          row_stride_bytes_(desc.row_stride_bytes),
-          pixel_format_(desc.pixel_format),
-          frame_id_(desc.frame_id),
-          transform_epoch_(desc.transform_epoch),
+        : data_(desc.data.data), byte_size_(desc.data.size), width_(desc.width), height_(desc.height),
+          row_stride_bytes_(desc.row_stride_bytes), pixel_format_(desc.pixel_format), frame_id_(desc.frame_id),
+          transform_epoch_(desc.transform_epoch), storage_(FrameStorage::host),
           owners_(owner_bit(FrameLeaseOwner::caller)) {}
+
+    explicit FrameLease(const NativeFrameResource& desc) noexcept
+        : resource_(desc.resource), release_(desc.release), ready_fence_(desc.ready_fence),
+          release_ready_fence_(desc.release_ready_fence), ready_value_(desc.ready_value), native_id_(desc.native_id),
+          width_(desc.width), height_(desc.height), pixel_format_(desc.pixel_format), frame_id_(desc.frame_id),
+          transform_epoch_(desc.transform_epoch), plane_index_(desc.plane_index), storage_(desc.storage),
+          owners_(owner_bit(FrameLeaseOwner::caller)) {}
+
+    ~FrameLease() noexcept {
+        if (resource_ != nullptr && release_ != nullptr) {
+            release_(resource_);
+        }
+        if (ready_fence_ != nullptr && release_ready_fence_ != nullptr) {
+            release_ready_fence_(ready_fence_);
+        }
+    }
 
     FrameLease(const FrameLease&) = delete;
     FrameLease& operator=(const FrameLease&) = delete;
     FrameLease(FrameLease&&) = delete;
     FrameLease& operator=(FrameLease&&) = delete;
 
-    [[nodiscard]] const uint8_t* data() const noexcept {
-        return data_;
+    [[nodiscard]] const uint8_t* data() const noexcept { return data_; }
+
+    [[nodiscard]] size_t byte_size() const noexcept { return byte_size_; }
+
+    [[nodiscard]] uint32_t width() const noexcept { return width_; }
+
+    [[nodiscard]] uint32_t height() const noexcept { return height_; }
+
+    [[nodiscard]] uint32_t row_stride_bytes() const noexcept { return row_stride_bytes_; }
+
+    [[nodiscard]] uint32_t pixel_format() const noexcept { return pixel_format_; }
+
+    [[nodiscard]] uint64_t frame_id() const noexcept { return frame_id_; }
+
+    [[nodiscard]] uint64_t transform_epoch() const noexcept { return transform_epoch_; }
+
+    [[nodiscard]] FrameStorage storage() const noexcept { return storage_; }
+
+    [[nodiscard]] void* resource() const noexcept { return resource_; }
+
+    [[nodiscard]] uint64_t native_id() const noexcept { return native_id_; }
+
+    [[nodiscard]] uint32_t plane_index() const noexcept { return plane_index_; }
+
+    [[nodiscard]] SaccadeFrameResourceView resource_view() const noexcept {
+        static_assert(static_cast<uint32_t>(FrameStorage::host) == SACCADE_FRAME_STORAGE_HOST);
+        static_assert(static_cast<uint32_t>(FrameStorage::iosurface) == SACCADE_FRAME_STORAGE_IOSURFACE);
+        static_assert(static_cast<uint32_t>(FrameStorage::win32_capture) == SACCADE_FRAME_STORAGE_WIN32_CAPTURE);
+        SaccadeFrameResourceView value{};
+        value.struct_size = sizeof(value);
+        value.api_version = SACCADE_API_VERSION;
+        value.storage = static_cast<uint32_t>(storage_);
+        value.pixel_format = pixel_format_;
+        value.host_data = {data_, byte_size_};
+        value.native_id = native_id_;
+        value.width = width_;
+        value.height = height_;
+        value.row_stride_bytes = row_stride_bytes_;
+        value.plane_or_subresource = plane_index_;
+        value.frame_id = frame_id_;
+        value.transform_epoch = transform_epoch_;
+        value.ready_fence = reinterpret_cast<uintptr_t>(ready_fence_);
+        value.ready_value = ready_value_;
+        return value;
     }
 
-    [[nodiscard]] size_t byte_size() const noexcept {
-        return byte_size_;
-    }
+    [[nodiscard]] bool has_owner(FrameLeaseOwner owner) const noexcept { return (owners_ & owner_bit(owner)) != 0; }
 
-    [[nodiscard]] uint32_t width() const noexcept {
-        return width_;
-    }
+  private:
+    template <size_t> friend class FrameLeasePool;
 
-    [[nodiscard]] uint32_t height() const noexcept {
-        return height_;
-    }
-
-    [[nodiscard]] uint32_t row_stride_bytes() const noexcept {
-        return row_stride_bytes_;
-    }
-
-    [[nodiscard]] uint32_t pixel_format() const noexcept {
-        return pixel_format_;
-    }
-
-    [[nodiscard]] uint64_t frame_id() const noexcept {
-        return frame_id_;
-    }
-
-    [[nodiscard]] uint64_t transform_epoch() const noexcept {
-        return transform_epoch_;
-    }
-
-    [[nodiscard]] bool has_owner(FrameLeaseOwner owner) const noexcept {
-        return (owners_ & owner_bit(owner)) != 0;
-    }
-
-private:
-    template <size_t>
-    friend class FrameLeasePool;
-
-    static constexpr uint8_t owner_bit(FrameLeaseOwner owner) noexcept {
-        return static_cast<uint8_t>(owner);
-    }
+    static constexpr uint8_t owner_bit(FrameLeaseOwner owner) noexcept { return static_cast<uint8_t>(owner); }
 
     static constexpr bool valid_owner(FrameLeaseOwner owner) noexcept {
         return owner == FrameLeaseOwner::caller || owner == FrameLeaseOwner::mailbox ||
@@ -105,36 +144,40 @@ private:
         return true;
     }
 
-    [[nodiscard]] bool has_owners() const noexcept {
-        return owners_ != 0;
-    }
+    [[nodiscard]] bool has_owners() const noexcept { return owners_ != 0; }
 
     const uint8_t* data_ = nullptr;
     size_t byte_size_ = 0;
+    void* resource_ = nullptr;
+    ReleaseFrameResource release_ = nullptr;
+    void* ready_fence_ = nullptr;
+    ReleaseFrameResource release_ready_fence_ = nullptr;
+    uint64_t ready_value_ = 0;
+    uint64_t native_id_ = 0;
     uint32_t width_ = 0;
     uint32_t height_ = 0;
     uint32_t row_stride_bytes_ = 0;
     uint32_t pixel_format_ = 0;
     uint64_t frame_id_ = 0;
     uint64_t transform_epoch_ = 0;
+    uint32_t plane_index_ = 0;
+    FrameStorage storage_ = FrameStorage::host;
     uint8_t owners_ = 0;
 };
 
-template <size_t Capacity>
-class FrameLeasePool final {
+template <size_t Capacity> class FrameLeasePool final {
     static_assert(Capacity > 0);
     static_assert(Capacity <= UINT8_MAX);
 
-public:
+  public:
     explicit FrameLeasePool(uint32_t domain) noexcept : domain_(domain) {}
+
     FrameLeasePool(const FrameLeasePool&) = delete;
     FrameLeasePool& operator=(const FrameLeasePool&) = delete;
     FrameLeasePool(FrameLeasePool&&) = delete;
     FrameLeasePool& operator=(FrameLeasePool&&) = delete;
 
-    SaccadeResult import_host(
-        const SaccadeHostFrameDesc& desc,
-        SaccadeFrameHandle* out_frame) noexcept {
+    SaccadeResult import_host(const SaccadeHostFrameDesc& desc, SaccadeFrameHandle* out_frame) noexcept {
         if (out_frame == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
@@ -150,9 +193,27 @@ public:
         return result;
     }
 
-    SaccadeResult add_owner(
-        SaccadeFrameHandle frame,
-        FrameLeaseOwner owner) noexcept {
+    SaccadeResult import_native(const NativeFrameResource& desc, SaccadeFrameHandle* out_frame) noexcept {
+        if (out_frame == nullptr) {
+            return SACCADE_ERROR_INVALID_ARGUMENT;
+        }
+        *out_frame = 0;
+        if (domain_ == 0 || domain_ > max_domain_ || desc.resource == nullptr || desc.release == nullptr ||
+            desc.native_id == 0 || desc.width == 0 || desc.height == 0 || desc.pixel_format == 0 ||
+            (desc.ready_fence == nullptr) != (desc.ready_value == 0) ||
+            (desc.ready_fence != nullptr && desc.release_ready_fence == nullptr) ||
+            (desc.storage != FrameStorage::iosurface && desc.storage != FrameStorage::win32_capture)) {
+            return SACCADE_ERROR_INVALID_ARGUMENT;
+        }
+        SaccadeFrameHandle local_frame = 0;
+        const SaccadeResult result = leases_.emplace(&local_frame, desc);
+        if (result == SACCADE_OK) {
+            *out_frame = encode(local_frame);
+        }
+        return result;
+    }
+
+    SaccadeResult add_owner(SaccadeFrameHandle frame, FrameLeaseOwner owner) noexcept {
         if (!FrameLease::valid_owner(owner)) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
@@ -166,9 +227,7 @@ public:
         return SACCADE_OK;
     }
 
-    SaccadeResult release_owner(
-        SaccadeFrameHandle frame,
-        FrameLeaseOwner owner) noexcept {
+    SaccadeResult release_owner(SaccadeFrameHandle frame, FrameLeaseOwner owner) noexcept {
         if (!FrameLease::valid_owner(owner)) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
@@ -183,43 +242,31 @@ public:
         return leases_.erase(local_frame);
     }
 
-    [[nodiscard]] FrameLease* get(SaccadeFrameHandle frame) noexcept {
-        return leases_.get(decode(frame));
-    }
+    [[nodiscard]] FrameLease* get(SaccadeFrameHandle frame) noexcept { return leases_.get(decode(frame)); }
 
-    [[nodiscard]] const FrameLease* get(SaccadeFrameHandle frame) const noexcept {
-        return leases_.get(decode(frame));
-    }
+    [[nodiscard]] const FrameLease* get(SaccadeFrameHandle frame) const noexcept { return leases_.get(decode(frame)); }
 
     void clear() noexcept {
         leases_.clear_reverse([](uint64_t, FrameLease&) noexcept {});
     }
 
-    [[nodiscard]] size_t size() const noexcept {
-        return leases_.size();
-    }
+    [[nodiscard]] size_t size() const noexcept { return leases_.size(); }
 
-    [[nodiscard]] static constexpr size_t capacity() noexcept {
-        return Capacity;
-    }
+    [[nodiscard]] static constexpr size_t capacity() noexcept { return Capacity; }
 
-    [[nodiscard]] static constexpr uint32_t maximum_domain() noexcept {
-        return max_domain_;
-    }
+    [[nodiscard]] static constexpr uint32_t maximum_domain() noexcept { return max_domain_; }
 
-private:
+  private:
     static constexpr uint32_t max_domain_ = UINT32_C(0x00FFFFFF);
     static constexpr uint64_t domain_shift_ = 40;
     static constexpr uint64_t generation_shift_ = 8;
     static constexpr uint64_t slot_mask_ = UINT64_C(0xFF);
     static constexpr uint64_t generation_mask_ = UINT64_C(0xFFFFFFFF);
 
-    [[nodiscard]] SaccadeFrameHandle encode(
-        SaccadeFrameHandle local_frame) const noexcept {
+    [[nodiscard]] SaccadeFrameHandle encode(SaccadeFrameHandle local_frame) const noexcept {
         const uint64_t slot = local_frame & UINT64_C(0xFFFFFFFF);
         const uint64_t generation = local_frame >> 32U;
-        return (static_cast<uint64_t>(domain_) << domain_shift_) |
-               (generation << generation_shift_) | slot;
+        return (static_cast<uint64_t>(domain_) << domain_shift_) | (generation << generation_shift_) | slot;
     }
 
     [[nodiscard]] SaccadeFrameHandle decode(SaccadeFrameHandle frame) const noexcept {
@@ -228,8 +275,7 @@ private:
             return 0;
         }
         const uint64_t slot = frame & slot_mask_;
-        const uint64_t generation =
-            (frame >> generation_shift_) & generation_mask_;
+        const uint64_t generation = (frame >> generation_shift_) & generation_mask_;
         if (slot == 0 || generation == 0) {
             return 0;
         }
@@ -240,6 +286,6 @@ private:
     uint32_t domain_ = 0;
 };
 
-}  // namespace saccade::core
+} // namespace saccade::core
 
 #endif

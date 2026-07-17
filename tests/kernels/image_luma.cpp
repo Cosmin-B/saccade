@@ -49,23 +49,17 @@ void fill_source(uint32_t width, uint32_t height, uint32_t format) noexcept {
     }
 }
 
-saccade::kernels::image::InterleavedU8View source_view(uint32_t width, uint32_t height,
-                                                       uint32_t format) noexcept {
-    return {source_pixels.data(),
-            source_pixels.size(),
-            width,
-            height,
-            static_cast<uint32_t>(source_stride),
-            format};
+saccade::kernels::image::InterleavedU8View source_view(uint32_t width, uint32_t height, uint32_t format) noexcept {
+    return {source_pixels.data(), source_pixels.size(), width, height, static_cast<uint32_t>(source_stride), format};
 }
 
-saccade::kernels::image::PlaneU8View
-destination_view(std::array<uint8_t, destination_stride * maximum_height>& pixels) noexcept {
+saccade::kernels::image::PlaneU8View destination_view(
+    std::array<uint8_t, destination_stride * maximum_height>& pixels) noexcept {
     return {pixels.data(), pixels.size(), static_cast<uint32_t>(destination_stride)};
 }
 
-bool verify_reference(const std::array<uint8_t, destination_stride * maximum_height>& pixels,
-                      uint32_t width, uint32_t height, uint32_t format) noexcept {
+bool verify_reference(const std::array<uint8_t, destination_stride * maximum_height>& pixels, uint32_t width,
+                      uint32_t height, uint32_t format) noexcept {
     for (uint32_t y = 0; y < height; ++y) {
         const uint8_t* source = source_pixels.data() + static_cast<size_t>(y) * source_stride;
         const uint8_t* output = pixels.data() + static_cast<size_t>(y) * destination_stride;
@@ -88,8 +82,8 @@ bool verify_reference(const std::array<uint8_t, destination_stride * maximum_hei
 }
 
 bool equal_active_pixels(const std::array<uint8_t, destination_stride * maximum_height>& left,
-                         const std::array<uint8_t, destination_stride * maximum_height>& right,
-                         uint32_t width, uint32_t height) noexcept {
+                         const std::array<uint8_t, destination_stride * maximum_height>& right, uint32_t width,
+                         uint32_t height) noexcept {
     for (uint32_t y = 0; y < height; ++y) {
         const size_t offset = static_cast<size_t>(y) * destination_stride;
         for (uint32_t x = 0; x < width; ++x) {
@@ -101,8 +95,8 @@ bool equal_active_pixels(const std::array<uint8_t, destination_stride * maximum_
     return true;
 }
 
-bool padding_is_unchanged(const std::array<uint8_t, destination_stride * maximum_height>& pixels,
-                          uint32_t width, uint32_t height) noexcept {
+bool padding_is_unchanged(const std::array<uint8_t, destination_stride * maximum_height>& pixels, uint32_t width,
+                          uint32_t height) noexcept {
     for (uint32_t y = 0; y < height; ++y) {
         const size_t offset = static_cast<size_t>(y) * destination_stride;
         for (size_t x = width; x < destination_stride; ++x) {
@@ -114,8 +108,7 @@ bool padding_is_unchanged(const std::array<uint8_t, destination_stride * maximum
     return true;
 }
 
-template <size_t Width>
-bool exact_tail_matches(saccade::kernels::image::LumaPath path, uint32_t format) noexcept {
+template <size_t Width> bool exact_tail_matches(saccade::kernels::image::LumaPath path, uint32_t format) noexcept {
     static_assert(Width > 0 && Width <= UINT32_MAX);
     std::array<uint8_t, Width * 4> source{};
     std::array<uint8_t, Width> scalar{};
@@ -139,15 +132,12 @@ bool exact_tail_matches(saccade::kernels::image::LumaPath path, uint32_t format)
 
     const auto width = static_cast<uint32_t>(Width);
     const auto source_size = static_cast<uint32_t>(Width * 4U);
-    const saccade::kernels::image::InterleavedU8View input{source.data(), source.size(), width, 1,
-                                                           source_size,   format};
+    const saccade::kernels::image::InterleavedU8View input{source.data(), source.size(), width, 1, source_size, format};
     const saccade::kernels::image::PlaneU8View scalar_output{scalar.data(), scalar.size(), width};
-    const saccade::kernels::image::PlaneU8View selected_output{selected.data(), selected.size(),
-                                                               width};
-    return saccade::kernels::image::convert_to_luma(
-               input, scalar_output, saccade::kernels::image::LumaPath::scalar) == SACCADE_OK &&
-           saccade::kernels::image::convert_to_luma(input, selected_output, path) == SACCADE_OK &&
-           scalar == selected;
+    const saccade::kernels::image::PlaneU8View selected_output{selected.data(), selected.size(), width};
+    return saccade::kernels::image::convert_to_luma(input, scalar_output, saccade::kernels::image::LumaPath::scalar) ==
+               SACCADE_OK &&
+           saccade::kernels::image::convert_to_luma(input, selected_output, path) == SACCADE_OK && scalar == selected;
 }
 
 bool exact_tails_match(saccade::kernels::image::LumaPath path, uint32_t format) noexcept {
@@ -195,8 +185,7 @@ int main() {
     }
 #endif
 
-    constexpr std::array<uint32_t, 3> formats{SACCADE_FORMAT_BGRA8, SACCADE_FORMAT_BGRX8,
-                                              SACCADE_FORMAT_RGBA8};
+    constexpr std::array<uint32_t, 3> formats{SACCADE_FORMAT_BGRA8, SACCADE_FORMAT_BGRX8, SACCADE_FORMAT_RGBA8};
     constexpr std::array<uint32_t, 13> widths{1, 2, 3, 7, 8, 9, 15, 16, 17, 31, 32, 63, 67};
     for (uint32_t format : formats) {
         for (uint32_t width : widths) {
@@ -205,11 +194,9 @@ int main() {
             scalar_pixels.fill(UINT8_C(0xCD));
             selected_pixels.fill(UINT8_C(0xCD));
             const InterleavedU8View source = source_view(width, height, format);
-            if (convert_to_luma(source, destination_view(scalar_pixels), LumaPath::scalar) !=
-                    SACCADE_OK ||
+            if (convert_to_luma(source, destination_view(scalar_pixels), LumaPath::scalar) != SACCADE_OK ||
                 !verify_reference(scalar_pixels, width, height, format) ||
-                convert_to_luma(source, destination_view(selected_pixels), LumaPath::automatic) !=
-                    SACCADE_OK ||
+                convert_to_luma(source, destination_view(selected_pixels), LumaPath::automatic) != SACCADE_OK ||
                 !equal_active_pixels(scalar_pixels, selected_pixels, width, height) ||
                 !padding_is_unchanged(selected_pixels, width, height)) {
                 return 3;
@@ -217,11 +204,9 @@ int main() {
 
             for (LumaPath path : {LumaPath::neon, LumaPath::avx2}) {
                 selected_pixels.fill(UINT8_C(0xCD));
-                const SaccadeResult result =
-                    convert_to_luma(source, destination_view(selected_pixels), path);
+                const SaccadeResult result = convert_to_luma(source, destination_view(selected_pixels), path);
                 if (luma_path_available(path)) {
-                    if (result != SACCADE_OK ||
-                        !equal_active_pixels(scalar_pixels, selected_pixels, width, height) ||
+                    if (result != SACCADE_OK || !equal_active_pixels(scalar_pixels, selected_pixels, width, height) ||
                         !padding_is_unchanged(selected_pixels, width, height)) {
                         return 4;
                     }
@@ -240,16 +225,14 @@ int main() {
 
     std::array<uint8_t, 16> primaries{0, 0, 255, 9, 0, 255, 0, 8, 255, 0, 0, 7, 255, 255, 255, 6};
     std::array<uint8_t, 4> primary_luma{};
-    const InterleavedU8View primary_source{primaries.data(),    primaries.size(), 4, 1, 16,
-                                           SACCADE_FORMAT_BGRA8};
+    const InterleavedU8View primary_source{primaries.data(), primaries.size(), 4, 1, 16, SACCADE_FORMAT_BGRA8};
     const PlaneU8View primary_destination{primary_luma.data(), primary_luma.size(), 4};
     if (convert_to_luma(primary_source, primary_destination, LumaPath::scalar) != SACCADE_OK ||
         primary_luma != std::array<uint8_t, 4>{77, 149, 29, 255}) {
         return 6;
     }
 
-    std::array<uint8_t, 16> r8{1, 2, 3, 4, 0xEE, 0xEE, 0xEE, 0xEE,
-                               5, 6, 7, 8, 0xEE, 0xEE, 0xEE, 0xEE};
+    std::array<uint8_t, 16> r8{1, 2, 3, 4, 0xEE, 0xEE, 0xEE, 0xEE, 5, 6, 7, 8, 0xEE, 0xEE, 0xEE, 0xEE};
     std::array<uint8_t, 12> copied{};
     const InterleavedU8View r8_source{r8.data(), r8.size(), 4, 2, 8, SACCADE_FORMAT_R8};
     const PlaneU8View r8_destination{copied.data(), copied.size(), 6};
@@ -266,54 +249,45 @@ int main() {
     PlaneU8View invalid_destination = primary_destination;
     invalid_source.data = nullptr;
     for (LumaPath path : {LumaPath::automatic, LumaPath::scalar, LumaPath::neon, LumaPath::avx2}) {
-        if (convert_to_luma(invalid_source, primary_destination, path) !=
-            SACCADE_ERROR_INVALID_ARGUMENT) {
+        if (convert_to_luma(invalid_source, primary_destination, path) != SACCADE_ERROR_INVALID_ARGUMENT) {
             return 9;
         }
     }
     invalid_source = primary_source;
     invalid_source.size = 15;
-    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 10;
     }
     invalid_source = primary_source;
     invalid_source.row_stride_bytes = 15;
-    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 11;
     }
     invalid_source = primary_source;
     invalid_source.pixel_format = SACCADE_FORMAT_RGB_F16;
-    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(invalid_source, primary_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 12;
     }
     invalid_destination.data = nullptr;
-    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 13;
     }
     invalid_destination = primary_destination;
     invalid_destination.size = 3;
-    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 14;
     }
     invalid_destination = primary_destination;
     invalid_destination.row_stride_bytes = 3;
-    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 15;
     }
-    invalid_destination = {const_cast<uint8_t*>(primary_source.data), primary_source.size,
-                           primary_source.width};
-    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    invalid_destination = {const_cast<uint8_t*>(primary_source.data), primary_source.size, primary_source.width};
+    if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 16;
     }
-    if (convert_to_luma(primary_source, primary_destination,
-                        static_cast<LumaPath>(UINT8_C(0xFF))) != SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(primary_source, primary_destination, static_cast<LumaPath>(UINT8_C(0xFF))) !=
+        SACCADE_ERROR_INVALID_ARGUMENT) {
         return 17;
     }
 
@@ -324,16 +298,13 @@ int main() {
     std::atomic<uint32_t> first_use_gate{0};
     SaccadeResult first_use_result = SACCADE_ERROR_STATE;
     std::thread first_use_worker([&]() noexcept {
-        while (first_use_gate.load(std::memory_order_acquire) == 0) {
-        }
-        first_use_result =
-            convert_to_luma(measured_source, measured_destination, LumaPath::automatic);
+        while (first_use_gate.load(std::memory_order_acquire) == 0) {}
+        first_use_result = convert_to_luma(measured_source, measured_destination, LumaPath::automatic);
         first_use_gate.store(2, std::memory_order_release);
     });
     saccade::test::begin_allocation_tracking();
     first_use_gate.store(1, std::memory_order_release);
-    while (first_use_gate.load(std::memory_order_acquire) != 2) {
-    }
+    while (first_use_gate.load(std::memory_order_acquire) != 2) {}
     const size_t first_use_allocations = saccade::test::end_allocation_tracking();
     first_use_worker.join();
     if (first_use_result != SACCADE_OK || first_use_allocations != 0) {
@@ -343,8 +314,7 @@ int main() {
     saccade::test::begin_allocation_tracking();
     SaccadeResult measured_result = SACCADE_OK;
     for (size_t iteration = 0; iteration < 10000; ++iteration) {
-        measured_result =
-            convert_to_luma(measured_source, measured_destination, LumaPath::automatic);
+        measured_result = convert_to_luma(measured_source, measured_destination, LumaPath::automatic);
         if (measured_result != SACCADE_OK) {
             break;
         }
