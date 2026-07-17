@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a concrete Saccade behavior or platform capability.
+title: "Feature: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the workflow or limitation without prescribing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the observable behavior and how success can be measured.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      multiple: true
+      options:
+        - Shared runtime or C11 API
+        - macOS
+        - Windows
+        - Local agent or MCP
+        - Model or inference contract
+        - Overlay or interaction
+        - Packaging or installation
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Include latency, memory, compatibility, privacy, or accessibility requirements.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Submission check
+      options:
+        - label: This request contains no private captures, credentials, datasets, or model artifacts.
+          required: true

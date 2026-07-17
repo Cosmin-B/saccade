@@ -4,6 +4,18 @@ Saccade is a native C++20 project with an installed C11 boundary. Changes should
 that split visible: portable contracts belong in public headers, implementation details
 stay private, and platform or framework types remain inside their provider.
 
+## Contribution access
+
+Code changes are accepted only from explicitly invited repository collaborators. GitHub
+pull-request creation is restricted accordingly. Public users may report reproducible bugs
+or propose product behavior through the repository issue forms. Security reports must use
+the private process described in [SECURITY.md](SECURITY.md).
+
+Every commit submitted for merge must include a `Signed-off-by` trailer created with
+`git commit -s`. The sign-off certifies the contribution under the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/). Saccade uses the
+DCO instead of a contributor license agreement.
+
 ## Build before changing code
 
 ```sh
