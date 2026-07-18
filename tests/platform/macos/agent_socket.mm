@@ -23,7 +23,9 @@ enum class TestResult : int {
     shutdown_failed,
     stale_endpoint_failed,
     duplicate_listener_not_rejected,
-    listener_handoff_failed
+    replacement_endpoint_removed,
+    listener_handoff_failed,
+    handoff_connection_failed
 };
 
 struct RequestSink {
@@ -97,7 +99,11 @@ bool read_response(saccade::platform::macos::AgentSocket* server, int client, ui
 
 int main() {
     std::array<char, 104> endpoint{};
+    std::array<char, 104> retired_endpoint{};
     if (snprintf(endpoint.data(), endpoint.size(), "/tmp/saccade-agent-test-%u-%d.sock", geteuid(), getpid()) <= 0)
+        return result(TestResult::initialization_failed);
+    if (snprintf(retired_endpoint.data(), retired_endpoint.size(), "/tmp/saccade-agent-old-%u-%d.sock", geteuid(),
+                 getpid()) <= 0)
         return result(TestResult::initialization_failed);
     if (!leave_stale_endpoint(endpoint.data())) return result(TestResult::stale_endpoint_failed);
 
@@ -151,10 +157,32 @@ int main() {
         return result(TestResult::request_read_failed);
 
     close(client);
+    (void)unlink(retired_endpoint.data());
+    if (rename(endpoint.data(), retired_endpoint.data()) != 0) return result(TestResult::replacement_endpoint_removed);
+    const int replacement = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (replacement < 0 || bind(replacement, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0 ||
+        listen(replacement, 1) != 0)
+        return result(TestResult::replacement_endpoint_removed);
     if (server.shutdown() != SACCADE_OK || sink.disconnects != 1) return result(TestResult::shutdown_failed);
+    if (access(endpoint.data(), F_OK) != 0) return result(TestResult::replacement_endpoint_removed);
+    close(replacement);
+    (void)unlink(endpoint.data());
+    (void)unlink(retired_endpoint.data());
     if (contender.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE},
-                             &contender_storage) != SACCADE_OK ||
-        contender.shutdown() != SACCADE_OK)
+                             &contender_storage) != SACCADE_OK)
         return result(TestResult::listener_handoff_failed);
+
+    const int handoff_client = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (handoff_client < 0 ||
+        connect(handoff_client, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0 ||
+        contender.advance(now_ns++) != SACCADE_OK)
+        return result(TestResult::handoff_connection_failed);
+    hello.request_id = 11;
+    if (!write_frame(handoff_client, &hello, sizeof(hello)) ||
+        !read_response(&contender, handoff_client, &now_ns, &hello_completion) ||
+        hello_completion.request_id != hello.request_id || hello_completion.result != SACCADE_AGENT_OK)
+        return result(TestResult::handoff_connection_failed);
+    close(handoff_client);
+    if (contender.shutdown() != SACCADE_OK) return result(TestResult::shutdown_failed);
     return result(TestResult::success);
 }

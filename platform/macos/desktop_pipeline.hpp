@@ -52,6 +52,7 @@ struct DesktopPipelineConfig {
     void* shell_context = nullptr;
     application::ForwardCommandFn forward_shell = nullptr;
     uint64_t start_time_ns = 0;
+    bool continuous_observation = false;
 };
 
 struct DesktopPipelineAdvance {

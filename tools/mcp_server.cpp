@@ -562,7 +562,15 @@ class Server final {
             return write_tool_error(document, id, "Observe transport failed");
         SaccadeAgentObserveCompletion completion{};
         std::memcpy(&completion, storage_->agent.response.data(), sizeof(completion));
-        if (completion.result != SACCADE_AGENT_OK) return write_tool_error(document, id, "Observe was rejected");
+        if (completion.result == SACCADE_AGENT_ERROR_PERMISSION_DENIED)
+            return write_tool_error(document, id, "Observation permission is unavailable");
+        if (completion.result == SACCADE_AGENT_ERROR_TARGET_NOT_FOUND)
+            return write_tool_error(document, id, "No desktop scene is available");
+        if (completion.result == SACCADE_AGENT_ERROR_TIMEOUT)
+            return write_tool_error(document, id, "Observation timed out");
+        if (completion.result == SACCADE_AGENT_ERROR_ACTION_UNSUPPORTED)
+            return write_tool_error(document, id, "Observation mode is unsupported");
+        if (completion.result != SACCADE_AGENT_OK) return write_tool_error(document, id, "Observation was rejected");
         return write_targets(document, id, storage_->agent.response.data(), response_size, completion.targets_offset,
                              completion.target_stride, completion.target_count, completion.generation, completion.scope,
                              completion.header.flags);

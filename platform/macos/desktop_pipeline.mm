@@ -589,7 +589,8 @@ SaccadeResult DesktopPipeline::start_capture() noexcept {
 
 SaccadeResult DesktopPipeline::stop_capture(bool* stopped) noexcept {
     *stopped = false;
-    if (!capture_running_ || pending_command_ || runtime_.active() || input_.synthetic_input_active())
+    if (!capture_running_ || config_.continuous_observation || pending_command_ || runtime_.active() ||
+        input_.synthetic_input_active())
         return SACCADE_OK;
     if (bridge_.initialized_ && bridge_.bridge_.busy()) return SACCADE_OK;
     const SaccadeResult result = captures_.set_running(false);
@@ -1147,7 +1148,13 @@ SaccadeResult DesktopPipeline::advance(uint64_t now_ns, DesktopPipelineAdvance* 
         const SaccadeResult refreshed = refresh_permissions(now_ns);
         if (refreshed != SACCADE_OK) return refreshed;
     }
-    if (!input_available_) return SACCADE_ERROR_PERMISSION;
+    if (!input_available_ && !config_.continuous_observation) return SACCADE_ERROR_PERMISSION;
+    if (config_.continuous_observation && !capture_running_ && capture_permission_available_ &&
+        basic_input_environment_available()) {
+        const SaccadeResult started = start_capture();
+        if (started != SACCADE_OK) return started;
+        next_capture_ns_ = now_ns;
+    }
     if (input_.synthetic_input_active() && (!basic_input_environment_available() || !input_permission_granted())) {
         const SaccadeResult lost = apply_input_availability(false, now_ns);
         return lost == SACCADE_OK ? SACCADE_ERROR_PERMISSION : lost;
@@ -1525,7 +1532,10 @@ SaccadeResult DesktopPipeline::read_environment(void* context, application::Inte
 }
 
 SaccadeResult DesktopPipeline::acquire_agent_scene(void* context, scene::PacketView* output) noexcept {
-    return static_cast<DesktopPipeline*>(context)->runtime_.acquire_scene(output);
+    auto* pipeline = static_cast<DesktopPipeline*>(context);
+    if (!pipeline->capture_permission_available_ || !basic_input_environment_available())
+        return SACCADE_ERROR_PERMISSION;
+    return pipeline->runtime_.acquire_scene(output);
 }
 
 SaccadeResult DesktopPipeline::read_agent_physical_state(void* context, SaccadeAgentPhysicalState* output) noexcept {
