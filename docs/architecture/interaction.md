@@ -12,12 +12,15 @@ moment its last symbol arrives.
 ## Ordering
 
 Targets are sorted before labels are assigned, so the shortest labels go to the
-targets the user is most likely to want:
+targets the user is most likely to want. The reference point and seed are profile values supplied by the host at
+pipeline initialization or settings refresh, not sampled at activation:
 
-- `pointer` priority sorts by Manhattan distance from the current pointer.
-- `scope_center` priority sorts by distance from the center of the active scope.
-- `randomized` priority hashes each stable target id with a session seed, which keeps
-  labels stable within a session while avoiding positional bias across sessions.
+- `pointer` priority sorts by Manhattan distance from the profile's pointer
+  position.
+- `scope_center` priority sorts by distance from the profile's center point,
+  which the host currently supplies as the desktop center.
+- `randomized` priority hashes each stable target id with the profile's seed,
+  so labels stay stable until the settings change.
 - Otherwise targets keep their scene order.
 
 Ties always break on the stable target id so the same scene produces the same labels.

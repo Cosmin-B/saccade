@@ -804,10 +804,18 @@ SaccadeResult Service::act(SaccadeSpanU8 bytes, const SaccadeAgentActionBatch& b
                 required == 0 ? SACCADE_AGENT_ERROR_ACTION_UNSUPPORTED : SACCADE_AGENT_ERROR_CAPABILITY_DENIED;
             result = required == 0 ? SACCADE_ERROR_UNSUPPORTED : SACCADE_ERROR_PERMISSION;
         } else if (action.kind == SACCADE_AGENT_ACTION_ABORT) {
-            result = config_.abort_input(config_.context);
+            // A dry run must not release held input. Validation already
+            // happened above, so report success without running the action.
+            result = (batch.header.flags & SACCADE_AGENT_BATCH_DRY_RUN) != 0
+                         ? SACCADE_OK
+                         : config_.abort_input(config_.context);
             action_result.result = agent_result(result);
         } else if (action.kind == SACCADE_AGENT_ACTION_WINDOW_CYCLE) {
-            result = config_.cycle_window(config_.context, (action.flags & SACCADE_AGENT_ACTION_CYCLE_BACKWARD) != 0);
+            // Same rule. A dry run must not change the foreground window.
+            result = (batch.header.flags & SACCADE_AGENT_BATCH_DRY_RUN) != 0
+                         ? SACCADE_OK
+                         : config_.cycle_window(config_.context,
+                                                (action.flags & SACCADE_AGENT_ACTION_CYCLE_BACKWARD) != 0);
             action_result.result = agent_result(result);
         } else if (action.kind == SACCADE_AGENT_ACTION_QUERY_PHYSICAL_STATE) {
             result = config_.read_physical_state(config_.context, &physical);

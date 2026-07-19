@@ -409,8 +409,12 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
             return SACCADE_ERROR_UNSUPPORTED;
     }
     if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0 && sink_.preflight != nullptr) {
-        result = sink_.preflight(sink_.context, plan, 0, now_ns);
-        if (result != SACCADE_OK) return result;
+        // The live path preflights each command right before it runs, so a
+        // dry run must check every command too, not only the first.
+        for (uint32_t index = 0; index < plan.header->command_count; ++index) {
+            result = sink_.preflight(sink_.context, plan, index, now_ns);
+            if (result != SACCADE_OK) return result;
+        }
     }
     if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0) {
         result = physical_.begin(plan, available_permissions, now_ns);

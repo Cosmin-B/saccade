@@ -50,12 +50,13 @@ typedef struct SaccadeSpanU8 {
 } SaccadeSpanU8;
 
 /* Extensible runtime and provider structs in this API begin with struct_size
-   and api_version. Callers set struct_size to the bytes they provide.
-   The runtime accepts a larger same-major struct and requires every reserved
-   byte beyond the last known field to be zero. Anything else fails with
-   SACCADE_ERROR_INVALID_ARGUMENT. Agent, scene, overlay, and input packet
-   headers carry their own exact-version rules instead. See
-   docs/architecture/abi.md. */
+   and api_version. Callers set struct_size to the bytes they provide. The
+   runtime reads only the prefix it knows, ignores unknown trailing bytes
+   from a larger same-major struct, and requires the reserved bytes of the
+   known prefix to be zero (SACCADE_ERROR_INVALID_ARGUMENT otherwise). An
+   incompatible major version fails with SACCADE_ERROR_VERSION. Agent, scene,
+   overlay, and input packet headers carry their own exact-version rules
+   instead. See docs/architecture/abi.md. */
 typedef struct SaccadeRuntimeDesc {
     uint32_t struct_size;
     uint32_t api_version;
