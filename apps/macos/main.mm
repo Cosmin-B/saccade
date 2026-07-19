@@ -1286,7 +1286,7 @@ static SaccadeResult run_binding_editor() {
                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
                     backing:NSBackingStoreBuffered
                       defer:NO];
-    self.diagnosticsPanel.title = @"Saccade Debugger";
+    self.diagnosticsPanel.title = @"Saccade Diagnostics";
     self.diagnosticsPanel.releasedWhenClosed = NO;
     self.diagnosticsPanel.contentMinSize =
         NSMakeSize(saccade::application::debugger_minimum_width, saccade::application::debugger_minimum_height);

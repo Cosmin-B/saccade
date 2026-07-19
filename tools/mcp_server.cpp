@@ -1,5 +1,7 @@
 #include "agent_client.hpp"
+#include "agent_result_text.hpp"
 #include "core/stack_string_builder.hpp"
+#include "saccade_tool_version.h"
 
 #include <saccade/saccade_agent.h>
 
@@ -310,30 +312,42 @@ bool write_error(const JsonDocument& document, int id, int code, std::string_vie
 bool write_initialize(const JsonDocument& document, int id) noexcept {
     return response_prefix(document, id) &&
            write_text(",\"result\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{\"tools\":{}},"
-                      "\"serverInfo\":{\"name\":\"saccade\",\"version\":\"0.1.0\"}}}\n");
+                      "\"serverInfo\":{\"name\":\"saccade\",\"version\":\"" SACCADE_TOOL_VERSION "\"}}}\n");
 }
 
 bool write_tools(const JsonDocument& document, int id) noexcept {
     return response_prefix(document, id) &&
            write_text(",\"result\":{\"tools\":["
                       "{\"name\":\"saccade_observe\",\"description\":\"Observe the latest immutable desktop "
-                      "target generation. 64-bit identifiers are decimal strings.\",\"inputSchema\":{"
+                      "target generation. 64-bit identifiers are decimal strings. Coordinates use Q8 fixed "
+                      "point (1/256 logical pixel).\",\"inputSchema\":{"
                       "\"type\":\"object\",\"properties\":{\"maximumTargets\":{\"type\":\"integer\","
-                      "\"minimum\":1,\"maximum\":10000},\"scope\":{\"enum\":[\"active-window\",\"display\","
-                      "\"desktop\",\"rect\"]},\"scopeId\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":"
-                      "\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]},"
+                      "\"minimum\":1,\"maximum\":10000,\"description\":\"Cap on returned targets.\"},"
+                      "\"scope\":{\"enum\":[\"active-window\",\"display\",\"desktop\",\"rect\"],"
+                      "\"description\":\"Observation region: the active window, one display, the full "
+                      "desktop, or an explicit rect.\"},\"scopeId\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":"
+                      "\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],"
+                      "\"description\":\"Identifier of the scoped display or window.\"},"
                       "\"sourceMode\":{\"enum\":["
-                      "\"pixel\",\"semantic\",\"grid\",\"fused\"]},\"xQ8\":{\"type\":\"integer\"},"
-                      "\"yQ8\":{\"type\":\"integer\"},\"widthQ8\":{\"type\":\"integer\",\"minimum\":1},"
-                      "\"heightQ8\":{\"type\":\"integer\",\"minimum\":1},\"afterGeneration\":{"
+                      "\"pixel\",\"semantic\",\"grid\",\"fused\"],\"description\":\"Evidence source: pixel, "
+                      "semantic, grid, or fused (pixel plus semantic).\"},"
+                      "\"xQ8\":{\"type\":\"integer\",\"description\":\"Rect scope origin X in Q8.\"},"
+                      "\"yQ8\":{\"type\":\"integer\",\"description\":\"Rect scope origin Y in Q8.\"},"
+                      "\"widthQ8\":{\"type\":\"integer\",\"minimum\":1,\"description\":\"Rect scope width in Q8.\"},"
+                      "\"heightQ8\":{\"type\":\"integer\",\"minimum\":1,\"description\":\"Rect scope height in Q8.\"},"
+                      "\"afterGeneration\":{"
                       "\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\","
-                      "\"minimum\":0,\"maximum\":9007199254740991}]}}}},"
+                      "\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Block until a generation "
+                      "newer than this id is published, then observe it.\"}}}},"
                       "{\"name\":\"saccade_query\",\"description\":\"Query stable desktop targets by "
                       "identity, role, capability, source, confidence, or text. 64-bit identifiers are decimal "
-                      "strings.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"generation\":{"
+                      "strings. generation and afterGeneration are mutually exclusive.\",\"inputSchema\":{"
+                      "\"type\":\"object\",\"properties\":{\"generation\":{"
                       "\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\","
-                      "\"minimum\":0,\"maximum\":9007199254740991}]},\"targetId\":{\"oneOf\":[{\"type\":\"string\","
-                      "\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]},"
+                      "\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Query this exact scene "
+                      "generation (default: latest valid).\"},\"targetId\":{\"oneOf\":[{\"type\":\"string\","
+                      "\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],"
+                      "\"description\":\"Stable target identifier to look up.\"},"
                       "\"scope\":{\"enum\":["
                       "\"active-window\",\"display\",\"desktop\",\"rect\"]},\"scopeId\":{\"oneOf\":[{"
                       "\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,"
@@ -341,43 +355,76 @@ bool write_tools(const JsonDocument& document, int id) noexcept {
                       "\"sourceMode\":{\"enum\":[\"pixel\",\"semantic\",\"grid\",\"fused\"]},\"xQ8\":{"
                       "\"type\":\"integer\"},\"yQ8\":{\"type\":\"integer\"},\"widthQ8\":{\"type\":"
                       "\"integer\",\"minimum\":1},\"heightQ8\":{\"type\":\"integer\",\"minimum\":1},"
-                      "\"role\":{\"type\":\"integer\"},\"capability\":{\"type\":\"integer\"},\"source\":{"
-                      "\"type\":\"integer\"},\"minimumConfidenceQ16\":{\"type\":\"integer\"},\"text\":{"
-                      "\"type\":\"string\"},\"textMatch\":{\"enum\":[\"exact\",\"prefix\",\"substring\"]},"
+                      "\"role\":{\"type\":\"integer\",\"description\":\"Numeric target role filter.\"},"
+                      "\"capability\":{\"type\":\"integer\",\"description\":\"Required capability bits; "
+                      "matching targets carry all of them.\"},\"source\":{"
+                      "\"type\":\"integer\",\"description\":\"Required evidence-source bits.\"},"
+                      "\"minimumConfidenceQ16\":{\"type\":\"integer\",\"description\":\"Minimum confidence in "
+                      "Q16 (65536 = 1.0).\"},\"text\":{"
+                      "\"type\":\"string\",\"description\":\"UTF-8 text filter.\"},"
+                      "\"textMatch\":{\"enum\":[\"exact\",\"prefix\",\"substring\"],"
+                      "\"description\":\"Text comparison mode (default exact).\"},"
                       "\"maximumResults\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":10000},"
                       "\"afterGeneration\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{"
-                      "\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]}}}},"
+                      "\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Block "
+                      "until a generation newer than this id, then query it. Not valid with generation.\"}}}},"
                       "{\"name\":\"saccade_act\",\"description\":\"Execute one generation-validated "
-                      "immediate desktop action. 64-bit identifiers are decimal strings.\",\"inputSchema\":{"
+                      "immediate desktop action. 64-bit identifiers are decimal strings. Rules: "
+                      "expectedButtons and expectedModifiers require physicalSequence. Explicit points are "
+                      "only valid for pointer-based kinds. secondaryXQ8 and secondaryYQ8 are required "
+                      "alongside xQ8/yQ8 for drag and text-select and invalid otherwise.\",\"inputSchema\":{"
                       "\"type\":\"object\",\"properties\":{"
                       "\"kind\":{\"enum\":[\"move\",\"hover\",\"click\",\"hold\",\"drag\",\"scroll\","
                       "\"key\",\"key-chord\",\"text\",\"window\",\"release\",\"text-select\",\"invoke\","
-                      "\"cycle\",\"abort\",\"physical\"]},"
+                      "\"cycle\",\"abort\",\"physical\"],\"description\":\"Action to perform; physical only "
+                      "reads the input state.\"},"
                       "\"generation\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":"
-                      "\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]},\"targetId\":{\"oneOf\":[{"
+                      "\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Precondition: "
+                      "fail if the scene generation has advanced past this id.\"},\"targetId\":{\"oneOf\":[{"
                       "\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,"
-                      "\"maximum\":9007199254740991}]},\"secondaryTargetId\":{"
+                      "\"maximum\":9007199254740991}],\"description\":\"Primary target stable id.\"},"
+                      "\"secondaryTargetId\":{"
                       "\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\","
-                      "\"minimum\":0,\"maximum\":9007199254740991}]},\"processId\":{\"oneOf\":[{\"type\":\"string\","
-                      "\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]},"
+                      "\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Drop/extent target for "
+                      "drag and text-select.\"},\"processId\":{\"oneOf\":[{\"type\":\"string\","
+                      "\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],"
+                      "\"description\":\"Precondition: this process must own focus.\"},"
                       "\"windowId\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\","
-                      "\"minimum\":0,\"maximum\":9007199254740991}]},"
+                      "\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Precondition: this window "
+                      "must be the action window.\"},"
                       "\"displayId\":{\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":"
-                      "\"integer\",\"minimum\":0,\"maximum\":9007199254740991}]},\"transformEpoch\":{\"oneOf\":[{"
+                      "\"integer\",\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Precondition: "
+                      "the action must land on this display.\"},\"transformEpoch\":{\"oneOf\":[{"
                       "\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,"
-                      "\"maximum\":9007199254740991}]},\"permissionEpoch\":{"
+                      "\"maximum\":9007199254740991}],\"description\":\"Precondition: fail if the display "
+                      "transform epoch changed.\"},\"permissionEpoch\":{"
                       "\"oneOf\":[{\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\","
-                      "\"minimum\":0,\"maximum\":9007199254740991}]},\"physicalSequence\":{\"oneOf\":[{"
+                      "\"minimum\":0,\"maximum\":9007199254740991}],\"description\":\"Precondition: fail if the "
+                      "input permission epoch changed.\"},\"physicalSequence\":{\"oneOf\":[{"
                       "\"type\":\"string\",\"pattern\":\"^[0-9]+$\"},{\"type\":\"integer\",\"minimum\":0,"
-                      "\"maximum\":9007199254740991}]},\"expectedButtons\":{\"type\":"
-                      "\"integer\"},\"expectedModifiers\":{\"type\":\"integer\"},\"dryRun\":{\"type\":"
-                      "\"boolean\"},\"verifyNextGeneration\":{\"type\":\"boolean\"},\"button\":{\"type\":\"integer\"},"
-                      "\"modifiers\":{\"type\":\"integer\"},\"keyUsage\":{\"type\":\"integer\"},"
-                      "\"repeat\":{\"type\":\"integer\"},\"deltaXQ8\":{\"type\":\"integer\"},"
-                      "\"deltaYQ8\":{\"type\":\"integer\"},\"xQ8\":{\"type\":\"integer\"},"
-                      "\"yQ8\":{\"type\":\"integer\"},\"secondaryXQ8\":{\"type\":\"integer\"},"
-                      "\"secondaryYQ8\":{\"type\":\"integer\"},\"text\":{\"type\":\"string\"},"
-                      "\"backward\":{\"type\":\"boolean\"}},\"required\":[\"kind\"]}}]}}\n");
+                      "\"maximum\":9007199254740991}],\"description\":\"Physical input sequence the expectations "
+                      "were read at. Required by expectedButtons and expectedModifiers.\"},\"expectedButtons\":{\"type\":"
+                      "\"integer\",\"description\":\"Expected physical button bits. Requires physicalSequence.\"},"
+                      "\"expectedModifiers\":{\"type\":\"integer\",\"description\":\"Expected modifier bits. "
+                      "Requires physicalSequence.\"},\"dryRun\":{\"type\":"
+                      "\"boolean\",\"description\":\"Validate preconditions and the input plan without "
+                      "executing any input.\"},\"verifyNextGeneration\":{\"type\":\"boolean\","
+                      "\"description\":\"After execution, wait for the next scene generation and report it "
+                      "as nextGeneration.\"},\"button\":{\"type\":\"integer\"},"
+                      "\"modifiers\":{\"type\":\"integer\"},\"keyUsage\":{\"type\":\"integer\","
+                      "\"description\":\"HID key usage for key and key-chord.\"},"
+                      "\"repeat\":{\"type\":\"integer\"},\"deltaXQ8\":{\"type\":\"integer\","
+                      "\"description\":\"Scroll delta X in Q8.\"},"
+                      "\"deltaYQ8\":{\"type\":\"integer\",\"description\":\"Scroll delta Y in Q8.\"},"
+                      "\"xQ8\":{\"type\":\"integer\",\"description\":\"Explicit primary point X in Q8.\"},"
+                      "\"yQ8\":{\"type\":\"integer\",\"description\":\"Explicit primary point Y in Q8.\"},"
+                      "\"secondaryXQ8\":{\"type\":\"integer\",\"description\":\"Explicit secondary point X in "
+                      "Q8 for drag and text-select only.\"},"
+                      "\"secondaryYQ8\":{\"type\":\"integer\",\"description\":\"Explicit secondary point Y in "
+                      "Q8 for drag and text-select only.\"},\"text\":{\"type\":\"string\","
+                      "\"description\":\"UTF-8 payload for the text kind.\"},"
+                      "\"backward\":{\"type\":\"boolean\",\"description\":\"Cycle windows backward (cycle "
+                      "kind only).\"}},\"required\":[\"kind\"]}}]}}\n");
 }
 
 class Server final {
@@ -452,6 +499,46 @@ class Server final {
         return response_prefix(document, id) && write_text(",\"result\":{\"content\":[{\"type\":\"text\",\"text\":") &&
                write_json_string(reinterpret_cast<const uint8_t*>(message.data()), message.size()) &&
                write_text("}],\"isError\":true}}\n");
+    }
+
+    bool write_agent_rejection(const JsonDocument& document, int id, const char* prefix,
+                               SaccadeAgentResult result) noexcept {
+        saccade::core::StackStringBuilder<128> message;
+        if (!message.append(prefix) || !message.append(saccade::tools::agent_result_text(result))) return false;
+        return write_tool_error(document, id, message.view());
+    }
+
+    static bool append_action_results(saccade::core::StackStringBuilder<2048>& result,
+                                      const SaccadeAgentActionCompletion& completion, const uint8_t* response,
+                                      size_t response_size) noexcept {
+        const size_t bytes = static_cast<size_t>(completion.action_result_count) * completion.action_result_stride;
+        if (completion.action_result_count == 0 ||
+            completion.action_result_stride != sizeof(SaccadeAgentActionResult) ||
+            completion.action_results_offset > response_size ||
+            bytes > response_size - completion.action_results_offset)
+            return true;
+        if (!result.append(",\"actions\":[")) return false;
+        for (uint32_t index = 0; index < completion.action_result_count; ++index) {
+            SaccadeAgentActionResult entry{};
+            std::memcpy(&entry,
+                        response + completion.action_results_offset +
+                            static_cast<size_t>(index) * completion.action_result_stride,
+                        sizeof(entry));
+            if (!result.append(index == 0 ? "{\"index\":" : ",{\"index\":") ||
+                !result.append_unsigned(entry.action_index) || !result.append(",\"kind\":") ||
+                !result.append_unsigned(entry.kind) || !result.append(",\"result\":") ||
+                !result.append_signed(entry.result) || !result.append(",\"resultText\":\"") ||
+                !result.append(saccade::tools::agent_result_text(entry.result)) ||
+                !result.append("\",\"platformError\":") || !result.append_signed(entry.platform_error) ||
+                !result.append(",\"targetId\":\"") || !result.append_unsigned(entry.resolved_target_id) ||
+                !result.append("\",\"secondaryTargetId\":\"") ||
+                !result.append_unsigned(entry.resolved_secondary_target_id) ||
+                !result.append("\",\"validatedGeneration\":\"") ||
+                !result.append_unsigned(entry.validated_generation) || !result.append("\",\"flags\":") ||
+                !result.append_unsigned(entry.flags) || !result.append("}"))
+                return false;
+        }
+        return result.append("]");
     }
 
     bool write_targets(const JsonDocument& document, int id, const uint8_t* response, size_t response_size,
@@ -562,15 +649,8 @@ class Server final {
             return write_tool_error(document, id, "Observe transport failed");
         SaccadeAgentObserveCompletion completion{};
         std::memcpy(&completion, storage_->agent.response.data(), sizeof(completion));
-        if (completion.result == SACCADE_AGENT_ERROR_PERMISSION_DENIED)
-            return write_tool_error(document, id, "Observation permission is unavailable");
-        if (completion.result == SACCADE_AGENT_ERROR_TARGET_NOT_FOUND)
-            return write_tool_error(document, id, "No desktop scene is available");
-        if (completion.result == SACCADE_AGENT_ERROR_TIMEOUT)
-            return write_tool_error(document, id, "Observation timed out");
-        if (completion.result == SACCADE_AGENT_ERROR_ACTION_UNSUPPORTED)
-            return write_tool_error(document, id, "Observation mode is unsupported");
-        if (completion.result != SACCADE_AGENT_OK) return write_tool_error(document, id, "Observation was rejected");
+        if (completion.result != SACCADE_AGENT_OK)
+            return write_agent_rejection(document, id, "Observation rejected: ", completion.result);
         return write_targets(document, id, storage_->agent.response.data(), response_size, completion.targets_offset,
                              completion.target_stride, completion.target_count, completion.generation, completion.scope,
                              completion.header.flags);
@@ -648,7 +728,8 @@ class Server final {
             return write_tool_error(document, id, "Query transport failed");
         SaccadeAgentQueryCompletion completion{};
         std::memcpy(&completion, storage_->agent.response.data(), sizeof(completion));
-        if (completion.result != SACCADE_AGENT_OK) return write_tool_error(document, id, "Query was rejected");
+        if (completion.result != SACCADE_AGENT_OK)
+            return write_agent_rejection(document, id, "Query rejected: ", completion.result);
         return write_targets(document, id, storage_->agent.response.data(), response_size, completion.targets_offset,
                              completion.target_stride, completion.target_count, completion.generation, completion.scope,
                              completion.header.flags);
@@ -763,15 +844,23 @@ class Server final {
             return write_tool_error(document, id, "Action transport failed");
         SaccadeAgentActionCompletion completion{};
         std::memcpy(&completion, storage_->agent.response.data(), sizeof(completion));
-        if (!response_prefix(document, id) ||
-            !write_text(completion.result == SACCADE_AGENT_OK
-                            ? ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Action completed.\"}],"
-                              "\"structuredContent\":{\"result\":"
-                            : ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Action rejected.\"}],"
-                              "\"structuredContent\":{\"result\":"))
-            return false;
-        saccade::core::StackStringBuilder<1024> result;
-        return result.append_signed(completion.result) && result.append(",\"completedActions\":") &&
+        if (!response_prefix(document, id)) return false;
+        if (completion.result == SACCADE_AGENT_OK) {
+            if (!write_text(",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Action completed.\"}],"
+                            "\"structuredContent\":{\"result\":"))
+                return false;
+        } else {
+            saccade::core::StackStringBuilder<192> head;
+            if (!head.append(",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"Action rejected: ") ||
+                !head.append(saccade::tools::agent_result_text(completion.result)) ||
+                !head.append(".\"}],\"structuredContent\":{\"result\":") || !write_text(head.view()))
+                return false;
+        }
+        saccade::core::StackStringBuilder<2048> result;
+        return result.append_signed(completion.result) && result.append(",\"resultText\":\"") &&
+               result.append(saccade::tools::agent_result_text(completion.result)) &&
+               result.append("\",\"platformError\":") && result.append_signed(completion.platform_error) &&
+               result.append(",\"completedActions\":") &&
                result.append_unsigned(completion.completed_action_count) && result.append(",\"failedAction\":") &&
                result.append_unsigned(completion.failed_action_index) && result.append(",\"generation\":\"") &&
                result.append_unsigned(completion.validated_generation) && result.append("\",\"physical\":{\"xQ8\":") &&
@@ -796,6 +885,7 @@ class Server final {
                  result.append("\",\"windowId\":\"") && result.append_unsigned(completion.next_generation.window_id) &&
                  result.append("\",\"displayId\":\"") &&
                  result.append_unsigned(completion.next_generation.display_id) && result.append("\"}"))) &&
+               append_action_results(result, completion, storage_->agent.response.data(), response_size) &&
                result.append("},\"isError\":") &&
                result.append(completion.result == SACCADE_AGENT_OK ? "false" : "true") && result.append("}}\n") &&
                write_text(result.view());

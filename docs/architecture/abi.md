@@ -98,7 +98,7 @@ handle. The caller releases each successful import with `saccade_frame_release`.
 
 The overlay packet is an in-process, native-endian byte block with explicit offsets and
 fixed record strides. It contains no pointers or platform handles. Version 1 uses a
-64-byte header, 32-byte targets, 64-byte styles, 8-byte rectangles, and 4-byte metadata.
+64-byte header, 48-byte targets, 64-byte styles, 8-byte rectangles, and 4-byte metadata.
 The 88-byte `SaccadeOverlayFrameDesc` references the packet and carries the display-rate
 active target index separately. Its active flag is opt-in, so a zero-initialized descriptor
 does not select target zero.

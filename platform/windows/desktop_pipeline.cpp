@@ -1203,6 +1203,9 @@ SaccadeResult DesktopPipeline::refresh_topology() noexcept {
 SaccadeResult DesktopPipeline::execute_plan(void* context, SaccadeSpanU8 plan, uint32_t permissions,
                                             uint64_t now_ns) noexcept {
     auto* pipeline = static_cast<DesktopPipeline*>(context);
+    /* Quick early check only. The real validation runs per command in
+       input::validate_execution_preflight below. Keep this a subset of it so
+       the two cannot disagree. */
     if (!pipeline->input_available_ ||
         qualify_surface(pipeline->action_point_qualifier_).disposition != ActionPointDisposition::qualified)
         return SACCADE_ERROR_PERMISSION;

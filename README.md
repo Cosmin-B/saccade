@@ -11,7 +11,8 @@ controls without sending screen contents over the network.
 ## What it does
 
 - Targets controls across the full desktop, active window, one display, or a grid.
-- Fuses neural, accessibility, pixel, and grid evidence into one immutable scene.
+- Fuses frame-matched pixel and semantic evidence into one immutable scene. Grid is a
+  separate whole-screen source.
 - Assigns prefix-free keyboard hints with Single, Dual, Multi, and Path selection.
 - Moves, clicks, holds, drags, scrolls, selects text, repeats actions, and navigates
   windows through validated native input plans.

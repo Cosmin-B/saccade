@@ -1,3 +1,6 @@
+configure_file(tool_version.h.in
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/saccade_tool_version.h" @ONLY)
+
 add_library(saccade_agent_client STATIC agent_client.cpp)
 target_include_directories(saccade_agent_client PRIVATE
     "${PROJECT_SOURCE_DIR}/include")
@@ -6,7 +9,8 @@ target_link_libraries(saccade_agent_client PRIVATE saccade_build_settings)
 add_executable(saccade_cli agent_cli.cpp)
 target_include_directories(saccade_cli PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src")
+    "${PROJECT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(saccade_cli PRIVATE saccade_agent_client saccade_build_settings)
 if(WIN32)
     set_target_properties(saccade_cli PROPERTIES OUTPUT_NAME saccade-cli)
@@ -17,7 +21,8 @@ endif()
 add_executable(saccade_mcp mcp_server.cpp)
 target_include_directories(saccade_mcp PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src")
+    "${PROJECT_SOURCE_DIR}/src"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_include_directories(saccade_mcp SYSTEM PRIVATE
     "${PROJECT_SOURCE_DIR}/third_party/jsmn")
 target_link_libraries(saccade_mcp PRIVATE saccade_agent_client saccade_build_settings)

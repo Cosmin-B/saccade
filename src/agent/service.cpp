@@ -7,8 +7,61 @@
 namespace saccade::agent {
 namespace {
 
+/* The agent protocol re-declares the scene target vocabulary as independent
+   wire enums, and target() converts between them by plain integer assignment.
+   Assert every mirrored constant so numeric drift fails the build.
+   SACCADE_AGENT_TARGET_KEYBOARD is agent-only and has no scene counterpart. */
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_UNKNOWN) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_UNKNOWN));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_BUTTON) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_BUTTON));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_LINK) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_LINK));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_TEXT) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_TEXT));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_TEXT_FIELD) ==
+              static_cast<uint16_t>(SACCADE_AGENT_ROLE_TEXT_FIELD));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_CHECKBOX) ==
+              static_cast<uint16_t>(SACCADE_AGENT_ROLE_CHECKBOX));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_RADIO) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_RADIO));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_MENU_ITEM) ==
+              static_cast<uint16_t>(SACCADE_AGENT_ROLE_MENU_ITEM));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_SLIDER) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_SLIDER));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_IMAGE) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_IMAGE));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_ROLE_WINDOW) == static_cast<uint16_t>(SACCADE_AGENT_ROLE_WINDOW));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_POINTER_MOVE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_POINTER_MOVE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_BUTTON) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_CLICK));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_SCROLL) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_SCROLL));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_DRAG_SOURCE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_DRAG_SOURCE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_DROP_TARGET) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_DROP_TARGET));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_TEXT) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_TEXT));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_INVOKE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_INVOKE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_WINDOW_ACTIVATE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_WINDOW_ACTIVATE));
 static_assert(static_cast<uint32_t>(SACCADE_TARGET_CAPABILITY_TEXT_SELECT) ==
               static_cast<uint32_t>(SACCADE_AGENT_TARGET_TEXT_SELECT));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_ACTIONABLE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_ACTIONABLE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_DISABLED) == static_cast<uint32_t>(SACCADE_AGENT_TARGET_DISABLED));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_OCCLUDED) == static_cast<uint32_t>(SACCADE_AGENT_TARGET_OCCLUDED));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_SECURE) == static_cast<uint32_t>(SACCADE_AGENT_TARGET_SECURE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_APPROXIMATE) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_APPROXIMATE));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_TEXT_REDACTED) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_TEXT_REDACTED));
+static_assert(static_cast<uint32_t>(SACCADE_TARGET_TEXT_TRUNCATED) ==
+              static_cast<uint32_t>(SACCADE_AGENT_TARGET_TEXT_TRUNCATED));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_SOURCE_NEURAL) ==
+              static_cast<uint16_t>(SACCADE_AGENT_TARGET_SOURCE_NEURAL));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_SOURCE_ACCESSIBILITY) ==
+              static_cast<uint16_t>(SACCADE_AGENT_TARGET_SOURCE_ACCESSIBILITY));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_SOURCE_PIXEL) ==
+              static_cast<uint16_t>(SACCADE_AGENT_TARGET_SOURCE_PIXEL));
+static_assert(static_cast<uint16_t>(SACCADE_TARGET_SOURCE_GRID) ==
+              static_cast<uint16_t>(SACCADE_AGENT_TARGET_SOURCE_GRID));
 
 template <typename T> bool load_record(SaccadeSpanU8 bytes, size_t offset, T* output) noexcept {
     if (output == nullptr || offset > bytes.size || sizeof(T) > bytes.size - offset) return false;
@@ -44,7 +97,7 @@ SaccadeAgentResult agent_result(SaccadeResult result) noexcept {
     }
 }
 
-SaccadeAgentGeneration generation(const scene::PacketView& scene, const application::InteractionState& state) noexcept {
+SaccadeAgentGeneration generation(const scene::PacketView& scene, const interaction::InteractionState& state) noexcept {
     SaccadeAgentGeneration output{};
     output.generation = scene.header->scene_epoch;
     output.scene_epoch = scene.header->scene_epoch;
@@ -79,7 +132,7 @@ bool freshness_satisfied(const SaccadeAgentFreshness& freshness, uint64_t genera
     return freshness.policy == SACCADE_AGENT_FRESHNESS_LATEST_VALID || generation > freshness.after_generation;
 }
 
-SaccadeAgentScope resolve_scope(SaccadeAgentScope scope, const application::InteractionState& state) noexcept {
+SaccadeAgentScope resolve_scope(SaccadeAgentScope scope, const interaction::InteractionState& state) noexcept {
     if (scope.kind == SACCADE_AGENT_SCOPE_ACTIVE_WINDOW) {
         if (scope.stable_id == 0) scope.stable_id = state.window_id;
         scope.rect = {state.window_bounds.x, state.window_bounds.y, state.window_bounds.width,
@@ -89,7 +142,7 @@ SaccadeAgentScope resolve_scope(SaccadeAgentScope scope, const application::Inte
 }
 
 SaccadeAgentTarget target(const SaccadeTargetRecord& source, uint32_t source_index, const SaccadeAgentScope& scope,
-                          const application::InteractionState& state) noexcept {
+                          const interaction::InteractionState& state) noexcept {
     SaccadeAgentTarget output{};
     output.target_id = source.target_id;
     output.parent_id = source.parent_id;
@@ -203,7 +256,7 @@ bool intersects(const SaccadeAgentRectQ8& left, const SaccadeTargetRecord& right
 }
 
 bool scope_matches(const SaccadeAgentScope& scope, const SaccadeTargetRecord& value,
-                   const application::InteractionState& state) noexcept {
+                   const interaction::InteractionState& state) noexcept {
     const bool source_matches =
         scope.source_mode == 0 || scope.source_mode == SACCADE_AGENT_SOURCE_FUSED ||
         (scope.source_mode == SACCADE_AGENT_SOURCE_PIXEL &&
@@ -485,7 +538,7 @@ SaccadeResult Service::observe(const SaccadeAgentObserveRequest& request,
                                    available, output, output_size);
 
     scene::PacketView scene{};
-    application::InteractionState state{};
+    interaction::InteractionState state{};
     SaccadeResult result = config_.acquire_scene(config_.context, &scene);
     if (result == SACCADE_OK) result = config_.read_state(config_.context, &state);
     if (result != SACCADE_OK)
@@ -578,7 +631,7 @@ SaccadeResult Service::query(SaccadeSpanU8 bytes, const SaccadeAgentQueryRequest
     }
 
     scene::PacketView scene{};
-    application::InteractionState state{};
+    interaction::InteractionState state{};
     SaccadeResult result = config_.acquire_scene(config_.context, &scene);
     if (result == SACCADE_OK) result = config_.read_state(config_.context, &state);
     if (result != SACCADE_OK)
@@ -667,7 +720,7 @@ SaccadeResult Service::act(SaccadeSpanU8 bytes, const SaccadeAgentActionBatch& b
     if (completion_size > output.size) return SACCADE_ERROR_CAPACITY;
 
     scene::PacketView scene{};
-    application::InteractionState state{};
+    interaction::InteractionState state{};
     SaccadeResult result = config_.acquire_scene(config_.context, &scene);
     if (result == SACCADE_OK) result = config_.read_state(config_.context, &state);
     SaccadeAgentPhysicalState physical{};
@@ -833,7 +886,7 @@ SaccadeResult Service::act(SaccadeSpanU8 bytes, const SaccadeAgentActionBatch& b
     if (completion.result == SACCADE_AGENT_OK &&
         (batch.header.flags & SACCADE_AGENT_BATCH_VERIFY_NEXT_GENERATION) != 0) {
         scene::PacketView next_scene{};
-        application::InteractionState next_state{};
+        interaction::InteractionState next_state{};
         result = config_.acquire_scene(config_.context, &next_scene);
         if (result == SACCADE_OK) result = config_.read_state(config_.context, &next_state);
         if (result == SACCADE_OK && next_scene.header->scene_epoch > initial_generation) {

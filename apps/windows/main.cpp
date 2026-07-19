@@ -1484,7 +1484,7 @@ void Application::show_diagnostics() noexcept {
         (void)SetForegroundWindow(diagnostics_window_);
         return;
     }
-    diagnostics_window_ = CreateWindowExW(WS_EX_TOOLWINDOW, diagnostics_class_name, L"Saccade Debugger",
+    diagnostics_window_ = CreateWindowExW(WS_EX_TOOLWINDOW, diagnostics_class_name, L"Saccade Diagnostics",
                                           WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME, CW_USEDEFAULT,
                                           CW_USEDEFAULT, 900, 620, window_, nullptr, instance_, this);
     if (diagnostics_window_ == nullptr) return;

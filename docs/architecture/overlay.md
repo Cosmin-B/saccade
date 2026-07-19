@@ -219,5 +219,6 @@ The native backend is expected to optimize:
 The scalar oracle is intentionally plain. SIMD expansion, parallel CPU expansion, and a
 general drawing command language would add maintenance without helping the GPU
 path. Checksums belong at model/package load and explicit replay boundaries, not on every
-display frame. Sorting, deduplication, and hint assignment belong to scene publication;
-moving them to 120 Hz would be a design error rather than a kernel optimization problem.
+display frame. Sorting and deduplication belong to scene publication. Hint assignment
+runs once at session activation in the interaction module. Moving any of them to
+120 Hz would be a design error rather than a kernel optimization problem.
