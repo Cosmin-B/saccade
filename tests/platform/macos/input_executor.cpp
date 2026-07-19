@@ -15,6 +15,7 @@ enum class TestResult : int {
     initialization_failed,
     click_failed,
     dry_run_failed,
+    dry_run_preflight_failed,
     release_failed,
     keyboard_failed,
     text_failed,
@@ -76,7 +77,13 @@ struct CaptureSink {
     uint32_t calls = 0;
     uint32_t failure_call = 0;
     uint64_t activated_window = 0;
+    uint32_t preflight_calls = 0;
 };
+
+SaccadeResult capture_preflight(void* context, const saccade::input::PlanView&, uint32_t, uint64_t) noexcept {
+    ++static_cast<CaptureSink*>(context)->preflight_calls;
+    return SACCADE_OK;
+}
 
 bool capture_event(void* context, CGEventRef event) noexcept {
     auto* sink = static_cast<CaptureSink*>(context);
@@ -146,7 +153,7 @@ int main() {
     CaptureSink sink{};
     saccade::platform::macos::InputExecutor executor;
     const saccade::platform::macos::Desktop desktop{-1920, 0, 3840, 1080, topology_epoch};
-    const saccade::platform::macos::InputSink input_sink{&sink, capture_event, capture_activation};
+    const saccade::platform::macos::InputSink input_sink{&sink, capture_event, capture_activation, capture_preflight};
     if (executor.initialize(desktop, input_sink, permission_epoch, 0, 0) != SACCADE_OK)
         return result(TestResult::initialization_failed);
 
@@ -177,6 +184,20 @@ int main() {
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         sink.count != before_dry_run || execution.native_events != 0)
         return result(TestResult::dry_run_failed);
+
+    // Dry runs must preflight every command, not only the first.
+    std::array<SaccadeInputCommand, 2> dry_moves{};
+    dry_moves[0].kind = SACCADE_INPUT_COMMAND_POINTER_MOVE;
+    dry_moves[0].flags = SACCADE_INPUT_COMMAND_ABSOLUTE;
+    dry_moves[0].y_q8 = 256;
+    dry_moves[1] = dry_moves[0];
+    dry_moves[1].x_q8 = 256;
+    sink.preflight_calls = 0;
+    plan = make_plan(&storage, 99, SACCADE_INPUT_PERMISSION_POINTER, 0,
+                     SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE, dry_moves.data(), 2);
+    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
+        sink.preflight_calls != 2 || sink.count != before_dry_run || execution.native_events != 0)
+        return result(TestResult::dry_run_preflight_failed);
 
     std::array<SaccadeInputCommand, 2> hold{};
     hold[0].kind = SACCADE_INPUT_COMMAND_POINTER_MOVE;

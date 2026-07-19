@@ -358,14 +358,18 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
     }
     *output = {};
     if (shutdown_pending_) return SACCADE_ERROR_STATE;
-    if (pending_release_count_ != 0) {
-        const SaccadeResult recovered = retry_pending_releases();
-        if (recovered != SACCADE_OK) return recovered;
-    }
     input::PlanView plan{};
     SaccadeResult result = input::validate_plan(bytes, &plan);
     if (result != SACCADE_OK) {
         return result;
+    }
+    if (pending_release_count_ != 0) {
+        // A dry run must not inject anything, and flushing the queued release
+        // events here would. Report busy so the caller retries after a live
+        // call has recovered them.
+        if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0) return SACCADE_ERROR_BUSY;
+        const SaccadeResult recovered = retry_pending_releases();
+        if (recovered != SACCADE_OK) return recovered;
     }
     if (plan.header->topology_epoch != desktop_.topology_epoch) {
         return SACCADE_ERROR_STALE_HANDLE;
