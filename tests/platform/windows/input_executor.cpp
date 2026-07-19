@@ -16,6 +16,7 @@ constexpr int partial_modifier_failed = 13;
 constexpr int partial_button_failed = 14;
 constexpr int pending_release_retry_failed = 15;
 constexpr int shutdown_release_retry_failed = 16;
+constexpr int dry_run_pending_release_failed = 17;
 
 struct alignas(8) PlanStorage {
     std::array<uint8_t, plan_capacity> bytes{};
@@ -163,6 +164,27 @@ int main() {
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, 1, &result) != SACCADE_OK ||
         sink.count != before_dry_run || result.native_events != 0) {
         return 3;
+    }
+
+    // A dry run must not flush queued release events either. Fail a live
+    // plan deep enough that its unwind releases stay pending, then expect
+    // busy from a dry run with no submissions at all.
+    fail_next(&sink, 6);
+    plan = make_plan(&storage, 22, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &click, 1);
+    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, 1, &result) != SACCADE_ERROR_BACKEND) {
+        return dry_run_pending_release_failed;
+    }
+    sink.fail_first_call = 0;
+    sink.fail_last_call = 0;
+    const uint32_t before_busy_dry_run = sink.count;
+    plan = make_plan(&storage, 23, SACCADE_INPUT_PERMISSION_POINTER, 0,
+                     SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &click, 1);
+    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, 1, &result) != SACCADE_ERROR_BUSY ||
+        sink.count != before_busy_dry_run) {
+        return dry_run_pending_release_failed;
+    }
+    if (executor.release_all() != SACCADE_OK) {
+        return dry_run_pending_release_failed;
     }
 
     std::array<SaccadeInputCommand, 2> hold{};
