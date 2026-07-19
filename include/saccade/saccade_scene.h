@@ -19,6 +19,9 @@ enum {
     SACCADE_COORDINATE_SPACE_DESKTOP_Q8 = 3
 };
 
+/* The target role, source, flag, and capability enums below are mirrored as
+   wire enums in include/saccade/saccade_agent.h. Values must stay numerically
+   identical. src/agent/service.cpp asserts every pair at compile time. */
 typedef uint16_t SaccadeTargetRole;
 
 enum {

@@ -4,6 +4,7 @@
 #include "application/hotkeys.hpp"
 #include "application/session.hpp"
 #include "geometry/coordinate_transform.hpp"
+#include "interaction/interaction_state.hpp"
 
 #include <array>
 #include <cstdint>
@@ -14,24 +15,10 @@ constexpr uint64_t default_interaction_timeout_ns = UINT64_C(2'000'000'000);
 constexpr uint64_t default_continuous_scroll_lease_ns = UINT64_C(250'000'000);
 constexpr int32_t default_scroll_step_q8 = 3 * 256;
 
-struct InteractionState {
-    uint64_t scene_epoch = 0;
-    uint64_t transform_epoch = 0;
-    uint64_t topology_epoch = 0;
-    uint64_t permission_epoch = 0;
-    uint64_t focus_id = 0;
-    uint32_t permissions = 0;
-    uint32_t expected_buttons = 0;
-    int32_t pointer_x_q8 = 0;
-    int32_t pointer_y_q8 = 0;
-    uint64_t window_id = 0;
-    uint64_t display_id = 0;
-    geometry::RectQ8 window_bounds{};
-};
+using InteractionState = interaction::InteractionState;
+using ReadInteractionStateFn = interaction::ReadInteractionStateFn;
 
 enum class PointerFinalPosition : uint32_t { target = 0, original = 1, anchor = 2 };
-
-using ReadInteractionStateFn = SaccadeResult (*)(void*, InteractionState*) noexcept;
 using ForwardCommandFn = SaccadeResult (*)(void*, Command, uint64_t) noexcept;
 using InputLeaseActiveFn = bool (*)(void*) noexcept;
 using NeutralizeInputFn = SaccadeResult (*)(void*) noexcept;

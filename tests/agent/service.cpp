@@ -29,7 +29,7 @@ constexpr size_t packet_size =
 struct Fixture {
     alignas(8) std::array<uint8_t, packet_size> packet{};
     saccade::scene::PacketView scene{};
-    saccade::application::InteractionState state{};
+    saccade::interaction::InteractionState state{};
     SaccadeAgentPhysicalState physical{};
     uint32_t plans = 0;
     uint32_t aborts = 0;
@@ -50,7 +50,7 @@ SaccadeResult acquire_scene(void* context, saccade::scene::PacketView* output) n
     return SACCADE_OK;
 }
 
-SaccadeResult read_state(void* context, saccade::application::InteractionState* output) noexcept {
+SaccadeResult read_state(void* context, saccade::interaction::InteractionState* output) noexcept {
     *output = static_cast<Fixture*>(context)->state;
     return SACCADE_OK;
 }

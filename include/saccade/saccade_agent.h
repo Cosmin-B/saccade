@@ -95,6 +95,10 @@ enum {
     SACCADE_AGENT_FRESHNESS_REQUIRE_NEURAL_REFRESH = UINT32_C(1) << 1
 };
 
+/* The next four enums are wire copies of the scene target vocabulary in
+   include/saccade/saccade_scene.h. Values must stay numerically identical.
+   src/agent/service.cpp asserts every pair at compile time.
+   SACCADE_AGENT_TARGET_KEYBOARD is agent-only and has no scene counterpart. */
 typedef uint32_t SaccadeAgentTargetCapabilityBits;
 
 enum {
@@ -175,6 +179,8 @@ enum {
     SACCADE_AGENT_RELATION_SIBLING = 6,
     SACCADE_AGENT_RELATION_CONTAINS = 7,
     SACCADE_AGENT_RELATION_CONTAINED_BY = 8,
+    /* Reserved for a future version. Version 0.1 services reject queries using
+       this relation with SACCADE_AGENT_ERROR_ACTION_UNSUPPORTED. */
     SACCADE_AGENT_RELATION_NEAREST = 9
 };
 
