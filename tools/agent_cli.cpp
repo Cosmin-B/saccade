@@ -92,7 +92,7 @@ void print_usage(FILE* stream) noexcept {
         "           cycle|abort|physical|release|text-select|invoke\n"
         "    --target <id>  --to <id>  --x-q8 <n> --y-q8 <n>  --to-x-q8 <n> --to-y-q8 <n>\n"
         "    --button <bits>  --modifiers <bits>  --key <usage>  --repeat <n>\n"
-        "    --duration-ns <n>  --backward <0|1>  --text-file <path>\n"
+        "    --backward <0|1>  --text-file <path>\n"
         "    --dry-run                         Validate the batch without executing input.\n"
         "    --verify-next-generation          Confirm the post-action scene generation.\n"
         "  wait <generation> [--json]          Observe once a newer generation exists.\n"
@@ -101,7 +101,9 @@ void print_usage(FILE* stream) noexcept {
         "Global options:\n"
         "  --json      Emit structured JSON instead of raw wire bytes.\n"
         "  --help      Show this help.\n"
-        "  --version   Show the tool version.\n",
+        "  --version   Show the tool version.\n"
+        "\n"
+        "The Windows executable is named saccade-cli.\n",
         stream);
 }
 
@@ -669,13 +671,18 @@ int main(int argc, char** argv) {
         print_usage(stderr);
         return fail(ExitCode::usage, "missing command");
     }
-    if (std::strcmp(argv[1], "--help") == 0 || std::strcmp(argv[1], "-h") == 0 || std::strcmp(argv[1], "help") == 0) {
-        print_usage(stdout);
-        return exit_code(ExitCode::success);
-    }
-    if (std::strcmp(argv[1], "--version") == 0) {
-        std::fputs("saccade " SACCADE_TOOL_VERSION "\n", stdout);
-        return exit_code(ExitCode::success);
+    // Global flags work at any position and never touch the service, so
+    // `saccade act --help` cannot fail with a connection error.
+    for (int index = 1; index < argc; ++index) {
+        if (std::strcmp(argv[index], "--help") == 0 || std::strcmp(argv[index], "-h") == 0 ||
+            std::strcmp(argv[index], "help") == 0) {
+            print_usage(stdout);
+            return exit_code(ExitCode::success);
+        }
+        if (std::strcmp(argv[index], "--version") == 0) {
+            std::fputs("saccade " SACCADE_TOOL_VERSION "\n", stdout);
+            return exit_code(ExitCode::success);
+        }
     }
     const bool known_command = std::strcmp(argv[1], "observe") == 0 || std::strcmp(argv[1], "query") == 0 ||
                                std::strcmp(argv[1], "act") == 0 || std::strcmp(argv[1], "wait") == 0 ||

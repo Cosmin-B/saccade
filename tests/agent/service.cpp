@@ -460,6 +460,28 @@ int main() {
         fixture.window_cycles != -1)
         return result(TestResult::action_failed);
 
+    // A dry run validates abort and cycle but must not run their side
+    // effects. The counters must stay where the live calls above left them.
+    batch->header.flags = SACCADE_AGENT_BATCH_DRY_RUN;
+    action[0] = {};
+    action[0].kind = SACCADE_AGENT_ACTION_ABORT;
+    batch->requested_capability_bits = SACCADE_AGENT_CAPABILITY_POINTER;
+    if (service.process({action_bytes.data(), action_bytes.size()}, capabilities, 1, {output.data(), output.size()},
+                        &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentActionCompletion*>(output.data())->result != SACCADE_AGENT_OK ||
+        fixture.aborts != 1)
+        return result(TestResult::action_failed);
+
+    action[0].kind = SACCADE_AGENT_ACTION_WINDOW_CYCLE;
+    action[0].flags = SACCADE_AGENT_ACTION_CYCLE_BACKWARD;
+    batch->requested_capability_bits = SACCADE_AGENT_CAPABILITY_WINDOW;
+    if (service.process({action_bytes.data(), action_bytes.size()}, capabilities, 1, {output.data(), output.size()},
+                        &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentActionCompletion*>(output.data())->result != SACCADE_AGENT_OK ||
+        fixture.window_cycles != -1)
+        return result(TestResult::action_failed);
+    batch->header.flags = 0;
+
     fixture.physical.pointer = {123, 456};
     fixture.physical.physical_sequence = 17;
     action[0] = {};

@@ -12,9 +12,10 @@ exact, while pixel detections are approximate.
 
 ## Finding duplicates
 
-Each accepted target is indexed into a spatial hash under five size levels: its own
-power-of-two size class plus two levels above and below, clamped to [12, 30]. A new
-candidate probes only its own level, in the 3x3 cell neighborhood around its center.
+Each accepted target is indexed into a spatial hash under up to five size levels:
+its own power-of-two size class plus two levels above and below, clamped to
+[12, 30]. A new candidate probes only its own level, in the 3x3 cell neighborhood
+around its safe point (`safe_x_q8`, `safe_y_q8`).
 Indexing each target at neighboring levels is what lets two differently-sized records
 of the same control find each other without a full pairwise scan.
 
