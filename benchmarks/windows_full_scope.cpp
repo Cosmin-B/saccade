@@ -604,10 +604,8 @@ int main(int argc, char** argv) {
         coordinator_stats.full_scope_deadlines_missed - coordinator_baseline.full_scope_deadlines_missed;
     const uint64_t deadline_misses = std::max(batch_deadline_misses, full_scope_deadline_misses);
     const uint64_t refresh_millihz = batches_published * UINT64_C(1'000'000'000'000) / measured_ns;
-    const uint64_t interaction_ticks =
-        scheduler_stats.interaction_ticks - scheduler_baseline.interaction_ticks;
-    const uint64_t interaction_refresh_millihz =
-        interaction_ticks * UINT64_C(1'000'000'000'000) / measured_ns;
+    const uint64_t interaction_ticks = scheduler_stats.interaction_ticks - scheduler_baseline.interaction_ticks;
+    const uint64_t interaction_refresh_millihz = interaction_ticks * UINT64_C(1'000'000'000'000) / measured_ns;
     const uint64_t deadline_miss_ppm =
         batches_published == 0 ? UINT64_MAX : deadline_misses * UINT64_C(1'000'000) / batches_published;
     const uint64_t inference_high_water_growth =

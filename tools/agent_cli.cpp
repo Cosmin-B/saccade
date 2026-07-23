@@ -76,35 +76,34 @@ int fail(ExitCode code, const char* reason) noexcept {
 }
 
 void print_usage(FILE* stream) noexcept {
-    std::fputs(
-        "Usage: saccade <command> [options]\n"
-        "\n"
-        "Commands:\n"
-        "  observe [--json]                    Capture the current scene snapshot.\n"
-        "  query [options] [--json]            Filter targets in the current scene.\n"
-        "    --generation <id>                 Query an exact scene generation.\n"
-        "    --after-generation <id>           Wait for a generation newer than <id>.\n"
-        "    --target <id>  --role <n>  --capability <bits>  --source <bits>\n"
-        "    --minimum-confidence <q16>  --text <value>  --text-file <path>\n"
-        "    --text-match exact|prefix|substring\n"
-        "  act [options] [--json]              Execute one validated action.\n"
-        "    --kind move|hover|click|hold|drag|scroll|key|key-chord|text|window|\n"
-        "           cycle|abort|physical|release|text-select|invoke\n"
-        "    --target <id>  --to <id>  --x-q8 <n> --y-q8 <n>  --to-x-q8 <n> --to-y-q8 <n>\n"
-        "    --button <bits>  --modifiers <bits>  --key <usage>  --repeat <n>\n"
-        "    --backward <0|1>  --text-file <path>\n"
-        "    --dry-run                         Validate the batch without executing input.\n"
-        "    --verify-next-generation          Confirm the post-action scene generation.\n"
-        "  wait <generation> [--json]          Observe once a newer generation exists.\n"
-        "  batch <file> [--json]               Send a raw binary action batch.\n"
-        "\n"
-        "Global options:\n"
-        "  --json      Emit structured JSON instead of raw wire bytes.\n"
-        "  --help      Show this help.\n"
-        "  --version   Show the tool version.\n"
-        "\n"
-        "The Windows executable is named saccade-cli.\n",
-        stream);
+    std::fputs("Usage: saccade <command> [options]\n"
+               "\n"
+               "Commands:\n"
+               "  observe [--json]                    Capture the current scene snapshot.\n"
+               "  query [options] [--json]            Filter targets in the current scene.\n"
+               "    --generation <id>                 Query an exact scene generation.\n"
+               "    --after-generation <id>           Wait for a generation newer than <id>.\n"
+               "    --target <id>  --role <n>  --capability <bits>  --source <bits>\n"
+               "    --minimum-confidence <q16>  --text <value>  --text-file <path>\n"
+               "    --text-match exact|prefix|substring\n"
+               "  act [options] [--json]              Execute one validated action.\n"
+               "    --kind move|hover|click|hold|drag|scroll|key|key-chord|text|window|\n"
+               "           cycle|abort|physical|release|text-select|invoke\n"
+               "    --target <id>  --to <id>  --x-q8 <n> --y-q8 <n>  --to-x-q8 <n> --to-y-q8 <n>\n"
+               "    --button <bits>  --modifiers <bits>  --key <usage>  --repeat <n>\n"
+               "    --backward <0|1>  --text-file <path>\n"
+               "    --dry-run                         Validate the batch without executing input.\n"
+               "    --verify-next-generation          Confirm the post-action scene generation.\n"
+               "  wait <generation> [--json]          Observe once a newer generation exists.\n"
+               "  batch <file> [--json]               Send a raw binary action batch.\n"
+               "\n"
+               "Global options:\n"
+               "  --json      Emit structured JSON instead of raw wire bytes.\n"
+               "  --help      Show this help.\n"
+               "  --version   Show the tool version.\n"
+               "\n"
+               "The Windows executable is named saccade-cli.\n",
+               stream);
 }
 
 bool emit_error(SaccadeAgentResult result, int32_t platform_error) noexcept {
@@ -206,8 +205,8 @@ SaccadeAgentScope default_scope() noexcept {
 
 SaccadeAgentCapabilityBits requested_capabilities(int argc, char** argv) noexcept {
     if (std::strcmp(argv[1], "batch") == 0) {
-        return SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER |
-               SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_WINDOW;
+        return SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
+               SACCADE_AGENT_CAPABILITY_WINDOW;
     }
     if (std::strcmp(argv[1], "act") != 0) return SACCADE_AGENT_CAPABILITY_OBSERVE;
     const char* kind = "click";
@@ -245,12 +244,11 @@ bool emit_action_completion(const SaccadeAgentActionCompletion& completion, cons
     saccade::core::StackStringBuilder<512> line;
     if (!(line.append("{\"request_id\":") && line.append_unsigned(completion.request_id) &&
           line.append(",\"result\":") && line.append_signed(completion.result) && line.append(",\"result_text\":\"") &&
-          line.append(saccade::tools::agent_result_text(completion.result)) &&
-          line.append("\",\"platform_error\":") && line.append_signed(completion.platform_error) &&
-          line.append(",\"completed_actions\":") && line.append_unsigned(completion.completed_action_count) &&
-          line.append(",\"failed_action\":") && line.append_unsigned(completion.failed_action_index) &&
-          line.append(",\"validated_generation\":") && line.append_unsigned(completion.validated_generation) &&
-          write_stdout(line.view())))
+          line.append(saccade::tools::agent_result_text(completion.result)) && line.append("\",\"platform_error\":") &&
+          line.append_signed(completion.platform_error) && line.append(",\"completed_actions\":") &&
+          line.append_unsigned(completion.completed_action_count) && line.append(",\"failed_action\":") &&
+          line.append_unsigned(completion.failed_action_index) && line.append(",\"validated_generation\":") &&
+          line.append_unsigned(completion.validated_generation) && write_stdout(line.view())))
         return false;
     line.reset();
     if (!(line.append(",\"physical\":{\"x_q8\":") && line.append_signed(completion.physical_state.pointer.x_q8) &&
