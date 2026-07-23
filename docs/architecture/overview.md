@@ -53,8 +53,8 @@ overlay presentation. It advances at up to 120 Hz without waiting for scene prod
 The scene clock covers capture, accessibility refresh, image preparation, inference,
 and target fusion. Version 0.1 targets a 30 Hz full-scope neural refresh on supported
 hardware. The clocks exchange bounded snapshots. Neither waits for the other. The
-duplicate and merge contract is defined in [fusion](fusion.md); hint label
-construction is defined in [hint assignment](interaction.md).
+duplicate and merge contract is defined in [fusion](fusion.md). Hint label construction
+is defined in [hint assignment](interaction.md).
 
 Isolated model timing, deterministic replay, offscreen rendering, and source scaling
 measure components. End-to-end timing runs from capture to scene publication and from
