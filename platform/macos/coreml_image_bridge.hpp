@@ -32,6 +32,11 @@ struct CoreMlImageBridgeStats {
     uint64_t cached_replays = 0;
 };
 
+struct AtlasCaptureStamp {
+    uint64_t display_id = 0;
+    uint64_t capture_time_ns = 0;
+};
+
 class CoreMlImageBridge final {
   public:
     CoreMlImageBridge() noexcept = default;
@@ -46,7 +51,7 @@ class CoreMlImageBridge final {
     SaccadeResult begin(SceneCaptureSet*, const SceneCaptureFrame&, const geometry::DisplaySurface&) noexcept;
     SaccadeResult begin_scope(SceneCaptureSet*, const SceneCaptureFrame*, const geometry::DisplaySurface*,
                               uint32_t display_count, geometry::RectQ8 scope, uint64_t source_id) noexcept;
-    SaccadeResult begin_cached(uint64_t capture_time_ns) noexcept;
+    SaccadeResult begin_cached() noexcept;
     SaccadeResult poll(scheduler::NeuralFrame*, bool* ready) noexcept;
     SaccadeResult discard() noexcept;
     SaccadeResult shutdown() noexcept;
@@ -73,6 +78,7 @@ class CoreMlImageBridge final {
     backend::metal::PreprocessSubmission submission_{};
     SceneCaptureSet* capture_set_ = nullptr;
     std::array<SceneCaptureFrame, geometry::display_capacity> capture_frames_{};
+    std::array<AtlasCaptureStamp, geometry::display_capacity> atlas_capture_stamps_{};
     geometry::RectQ8 scope_{};
     geometry::RectQ8 atlas_scope_{};
     CoreMlImageBridgeStats stats_{};
@@ -81,10 +87,12 @@ class CoreMlImageBridge final {
     uint64_t frame_id_ = 0;
     uint64_t transform_epoch_ = 0;
     uint64_t capture_time_ns_ = 0;
+    uint64_t atlas_capture_time_ns_ = 0;
     uint64_t atlas_topology_epoch_ = 0;
     uint64_t next_output_frame_id_ = 1;
     SaccadeFrameHandle output_frame_ = 0;
     uint32_t capture_count_ = 0;
+    uint32_t atlas_capture_stamp_count_ = 0;
     bool initialized_ = false;
     bool preprocessing_ = false;
     bool output_in_use_ = false;
@@ -94,6 +102,7 @@ class CoreMlImageBridge final {
 
 static_assert(sizeof(CoreMlImageBridgeConfig) == 56);
 static_assert(sizeof(CoreMlImageBridgeStats) == 64);
+static_assert(sizeof(AtlasCaptureStamp) == 16);
 
 } // namespace saccade::platform::macos
 

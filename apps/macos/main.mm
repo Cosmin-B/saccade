@@ -514,7 +514,6 @@ SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcep
         return SACCADE_OK;
     }
     std::memcpy(model_root_.data(), root, std::strlen(root) + 1U);
-    request_platform_permissions();
     const uint64_t now_ns = timestamp_ns();
     result = initialize_pipeline(now_ns);
     if (result != SACCADE_OK) {
@@ -1084,7 +1083,7 @@ static SaccadeResult run_binding_editor() {
         @[ settings_label(@"Timeout (ms)"), timeout ],
         @[ settings_label(@"Hold (ms)"), hold ],
         @[ settings_label(@"Drag (ms)"), drag ],
-        @[ settings_label(@"Continuous scroll lease (ms; 0 = 250)"), scrollDuration ],
+        @[ settings_label(@"Continuous scroll lease (ms, 0 = 250)"), scrollDuration ],
         @[ settings_label(@"Vertical scroll (Q8)"), scrollVertical ],
         @[ settings_label(@"Horizontal scroll (Q8)"), scrollHorizontal ],
         @[

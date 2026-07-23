@@ -48,8 +48,9 @@ SaccadeAgentGeneration generation(const scene::PacketView& scene, const applicat
     SaccadeAgentGeneration output{};
     output.generation = scene.header->scene_epoch;
     output.scene_epoch = scene.header->scene_epoch;
-    output.damage_epoch = scene.header->frame_id;
-    output.focus_id = state.focus_id;
+    output.frame_id = scene.header->frame_id;
+    output.capture_time_ns = scene.header->capture_time_ns;
+    output.process_id = state.focus_id;
     output.window_id = state.window_id;
     output.display_id = state.display_id;
     output.transform_epoch = scene.header->transform_epoch;
@@ -676,7 +677,8 @@ SaccadeResult Service::act(SaccadeSpanU8 bytes, const SaccadeAgentActionBatch& b
     const SaccadeAgentPreconditions& preconditions = batch.preconditions;
     if (((preconditions.flags & SACCADE_AGENT_PRECONDITION_GENERATION) != 0 &&
          preconditions.generation != scene.header->scene_epoch) ||
-        ((preconditions.flags & SACCADE_AGENT_PRECONDITION_FOCUS) != 0 && preconditions.focus_id != state.focus_id) ||
+        ((preconditions.flags & SACCADE_AGENT_PRECONDITION_PROCESS) != 0 &&
+         preconditions.process_id != state.focus_id) ||
         ((preconditions.flags & SACCADE_AGENT_PRECONDITION_WINDOW) != 0 &&
          preconditions.window_id != state.window_id) ||
         ((preconditions.flags & SACCADE_AGENT_PRECONDITION_DISPLAY) != 0 &&

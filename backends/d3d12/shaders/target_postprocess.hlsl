@@ -309,16 +309,17 @@ void store_u64(uint offset, uint64_t value) {
     for (uint word = 0; word < parameters.mask_word_count; ++word) {
         suppressed[word] = 0;
     }
-    packet.Store4(0, uint4(96, 0x00010001, 0, 80));
+    packet.Store4(0, uint4(104, 0x00010002, 0, 80));
     packet.Store2(16, uint2(0, parameters.coordinate_space));
     packet.Store2(24, uint2(0, 0));
     store_u64(32, parameters.frame_id);
-    store_u64(40, parameters.model_epoch);
-    store_u64(48, parameters.session_epoch);
-    store_u64(56, parameters.transform_epoch);
-    store_u64(64, parameters.topology_epoch);
-    store_u64(72, parameters.source_id);
-    store_u64(80, 96);
+    store_u64(40, 0);
+    store_u64(48, parameters.model_epoch);
+    store_u64(56, parameters.session_epoch);
+    store_u64(64, parameters.transform_epoch);
+    store_u64(72, parameters.topology_epoch);
+    store_u64(80, parameters.source_id);
+    store_u64(88, 104);
     uint written = 0;
     uint above_threshold = 0;
     const uint selected_count = min(parameters.candidate_count, parameters.maximum_targets);
@@ -330,7 +331,7 @@ void store_u64(uint offset, uint64_t value) {
         for (uint word = 0; word < parameters.mask_word_count; ++word) {
             suppressed[word] |= masks[ordered * parameters.mask_word_count + word];
         }
-        const uint base = 96 + written * 80;
+        const uint base = 104 + written * 80;
         store_u64(base, target_id(parameters.source_id, candidate));
         packet.Store4(base + 8, uint4(0, 0, 0, 0));
         packet.Store4(base + 24, uint4(0, 0, candidate.x << 5, candidate.y << 5));
@@ -351,7 +352,7 @@ void store_u64(uint offset, uint64_t value) {
         ++written;
     }
     packet.Store(8, written);
-    store_u64(88, 96 + uint64_t(written) * 80);
+    store_u64(96, 104 + uint64_t(written) * 80);
     counters[0] = above_threshold;
     counters[1] = written;
 }

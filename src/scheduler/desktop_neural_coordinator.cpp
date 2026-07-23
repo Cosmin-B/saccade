@@ -205,6 +205,7 @@ SaccadeResult DesktopNeuralCoordinator::begin_batch(DesktopNeuralAdvance* advanc
     aggregate_header_.target_stride = sizeof(SaccadeTargetRecord);
     aggregate_header_.coordinate_space = SACCADE_COORDINATE_SPACE_DESKTOP_Q8;
     aggregate_header_.scene_epoch = next_scene_epoch_;
+    aggregate_header_.capture_time_ns = batch_capture_time_ns_ == UINT64_MAX ? 0 : batch_capture_time_ns_;
     aggregate_header_.model_epoch = config_.model_epoch;
     aggregate_header_.session_epoch = config_.session_epoch;
     aggregate_header_.transform_epoch = scene_transform_epoch;

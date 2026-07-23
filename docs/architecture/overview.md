@@ -4,9 +4,10 @@ Saccade separates desktop interaction from scene understanding. Keyboard input,
 pointer feedback, and overlay presentation have a tighter deadline than capture or
 neural inference. A late scene update can be replaced. An input event cannot.
 
-One desktop owner advances the 120/30 Hz scheduler, publishes immutable scenes, freezes
-hint sessions, validates actions, and composes per-display overlays. Capture, inference,
-accessibility, presentation, and input remain separate providers with bounded ownership.
+One desktop owner advances separate interaction and scene scheduler deadlines, publishes
+immutable scenes, freezes hint sessions, validates actions, and composes per-display
+overlays. Capture, inference, accessibility, presentation, and input remain separate
+providers with bounded ownership.
 The local agent service reads the same scene and submits actions through the same checks
 as interactive input.
 
@@ -47,7 +48,7 @@ and report a bounded fault.
 ## Two clocks
 
 The interaction clock covers keyboard handling, pointer motion, action state, and
-overlay presentation. Its design target is 120 Hz.
+overlay presentation. It advances at up to 120 Hz without waiting for scene production.
 
 The scene clock covers capture, accessibility refresh, image preparation, inference,
 and target fusion. Version 0.1 targets a 30 Hz full-scope neural refresh on supported
@@ -57,10 +58,9 @@ Isolated model timing, deterministic replay, offscreen rendering, and source sca
 measure components. End-to-end timing runs from capture to scene publication and from
 input to physical presentation.
 
-A full-scope pass means every visible point can affect the result. It does not mean
-that every model layer operates on a native-resolution RGB tensor. Tiling, compact
-feature pyramids, and low-channel native-pixel stems are valid when they preserve the
-same output contract.
+A full-scope pass lets every visible point affect the result. Individual model layers may
+use tiling, compact feature pyramids, or low-channel native-pixel stems while preserving
+the same output contract.
 
 ## Provider families
 
@@ -74,8 +74,8 @@ Five provider families keep unrelated lifetime rules apart:
 
 Each family has its own size-versioned C operations table. Registration is explicit.
 Provider and device metadata is copied into fixed-capacity storage, so caller-owned
-names may be released after registration. The registry freezes before execution and
-uses domain-tagged handles rather than exposing storage addresses.
+names may be released after registration. The registry freezes before execution, uses
+domain-tagged handles, and exposes no storage addresses.
 
 The deterministic providers implement all five families for contract tests. The
 scalar CPU provider implements the inference family and exact image fixtures. Neither
@@ -100,7 +100,7 @@ call explicit C symbols, so the convenience layer adds no runtime type switch.
 Platform SDK and inference-framework headers do not enter the installed include graph.
 Host frames enter a fixed-capacity lease pool and newest-frame mailbox. macOS capture
 frames retain their CVPixelBuffer and IOSurface through a generation-safe lease and expose
-a direct Metal texture view; platform types remain outside the installed headers.
+a direct Metal texture view. Platform types remain outside the installed headers.
 
 ## Memory and concurrency
 
@@ -115,7 +115,7 @@ provider-owned device memory, framework residency, copied bytes, and high-water 
 The [memory guide](memory.md) covers resolution and queue-depth scaling.
 
 Runtime and provider hot paths are scheduler-owned. Only cold global lifecycle mutation
-uses the bounded CAS gate; repository checks reject mutexes and reject CAS anywhere else.
+uses the bounded CAS gate. Repository checks reject mutexes and reject CAS anywhere else.
 The newest-frame exchange is allocation-free and uses one atomic exchange per ownership
 transfer. The 120 Hz scheduler and worker topology are described in
 [concurrency](concurrency.md).
@@ -132,14 +132,15 @@ display and visible top-level window sources. Production WGC frames are copied o
 the GPU into a bounded shared D3D12 resource, accompanied by a shared-fence dependency,
 and retired after inference. The capture owner does not access the inference queue. The
 D3D12 worker consumes the dependency and implements preprocessing, DirectML inference,
-and GPU target postprocessing. The application owner currently performs compute expansion,
-indirect rendering, and serial per-display presentation through nonactivating
-DirectComposition surfaces. A fixed 16-display set reconciles them against topology
-epochs. UI Automation remains
-on a dedicated MTA worker and publishes bounded desktop-Q8 target packets without
+and GPU target postprocessing. It owns a high-priority MMCSS registration for its lifetime.
+The application owner owns a separate registration for the 120 Hz loop and composes fixed
+overlay packets. The Windows overlay provider expands them on the GPU, renders indirectly,
+and presents serially through nonactivating DirectComposition surfaces. A fixed 16-display
+set reconciles them against topology epochs. UI Automation remains on a dedicated MTA
+worker and publishes bounded desktop-Q8 target packets without
 blocking the display-rate owner. Platform code is translated into the same provider
 and coordinate contracts.
 
-Version 0.1 includes activation and cycling on the current desktop. It does not promise
-to move another application's windows between macOS Spaces or Windows virtual desktops.
-It does not interact with login, lock, consent, or other secure screens.
+Version 0.1 activates and cycles windows on the current desktop. Moving another
+application's windows between macOS Spaces or Windows virtual desktops is outside the
+contract. Login, lock, consent, and other secure screens block interaction.

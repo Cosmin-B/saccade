@@ -264,7 +264,7 @@ geometry::PointQ8 desktop_center(const Desktop& desktop) noexcept {
             static_cast<int32_t>(static_cast<int64_t>(desktop.y) * 256 + static_cast<int64_t>(desktop.height) * 128)};
 }
 
-CoreMlComputePolicy compute_policy(application::ComputePolicy policy) noexcept {
+constexpr CoreMlComputePolicy compute_policy(application::ComputePolicy policy) noexcept {
     switch (policy) {
     case application::ComputePolicy::cpu_only:
         return CoreMlComputePolicy::cpu_only;
@@ -273,12 +273,14 @@ CoreMlComputePolicy compute_policy(application::ComputePolicy policy) noexcept {
     case application::ComputePolicy::cpu_and_accelerator:
         return CoreMlComputePolicy::cpu_and_neural_engine;
     case application::ComputePolicy::automatic:
-        return CoreMlComputePolicy::all;
+        return CoreMlComputePolicy::cpu_and_neural_engine;
     case application::ComputePolicy::named_device:
         return CoreMlComputePolicy::all;
     }
     return CoreMlComputePolicy::cpu_and_neural_engine;
 }
+
+static_assert(compute_policy(application::ComputePolicy::automatic) == CoreMlComputePolicy::cpu_and_neural_engine);
 
 uint32_t required_compute_capability(application::ComputePolicy policy) noexcept {
     switch (policy) {
@@ -431,8 +433,8 @@ SaccadeResult DesktopPipeline::initialize(const DesktopPipelineConfig& config) n
     constexpr SaccadeAgentCapabilityBits agent_capabilities =
         SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
         SACCADE_AGENT_CAPABILITY_WINDOW;
-    result = agent_.initialize({this, acquire_agent_scene, read_environment, execute_plan, read_agent_physical_state,
-                                abort_agent_input, cycle_agent_window, agent_capabilities});
+    result = agent_.initialize({this, acquire_agent_scene, read_agent_environment, execute_plan,
+                                read_agent_physical_state, abort_agent_input, cycle_agent_window, agent_capabilities});
     if (result == SACCADE_OK) agent_initialized_ = true;
     if (result != SACCADE_OK) return fail(result, DesktopPipelineStage::runtime);
     scope_ = config.settings->scope;
@@ -993,7 +995,7 @@ SaccadeResult DesktopPipeline::begin_frames(uint64_t now_ns, uint32_t* started) 
     }
     if (acquired_count == 0) {
         if (!full_refresh) {
-            const SaccadeResult replayed = bridge_.bridge_.begin_cached(now_ns);
+            const SaccadeResult replayed = bridge_.bridge_.begin_cached();
             if (replayed != SACCADE_OK) return fail(replayed, DesktopPipelineStage::bridge);
         }
         advance_capture_deadline(now_ns, config_.start_time_ns, &next_capture_ns_);
@@ -1529,6 +1531,42 @@ SaccadeResult DesktopPipeline::read_environment(void* context, application::Inte
     output->pointer_y_q8 = pointer.y;
     output->expected_buttons = pipeline->input_.physical_state().state().buttons;
     return output->permissions != 0 ? SACCADE_OK : SACCADE_ERROR_PERMISSION;
+}
+
+SaccadeResult DesktopPipeline::read_agent_environment(void* context, application::InteractionState* output) noexcept {
+    auto* pipeline = static_cast<DesktopPipeline*>(context);
+    if (pipeline == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+
+    *output = {};
+    output->permission_epoch = pipeline->permission_epoch_;
+    NSRunningApplication* app = NSWorkspace.sharedWorkspace.frontmostApplication;
+    if (!basic_input_environment_available()) return SACCADE_ERROR_PERMISSION;
+    output->focus_id = app == nil ? 0 : static_cast<uint64_t>(app.processIdentifier);
+    if (output->focus_id == 0) return SACCADE_ERROR_PERMISSION;
+
+    SaccadeWindowInfo window{};
+    if (active_window_for_process(pipeline->accessibility_.descriptor(), output->focus_id, &window) != SACCADE_OK ||
+        !q8(window.desktop_bounds.x, &output->window_bounds.x) ||
+        !q8(window.desktop_bounds.y, &output->window_bounds.y) ||
+        !q8(window.desktop_bounds.width, &output->window_bounds.width) ||
+        !q8(window.desktop_bounds.height, &output->window_bounds.height)) {
+        return SACCADE_ERROR_NOT_FOUND;
+    }
+
+    output->window_id = window.stable_id;
+    output->display_id = display_id_for_window(pipeline->displays_.snapshot(), window.desktop_bounds);
+    if (pipeline->input_available_ && input_permission_granted()) {
+        output->permissions =
+            SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD | SACCADE_INPUT_PERMISSION_TEXT;
+    }
+    if (pipeline->input_available_ && pipeline->accessibility_.permission_granted()) {
+        output->permissions |= SACCADE_INPUT_PERMISSION_WINDOW;
+    }
+    const geometry::PointQ8 pointer = pointer_position();
+    output->pointer_x_q8 = pointer.x;
+    output->pointer_y_q8 = pointer.y;
+    output->expected_buttons = pipeline->input_.physical_state().state().buttons;
+    return SACCADE_OK;
 }
 
 SaccadeResult DesktopPipeline::acquire_agent_scene(void* context, scene::PacketView* output) noexcept {

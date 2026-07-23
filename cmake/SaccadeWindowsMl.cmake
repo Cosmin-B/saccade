@@ -6,7 +6,7 @@ function(saccade_verify_windows_ml_runtime)
     if(NOT "${WINML_VERSION}" STREQUAL "${SACCADE_WINDOWS_ML_REQUIRED_VERSION}")
         message(FATAL_ERROR
             "Saccade requires Microsoft.Windows.AI.MachineLearning "
-            "${SACCADE_WINDOWS_ML_REQUIRED_VERSION}; received ${WINML_VERSION}")
+            "${SACCADE_WINDOWS_ML_REQUIRED_VERSION}. Received ${WINML_VERSION}")
     endif()
 
     if("${WINML_BINARY_DIR}" MATCHES "win-x64")
@@ -31,7 +31,7 @@ function(saccade_verify_windows_ml_runtime)
     if(NOT "${WINML_ONNXRUNTIME_PROVIDERS_SHARED_DLL}" STREQUAL "")
         message(FATAL_ERROR
             "Windows ML ${SACCADE_WINDOWS_ML_REQUIRED_VERSION} does not ship "
-            "onnxruntime_providers_shared.dll; refusing an unpinned runtime from "
+            "onnxruntime_providers_shared.dll. Refusing an unpinned runtime from "
             "${WINML_ONNXRUNTIME_PROVIDERS_SHARED_DLL}")
     endif()
 

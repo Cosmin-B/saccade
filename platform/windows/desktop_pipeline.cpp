@@ -353,8 +353,8 @@ SaccadeResult DesktopPipeline::initialize(const DesktopPipelineConfig& config) n
     constexpr SaccadeAgentCapabilityBits agent_capabilities =
         SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
         SACCADE_AGENT_CAPABILITY_WINDOW;
-    result = agent_.initialize({this, acquire_agent_scene, read_environment, execute_plan, read_agent_physical_state,
-                                abort_agent_input, cycle_agent_window, agent_capabilities});
+    result = agent_.initialize({this, acquire_agent_scene, read_agent_environment, execute_plan,
+                                read_agent_physical_state, abort_agent_input, cycle_agent_window, agent_capabilities});
     if (result == SACCADE_OK) agent_initialized_ = true;
     if (result != SACCADE_OK) return fail(result, DesktopPipelineStage::runtime);
     scope_ = config.settings->scope;
@@ -1278,6 +1278,41 @@ SaccadeResult DesktopPipeline::read_environment(void* context, application::Inte
     output->display_id = display_id_for_window(window);
     output->permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD |
                           SACCADE_INPUT_PERMISSION_TEXT | SACCADE_INPUT_PERMISSION_WINDOW;
+    const geometry::PointQ8 pointer = pointer_position();
+    output->pointer_x_q8 = pointer.x;
+    output->pointer_y_q8 = pointer.y;
+    output->expected_buttons = pipeline->input_.physical_state().state().buttons;
+    return SACCADE_OK;
+}
+
+SaccadeResult DesktopPipeline::read_agent_environment(void* context, application::InteractionState* output) noexcept {
+    auto* pipeline = static_cast<DesktopPipeline*>(context);
+    if (pipeline == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+
+    *output = {};
+    output->permission_epoch = pipeline->permission_epoch_;
+    const HWND window = GetForegroundWindow();
+    DWORD process_id = 0;
+    if (window != nullptr) (void)GetWindowThreadProcessId(window, &process_id);
+    output->focus_id = process_id;
+    if (output->focus_id == 0 ||
+        qualify_surface(pipeline->action_point_qualifier_).disposition != ActionPointDisposition::qualified) {
+        return SACCADE_ERROR_PERMISSION;
+    }
+
+    RECT bounds{};
+    if (GetWindowRect(window, &bounds) == 0 || bounds.right <= bounds.left || bounds.bottom <= bounds.top ||
+        !q8(bounds.left, &output->window_bounds.x) || !q8(bounds.top, &output->window_bounds.y) ||
+        !q8(bounds.right - bounds.left, &output->window_bounds.width) ||
+        !q8(bounds.bottom - bounds.top, &output->window_bounds.height)) {
+        return SACCADE_ERROR_NOT_FOUND;
+    }
+    output->window_id = reinterpret_cast<uintptr_t>(window);
+    output->display_id = display_id_for_window(window);
+    if (pipeline->input_available_) {
+        output->permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD |
+                              SACCADE_INPUT_PERMISSION_TEXT | SACCADE_INPUT_PERMISSION_WINDOW;
+    }
     const geometry::PointQ8 pointer = pointer_position();
     output->pointer_x_q8 = pointer.x;
     output->pointer_y_q8 = pointer.y;

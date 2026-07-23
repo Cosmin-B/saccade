@@ -94,6 +94,7 @@ target_link_libraries(saccade_backend_d3d12
     PUBLIC saccade_core
     PRIVATE
         saccade_build_settings
+        avrt
         d3d11
         d3d12
         dxgi)

@@ -22,7 +22,7 @@ This policy applies to the repository's issues, pull requests, reviews, and othe
 project communication. Maintainers may edit or remove content, lock a conversation, reject
 a contribution, or temporarily or permanently restrict participation when necessary.
 Enforcement decisions should be proportionate, private where possible, and based on the
-behavior rather than a person's viewpoint or identity.
+behavior. A person's viewpoint or identity is not an enforcement criterion.
 
 Report GitHub-hosted abuse through GitHub's reporting tools. For a private project-specific
 report, contact the repository owner through the contact method on their GitHub profile.

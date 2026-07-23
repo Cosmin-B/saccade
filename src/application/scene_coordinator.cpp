@@ -491,6 +491,10 @@ SaccadeResult SceneCoordinator::publish(bool neural_changed, bool semantic_chang
     scene::FusionEpochs epochs{};
     epochs.scene_epoch = next_scene_epoch_;
     epochs.frame_id = header.frame_id;
+    epochs.capture_time_ns = header.capture_time_ns;
+    if (neural_.header != nullptr && (primary == &neural_ || packet_epochs_match(*primary, neural_))) {
+        epochs.capture_time_ns = neural_.header->capture_time_ns;
+    }
     epochs.model_epoch = header.model_epoch;
     epochs.session_epoch = header.session_epoch;
     epochs.transform_epoch = header.transform_epoch;

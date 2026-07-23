@@ -195,6 +195,7 @@ class DesktopPipeline final {
     static SaccadeResult preflight_input(void*, const input::PlanView&, uint32_t command_index,
                                          uint64_t now_ns) noexcept;
     static SaccadeResult read_environment(void*, application::InteractionState*) noexcept;
+    static SaccadeResult read_agent_environment(void*, application::InteractionState*) noexcept;
     static SaccadeResult acquire_agent_scene(void*, scene::PacketView*) noexcept;
     static SaccadeResult read_agent_physical_state(void*, SaccadeAgentPhysicalState*) noexcept;
     static SaccadeResult abort_agent_input(void*) noexcept;

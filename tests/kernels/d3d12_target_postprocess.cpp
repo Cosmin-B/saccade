@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -59,7 +60,7 @@ void report_packet_failure(SaccadeResult packet_result, const TargetPacketSpan& 
         uint64_t total_size = 0;
         std::memcpy(&structure_size, packet.data, sizeof(structure_size));
         std::memcpy(&target_count_value, packet.data + 8, sizeof(target_count_value));
-        std::memcpy(&total_size, packet.data + 88, sizeof(total_size));
+        std::memcpy(&total_size, packet.data + offsetof(SaccadeTargetPacketHeader, total_size), sizeof(total_size));
         (void)text.append(" header=");
         (void)text.append_unsigned(structure_size);
         (void)text.append(" targets=");

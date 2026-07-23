@@ -69,6 +69,17 @@ if(SACCADE_COREML_MODEL_BUNDLE)
             "$<TARGET_BUNDLE_CONTENT_DIR:saccade_app>/Resources/${_saccade_coreml_bundle_name}"
         VERBATIM)
 endif()
+if(SACCADE_MODEL_ARTIFACT AND SACCADE_COREML_MODEL_BUNDLE AND TARGET saccade_runtime_probe)
+    get_filename_component(_saccade_coreml_model_root
+        "${SACCADE_COREML_MODEL_BUNDLE}" DIRECTORY)
+    add_dependencies(saccade_app saccade_runtime_probe)
+    add_custom_command(TARGET saccade_app PRE_LINK
+        COMMAND "$<TARGET_FILE:saccade_runtime_probe>"
+            "${SACCADE_MODEL_ARTIFACT}"
+            "${_saccade_coreml_model_root}"
+        COMMENT "Validating the signed Core ML runtime contract"
+        VERBATIM)
+endif()
 target_link_libraries(saccade_app PRIVATE
     saccade_build_settings
     saccade_platform_macos_pipeline
@@ -91,8 +102,10 @@ if(NOT "${SACCADE_MACOS_CODESIGN_IDENTITY}" STREQUAL "")
     if(SACCADE_MACOS_HARDENED_RUNTIME)
         list(APPEND _saccade_codesign_arguments --options runtime)
     endif()
-    if(NOT "${SACCADE_MACOS_CODESIGN_IDENTITY}" STREQUAL "-")
+    if(SACCADE_DISTRIBUTION_BUILD)
         list(APPEND _saccade_codesign_arguments --timestamp)
+    else()
+        list(APPEND _saccade_codesign_arguments --timestamp=none)
     endif()
     add_custom_command(TARGET saccade_app POST_BUILD
         COMMAND "${_saccade_codesign}" ${_saccade_codesign_arguments}

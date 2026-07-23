@@ -17,9 +17,10 @@ surface-import bits. Queue capacity and maximum in-flight work are also filterab
 Ties keep registration order. Explicit provider and device IDs report a distinct
 selection reason.
 
-Selection and lookup do not allocate. Registry tests also cover name ownership,
-capacity, compatible prefixes, malformed descriptors, freeze behavior, and handles
-from another registry domain.
+Selection and lookup do not allocate.
+
+Registry tests cover name ownership, capacity, compatible prefixes, malformed descriptors,
+freeze behavior, and handles from another registry domain.
 
 ## Asynchronous work
 
@@ -27,10 +28,12 @@ Inference, accessibility, and input providers return generated tickets. Their ta
 support non-blocking polling, bounded waiting, cancellation, synchronization, and
 reset or release operations appropriate to that family.
 
-Queue full is reported as `SACCADE_ERROR_BUSY`. Output too small is reported as
-`SACCADE_ERROR_CAPACITY` together with the required byte count. A canceled ticket
-reports `SACCADE_ERROR_CANCELLED`. Stale resource generations report
-`SACCADE_ERROR_STALE_HANDLE`.
+Ticket failures stay specific:
+
+- Queue full returns `SACCADE_ERROR_BUSY`.
+- Output too small returns `SACCADE_ERROR_CAPACITY` with the required byte count.
+- Cancellation returns `SACCADE_ERROR_CANCELLED`.
+- A stale resource generation returns `SACCADE_ERROR_STALE_HANDLE`.
 
 Input operations have no separate collect or release call. Once `poll` or `wait`
 successfully writes a terminal input status, that ticket is retired and later use
@@ -50,19 +53,19 @@ back off to an eight-second ceiling without blocking 120 Hz message processing.
 
 Recovery state belongs to the desktop owner thread and uses no lock, atomic, allocation,
 or background retry task. A successful rebuild reconnects the local agent endpoint and
-clears the visible fault. If teardown itself cannot prove that native ownership ended,
-the application launches a clean replacement process instead of constructing a second
-GPU stack over uncertain resources.
+clears the visible fault. If teardown cannot confirm that native ownership ended,
+the application launches a clean replacement process before constructing a second GPU
+stack over uncertain resources.
 
 ## Deterministic providers
 
 `Saccade::mock` implements all five families for tests. Its configuration controls:
 
-- the number of polls before asynchronous completion;
-- queue capacity and advertised capabilities;
-- capture dimensions and formats;
-- memory counters returned by every family;
-- one-shot faults at named operation boundaries.
+- The number of polls before asynchronous completion.
+- Queue capacity and advertised capabilities.
+- Capture dimensions and formats.
+- Memory counters returned by every family.
+- One-shot faults at named operation boundaries.
 
 The delay is a poll count, not a sleep. Tests can exercise running, completion,
 cancellation, timeout, queue pressure, reset, and teardown without depending on wall
@@ -78,16 +81,16 @@ record containing an integer luma threshold and minimum component area.
 
 The detector performs:
 
-1. exact integer luma conversion;
-2. four-connected bright-region labeling with fixed arrays;
-3. component bounding boxes and integer center points;
-4. reading-order sorting;
-5. deterministic IDs and Q16 confidence;
-6. explicit little-endian serialization.
+1. Exact integer luma conversion.
+2. Four-connected bright-region labeling with fixed arrays.
+3. Component bounding boxes and integer center points.
+4. Reading-order sorting.
+5. Deterministic IDs and Q16 confidence.
+6. Explicit little-endian serialization.
 
-The detector supports fixtures up to 1024 by 1024 pixels, 128 intermediate components,
-and 32 outputs. Those limits keep the oracle simple and allocation-free. It is not the
-shipping neural detector and is not used to claim desktop accuracy or speed.
+The detector accepts fixtures up to 1024 by 1024 pixels, with 128 intermediate components
+and 32 outputs. Those limits keep the allocation-free oracle small. Desktop accuracy and
+speed come from the shipping neural detector.
 
 This provider is deliberately synchronous. Submission creates a bounded ticket. The
 first poll, or a wait with a nonzero timeout, performs the scalar detector before
@@ -105,22 +108,28 @@ Native capture and input providers must also pass platform permission, secure-sc
 focus, display-change, and teardown tests before the corresponding desktop mode is
 considered supported.
 
+### macOS Core ML
+
 The macOS Core ML provider loads one signed compiled bundle and imports one BGRA8
-IOSurface-backed frame at a time. A dedicated worker owns synchronous Core ML prediction;
-submit and poll do not run the model on the interaction owner. Fixed provider storage
+IOSurface-backed frame at a time. A dedicated worker owns synchronous Core ML prediction.
+Submit and poll do not run the model on the interaction owner. Fixed provider storage
 contains the ticket, compact output packet, decoded candidates, and postprocess
 workspace. Framework-owned model and accelerator allocations remain opaque and require
-separate measurement. The contract fixture covers execution mechanics; model accuracy is
+separate measurement. The contract fixture covers execution mechanics. Model accuracy is
 a separate concern.
+
+### Windows UI Automation
 
 The Windows accessibility provider enumerates visible top-level windows and traverses
 UI Automation's control view on one dedicated MTA thread. The caller-facing path has
 one fixed in-flight request and uses release/acquire publication plus Win32 events for
 sleep and explicit waits. A 10,000-record snapshot arena is reserved once with
-`VirtualAlloc`; queries do not allocate Saccade-owned memory. Completed snapshots are
+`VirtualAlloc`. Queries do not allocate Saccade-owned memory. Completed snapshots are
 ordinary `SaccadeTargetPacketHeader` and `SaccadeTargetRecord` bytes in desktop-Q8
 coordinates, with runtime-derived target IDs and monitor IDs. UI Automation's own COM
 allocations remain confined to the worker.
+
+### macOS Accessibility
 
 The macOS accessibility provider enumerates layer-zero Core Graphics windows and maps a
 selected public window ID to its owning application's AX window by process and geometry.
@@ -128,13 +137,12 @@ One pthread owns synchronous Accessibility calls and wakes through Mach semaphor
 Traversal is depth-first through public `AXChildren` values with a retained, bounded
 10,000-entry stack and a 100,000-element visit ceiling. Position, size, role, subrole,
 enabled, hidden, and identifier attributes are fetched together. Provider messaging has
-a 500 ms timeout, and TCC denial reports `SACCADE_ERROR_PERMISSION` rather than an empty
-scene.
+a 500 ms timeout. TCC denial reports `SACCADE_ERROR_PERMISSION` and never an empty scene.
 
 The macOS provider reserves one 1,040,000-byte `mmap` arena at initialization: 800,000
 bytes for target records and 240,000 bytes for retained traversal entries. It allocates
 no Saccade-owned memory per query. Capacity, depth, malformed-child, or visit limits set
-`SACCADE_TARGET_PACKET_INCOMPLETE`; fusion preserves that flag in the published scene.
+`SACCADE_TARGET_PACKET_INCOMPLETE`. Fusion preserves that flag in the published scene.
 Secure and disabled AX elements remain visible as safety evidence but carry no action
 capabilities.
 
@@ -145,15 +153,19 @@ or transform epoch changes, read dynamic active selection from
 expander is the parity oracle, not the preferred presentation path. See
 [overlay packets and presentation](overlay.md).
 
+### macOS capture and presentation
+
 The current macOS implementation contains a Metal 4 compute-to-render path with a Metal
 3 fallback, one-draw fragment rendering, main-run-loop display-link scheduling,
 nonactivating per-display panels, and a main-thread display collector backed by the
 portable fixed-point catalog. Its ScreenCaptureKit provider captures displays or
-desktop-independent windows at 30 Hz, excludes the current application, publishes only
-the newest pending frame, and creates a Metal texture view directly from each IOSurface.
-Zero capture limits preserve native resolution; nonzero limits form an
+desktop-independent windows, excludes the current application, and publishes only
+the newest pending frame. It creates a Metal texture view directly from each IOSurface.
+Zero capture limits preserve native resolution. Nonzero limits form an
 aspect-preserving model-input box. Accessibility, scene publication, and input remain
 separate adapter stages. See [coordinates and display topology](coordinates.md).
+
+### Windows capture and inference
 
 The Windows GPU owner selects a physical adapter explicitly and creates one D3D12 device
 and direct queue. Production Windows Graphics Capture uses a native D3D11 device on the
@@ -174,7 +186,7 @@ resize, channel scale, channel bias, and planar FP16 or INT8 output. Slot retire
 coupled to frame retirement, so capture storage remains bounded and reusable.
 
 The preprocessing root signature, pipeline, two-entry descriptor heap, output buffer,
-allocator, command list, and completion fence are persistent; the 96-byte parameters are
+allocator, command list, and completion fence are persistent. The 96-byte parameters are
 root constants. Exact GPU-readback tests cover channel order, FP16 conversion, INT8
 quantization, crop, and letterbox output. Benchmarks report live transfer bytes separately
 from preprocessing so the required GPU copy cannot be mistaken for zero-copy import.

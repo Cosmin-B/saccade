@@ -51,7 +51,7 @@ void write_u64(uint8_t* data, size_t offset, uint64_t value) noexcept {
 }
 
 std::array<uint8_t, artifact_size> artifact() noexcept {
-    static_assert(sizeof(SaccadeTargetPacketHeader) == 96);
+    static_assert(sizeof(SaccadeTargetPacketHeader) == 104);
     static_assert(sizeof(SaccadeTargetRecord) == 80);
     std::array<uint8_t, artifact_size> bytes{};
     bytes[0] = 'S';

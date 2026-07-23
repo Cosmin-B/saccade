@@ -14,7 +14,7 @@ the private process described in [SECURITY.md](SECURITY.md).
 Every commit submitted for merge must include a `Signed-off-by` trailer created with
 `git commit -s`. The sign-off certifies the contribution under the
 [Developer Certificate of Origin 1.1](https://developercertificate.org/). Saccade uses the
-DCO instead of a contributor license agreement.
+DCO and has no contributor license agreement.
 
 ## Build before changing code
 
@@ -38,9 +38,9 @@ ASan/UBSan and TSan.
 - Build runtime text with bounded stack-backed builders and typed appends. Do not use
   `printf`-family formatting on runtime paths.
 - Keep builder spill paths cold and explicit. A future spill path must use a Saccade
-  allocator; hot builders expose truncation instead of allocating.
+  allocator. Hot builders expose truncation when their fixed storage is exhausted.
 - Name private data members with a trailing underscore.
-- Use direct function pointers or inline callback templates; do not use `std::function`.
+- Use direct function pointers or inline callback templates. Do not use `std::function`.
 - Prefer wait-free single-writer handoffs and do not use CAS retry loops on runtime paths.
 - Make queue capacity, replacement, timeout, and cancellation behavior explicit.
 - Do not let C++ exceptions cross an exported C function or provider callback.
@@ -53,8 +53,8 @@ testable. Avoid an optimization unless a parity test and a measurement can descr
 ## Formatting
 
 Format production C, C++, and Objective-C++ with the repository `.clang-format` file.
-The 120-column limit is intentional: use the available horizontal space instead of
-creating narrow staircases of continuation lines. Treat a function body as short semantic
+The 120-column limit is intentional. Use the available horizontal space and avoid narrow
+staircases of continuation lines. Treat a function body as short semantic
 paragraphs. Separate setup, validation, fast paths, state derivation, branching,
 publication, and statistics with one empty line. Separate consecutive control blocks
 unless they are one tightly coupled decision. Do not add empty lines between statements
@@ -68,8 +68,8 @@ change before building:
 clang-format -i path/to/file.cpp
 ```
 
-At major implementation milestones, format the complete native source manifest rather
-than only the files changed by the latest patch:
+At major implementation milestones, format the complete native source manifest,
+including files untouched by the latest patch:
 
 ```sh
 rg --files apps backends benchmarks include platform src tests tools \

@@ -24,7 +24,7 @@ BGRA8 and RGBA8 use four bytes per pixel. Common full-frame costs are:
 | 7680 x 4320 | 33,177,600 | 126.56 MiB | 253.12 MiB | 379.69 MiB |
 
 Row padding, native-surface metadata, and driver residency add to these values.
-Imported GPU surfaces count under `device_imported`; provider-created textures count
+Imported GPU surfaces count under `device_imported`. Provider-created textures count
 under `device_owned`. The same bytes must not be reported in both categories.
 
 The macOS stream requests three ScreenCaptureKit buffers because three is the framework
@@ -57,9 +57,11 @@ independent scene clock.
 
 ## Display topology
 
-One display record is 80 bytes. The fixed 16-display catalog, including its epoch and
-count, is 1,296 bytes. Hotplug, scale, rotation, work-area, and safe-area changes replace
-that fixed snapshot; elapsed time and refresh rate do not change its size.
+The complete 16-display catalog occupies 1,296 bytes.
+
+Each 80-byte display record shares a fixed epoch and count header. Hotplug, scale,
+rotation, work-area, and safe-area changes replace that snapshot. Elapsed time and refresh
+rate do not change its size.
 
 ## Overlay memory
 
@@ -74,7 +76,7 @@ output bytes = (target count * 5 + active target present) * (8 + 4)
 
 At 10,000 targets with one style, the input is 480,128 bytes and one output slot is
 600,012 bytes. Three output slots reserve 1,800,036 bytes. Static expansion occurs on
-scene publication; elapsed time and display rate do not increase these capacities.
+scene publication. Elapsed time and display rate do not increase these capacities.
 
 The Metal renderer retains one validated maximum-size packet and one packet per slot.
 With all 16 style records reserved, its requested fixed buffers are:
@@ -106,9 +108,9 @@ drawable pool bytes = backing width * backing height * 4 * drawable count
 Saccade requests three BGRA8 drawables. That is 23.73 MiB at 1080p, 94.92 MiB at 4K,
 168.75 MiB at 5K, and 379.69 MiB at 8K per display. Core Animation may add metadata,
 alignment, compression state, or other opaque residency, so these figures are planning
-bounds rather than claims of exact framework allocation. Adding displays adds their
-surface-local renderer and drawable pools. The formula itself is independent of elapsed
-time and refresh rate; driver and compositor residency still require operating-system
+bounds. Exact framework allocation requires operating-system measurement. Adding displays
+adds their surface-local renderer and drawable pools. The formula itself is independent of elapsed
+time and refresh rate. Driver and compositor residency still require operating-system
 measurement.
 
 ## Tensor memory
@@ -122,8 +124,8 @@ tensor bytes = width * height * channels * bytes per element
 For a feature pyramid, sum that expression for every level and multiply by the number
 of simultaneous activation sets. FP32 uses four bytes per element, FP16 uses two, and
 INT8 uses one. Framework workspaces and compiled graphs are opaque when their exact
-allocation cannot be attributed. Provider-owned counters do not prove their size or
-allocation behavior; operating-system residency completes the accounting.
+owner is unknown. Provider-owned counters do not reveal their size or allocation behavior.
+Operating-system residency completes the accounting.
 
 Full-scope inference does not require a native-resolution tensor throughout the model.
 A provider may tile, downsample, or build compact features, but every visible pixel must
@@ -136,9 +138,9 @@ reuses one descriptor heap, output buffer, allocator, command list, and fence. W
 its capture surface through native D3D11. The live path copies that surface once into an
 on-demand shared D3D12 slot and passes a retained fence/value dependency to the inference
 worker. Slots are fixed-capacity, committed only as needed, and reusable after ticket
-retirement; transfer statistics report copied and committed bytes explicitly. No capture
-pixels cross into host memory. A direct-texture model can bypass the materialized tensor;
-an owned first neural layer may later fuse preprocessing and remove the output lane.
+retirement. Transfer statistics report copied and committed bytes explicitly. No capture
+pixels cross into host memory. A direct-texture model can bypass the materialized tensor.
+An owned first neural layer may later fuse preprocessing and remove the output lane.
 
 ## Target postprocess memory
 
@@ -167,7 +169,7 @@ At `C = 65,536` and `T = 1,024`, the imported candidate buffer is 1 MiB and the
 suppression mask is 128 KiB. At the public 10,000-target ceiling the mask
 alone would be 12,520,000 bytes, which is why a model's neural selection cap is kept
 separate from the renderer's instance capacity. Saccade-owned workspace capacity remains
-constant with time; framework and driver residency are measured separately.
+constant with time. Framework and driver residency are measured separately.
 
 ## Scene fusion memory
 
@@ -179,9 +181,9 @@ output target:
 bucket heads       = 32,768 * 4        = 131,072 bytes
 spatial nodes      = 10,000 * 5 * 8    = 400,000 bytes
 fusion workspace                           531,072 bytes
-target records       = 96 + 10,000 * 80 = 800,096 bytes
+target records      = 104 + 10,000 * 80 = 800,104 bytes
 bounded UTF-8 lane                            16,384 bytes
-maximum packet                               816,480 bytes
+maximum packet                               816,488 bytes
 ```
 
 Input packets remain borrowed and are not copied into a combined candidate array.
@@ -191,9 +193,9 @@ The interaction-thread coordinator retains one maximum semantic packet so a nati
 accessibility snapshot can be released before fusion. Its owned storage is therefore:
 
 ```text
-semantic packet      816,480 bytes
+semantic packet      816,488 bytes
 fusion workspace     531,072 bytes
-alignment padding         32 bytes
+alignment padding         24 bytes
 coordinator storage 1,347,584 bytes
 ```
 
@@ -204,7 +206,7 @@ and no per-update allocation.
 ## Time and retained history
 
 A newest-frame mailbox has constant memory. When a new frame arrives, it replaces the
-pending frame instead of extending a queue. With one frame in inference and one pending,
+pending frame and keeps the queue depth fixed. With one frame in inference and one pending,
 steady-state frame count is two regardless of how long Saccade runs.
 
 Recording is different:
@@ -221,15 +223,15 @@ belong outside the product source tree and are loaded explicitly.
 
 The provider accounting contract requires:
 
-- committed and reserved host bytes;
-- imported and provider-owned device bytes;
-- opaque framework residency;
-- bytes copied across ownership domains;
-- a high-water total.
+- Committed and reserved host bytes.
+- Imported and provider-owned device bytes.
+- Opaque framework residency.
+- Bytes copied across ownership domains.
+- A high-water total.
 
 Reports are sampled at defined lifecycle points. Diagnostics compare provider-owned
 counters with operating-system measurements and record any unavoidable opaque difference.
 The deterministic providers return configured counters, and the scalar CPU provider
 reports its fixed storage and cumulative serialized output bytes. Current Core ML
 counters cover Saccade-owned storage and the active imported surface, not Core ML model
-or workspace residency; OS-level residency is required for complete accounting.
+or workspace residency. OS-level residency is required for complete accounting.

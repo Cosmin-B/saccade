@@ -67,6 +67,8 @@ class DirectMlInferenceProvider final {
     [[nodiscard]] uint64_t adapter_luid() const noexcept;
     [[nodiscard]] DirectMlModelStage model_stage() const noexcept;
     [[nodiscard]] DirectMlPipelineStats pipeline_stats() const noexcept;
+    [[nodiscard]] bool worker_mmcss_active() const noexcept;
+    [[nodiscard]] uint32_t worker_thread_id() const noexcept;
     [[nodiscard]] SaccadeInferenceProviderDesc descriptor() noexcept;
 
   private:

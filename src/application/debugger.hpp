@@ -163,7 +163,7 @@ class Debugger final {
 };
 
 static_assert(sizeof(DebuggerTransformRecord) == 80);
-static_assert(sizeof(DebuggerFrameRecord) == 112);
+static_assert(sizeof(DebuggerFrameRecord) == 120);
 static_assert(sizeof(DebuggerTargetSample) == 80);
 static_assert(sizeof(DebuggerStats) == 72);
 

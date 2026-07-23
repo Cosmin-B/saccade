@@ -54,6 +54,15 @@ if(WIN32 AND NOT "${SACCADE_WINDOWS_ML_ROOT}" STREQUAL "")
     set(SACCADE_WINDOWS_ML_AVAILABLE ON)
 endif()
 
+if(APPLE AND SACCADE_BUILD_APPLICATION AND
+   "${SACCADE_MACOS_CODESIGN_IDENTITY}" STREQUAL "-")
+    message(WARNING
+        "The macOS application is ad-hoc signed. Its Screen Recording and Accessibility "
+        "grants will not survive a rebuild because the designated requirement changes "
+        "with the executable. Configure SACCADE_MACOS_CODESIGN_IDENTITY with a stable "
+        "Apple Development or Developer ID identity before attended testing.")
+endif()
+
 if(SACCADE_DISTRIBUTION_BUILD)
     if(NOT SACCADE_BUILD_APPLICATION)
         message(FATAL_ERROR "A distribution build requires SACCADE_BUILD_APPLICATION=ON")

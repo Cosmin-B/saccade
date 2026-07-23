@@ -473,12 +473,13 @@ class Server final {
             return false;
         saccade::core::StackStringBuilder<1024> prefix;
         if (!prefix.append_unsigned(generation.generation) || !prefix.append("\",\"epochs\":{\"scene\":\"") ||
-            !prefix.append_unsigned(generation.scene_epoch) || !prefix.append("\",\"damage\":\"") ||
-            !prefix.append_unsigned(generation.damage_epoch) || !prefix.append("\",\"transform\":\"") ||
+            !prefix.append_unsigned(generation.scene_epoch) || !prefix.append("\",\"frame\":\"") ||
+            !prefix.append_unsigned(generation.frame_id) || !prefix.append("\",\"captureTimeNs\":\"") ||
+            !prefix.append_unsigned(generation.capture_time_ns) || !prefix.append("\",\"transform\":\"") ||
             !prefix.append_unsigned(generation.transform_epoch) || !prefix.append("\",\"permission\":\"") ||
             !prefix.append_unsigned(generation.permission_epoch) || !prefix.append("\",\"topology\":\"") ||
             !prefix.append_unsigned(generation.topology_epoch) || !prefix.append("\"},\"context\":{\"processId\":\"") ||
-            !prefix.append_unsigned(generation.focus_id) || !prefix.append("\",\"windowId\":\"") ||
+            !prefix.append_unsigned(generation.process_id) || !prefix.append("\",\"windowId\":\"") ||
             !prefix.append_unsigned(generation.window_id) || !prefix.append("\",\"displayId\":\"") ||
             !prefix.append_unsigned(generation.display_id) || !prefix.append("\"},\"scope\":{\"kind\":\"") ||
             !prefix.append(scope_name(scope.kind)) || !prefix.append("\",\"sourceMode\":\"") ||
@@ -679,8 +680,8 @@ class Server final {
             return write_error(document, id, -32602, "Invalid action integer");
         if (field(document, arguments, "generation") >= 0)
             batch->preconditions.flags |= SACCADE_AGENT_PRECONDITION_GENERATION;
-        if (!precondition_u64(document, arguments, "processId", SACCADE_AGENT_PRECONDITION_FOCUS,
-                              &batch->preconditions.focus_id, &batch->preconditions.flags) ||
+        if (!precondition_u64(document, arguments, "processId", SACCADE_AGENT_PRECONDITION_PROCESS,
+                              &batch->preconditions.process_id, &batch->preconditions.flags) ||
             !precondition_u64(document, arguments, "windowId", SACCADE_AGENT_PRECONDITION_WINDOW,
                               &batch->preconditions.window_id, &batch->preconditions.flags) ||
             !precondition_u64(document, arguments, "displayId", SACCADE_AGENT_PRECONDITION_DISPLAY,
@@ -789,12 +790,13 @@ class Server final {
                 (result.append(",\"nextGeneration\":{\"generation\":\"") &&
                  result.append_unsigned(completion.next_generation.generation) &&
                  result.append("\",\"sceneEpoch\":\"") &&
-                 result.append_unsigned(completion.next_generation.scene_epoch) &&
-                 result.append("\",\"damageEpoch\":\"") &&
-                 result.append_unsigned(completion.next_generation.damage_epoch) &&
-                 result.append("\",\"processId\":\"") && result.append_unsigned(completion.next_generation.focus_id) &&
-                 result.append("\",\"windowId\":\"") && result.append_unsigned(completion.next_generation.window_id) &&
-                 result.append("\",\"displayId\":\"") &&
+                 result.append_unsigned(completion.next_generation.scene_epoch) && result.append("\",\"frameId\":\"") &&
+                 result.append_unsigned(completion.next_generation.frame_id) &&
+                 result.append("\",\"captureTimeNs\":\"") &&
+                 result.append_unsigned(completion.next_generation.capture_time_ns) &&
+                 result.append("\",\"processId\":\"") &&
+                 result.append_unsigned(completion.next_generation.process_id) && result.append("\",\"windowId\":\"") &&
+                 result.append_unsigned(completion.next_generation.window_id) && result.append("\",\"displayId\":\"") &&
                  result.append_unsigned(completion.next_generation.display_id) && result.append("\"}"))) &&
                result.append("},\"isError\":") &&
                result.append(completion.result == SACCADE_AGENT_OK ? "false" : "true") && result.append("}}\n") &&

@@ -133,8 +133,9 @@ int main() {
         return 6;
     saccade::scene::PacketView scene{};
     if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->scene_epoch != 1 || scene.header->frame_id != 2 ||
-        scene.header->transform_epoch != 30 || scene.header->topology_epoch != 20 || scene.header->target_count != 2 ||
-        scene.targets[0].x_q8 != 0 || scene.targets[1].x_q8 != 256)
+        scene.header->capture_time_ns != 1 || scene.header->transform_epoch != 30 ||
+        scene.header->topology_epoch != 20 || scene.header->target_count != 2 || scene.targets[0].x_q8 != 0 ||
+        scene.targets[1].x_q8 != 256)
         return 7;
     const auto stats = coordinator.stats();
     if (stats.frames_offered != 2 || stats.batches_started != 1 || stats.batches_published != 1 ||

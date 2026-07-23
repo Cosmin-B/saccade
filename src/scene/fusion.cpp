@@ -284,6 +284,7 @@ SaccadeResult fuse(const PacketView* packets, uint32_t packet_count, const Fusio
     header.coordinate_space = SACCADE_COORDINATE_SPACE_DESKTOP_Q8;
     header.scene_epoch = epochs.scene_epoch;
     header.frame_id = epochs.frame_id;
+    header.capture_time_ns = epochs.capture_time_ns;
     header.model_epoch = epochs.model_epoch;
     header.session_epoch = epochs.session_epoch;
     header.transform_epoch = epochs.transform_epoch;

@@ -3,11 +3,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace {
@@ -25,8 +27,11 @@ enum class TestResult : int {
     duplicate_listener_not_rejected,
     replacement_endpoint_removed,
     listener_handoff_failed,
-    handoff_connection_failed
+    handoff_connection_failed,
+    process_handoff_failed
 };
+
+enum class HandoffSignal : uint8_t { ready = UINT8_C(0x51), release = UINT8_C(0xa7) };
 
 struct RequestSink {
     uint32_t requests = 0;
@@ -78,6 +83,77 @@ bool leave_stale_endpoint(const char* endpoint) noexcept {
     return bound;
 }
 
+bool transmit_signal(int descriptor, HandoffSignal signal) noexcept {
+    return write(descriptor, &signal, sizeof(signal)) == sizeof(signal);
+}
+
+bool receive_signal(int descriptor, HandoffSignal expected) noexcept {
+    HandoffSignal signal{};
+    return read(descriptor, &signal, sizeof(signal)) == sizeof(signal) && signal == expected;
+}
+
+bool cross_process_handoff(const char* endpoint) noexcept {
+    int ready[2]{};
+    int release[2]{};
+    if (pipe(ready) != 0 || pipe(release) != 0) return false;
+
+    const pid_t owner = fork();
+    if (owner < 0) return false;
+    if (owner == 0) {
+        close(ready[0]);
+        close(release[1]);
+
+        const int listener = socket(AF_UNIX, SOCK_STREAM, 0);
+        sockaddr_un address{};
+        address.sun_family = AF_UNIX;
+        std::memcpy(address.sun_path, endpoint, std::strlen(endpoint) + 1U);
+        (void)unlink(endpoint);
+        const bool listening = listener >= 0 &&
+                               bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0 &&
+                               listen(listener, 1) == 0;
+        const bool synchronized = listening && transmit_signal(ready[1], HandoffSignal::ready) &&
+                                  receive_signal(release[0], HandoffSignal::release);
+        if (listener >= 0) close(listener);
+        (void)unlink(endpoint);
+        close(ready[1]);
+        close(release[0]);
+        _exit(synchronized ? EXIT_SUCCESS : EXIT_FAILURE);
+    }
+
+    close(ready[1]);
+    close(release[0]);
+    const bool owner_ready = receive_signal(ready[0], HandoffSignal::ready);
+
+    RequestSink sink{};
+    saccade::platform::macos::AgentSocket replacement;
+    static saccade::platform::macos::AgentSocketStorage replacement_storage;
+    const SaccadeResult collision = replacement.initialize(
+        {&sink, process_request, disconnect, endpoint, SACCADE_AGENT_CAPABILITY_OBSERVE}, &replacement_storage);
+    const bool released = owner_ready && transmit_signal(release[1], HandoffSignal::release);
+    close(ready[0]);
+    close(release[1]);
+
+    int owner_status = 0;
+    const bool owner_stopped = waitpid(owner, &owner_status, 0) == owner && WIFEXITED(owner_status) &&
+                               WEXITSTATUS(owner_status) == EXIT_SUCCESS;
+    if (!owner_ready || collision != SACCADE_ERROR_ALREADY_EXISTS || !released || !owner_stopped) return false;
+
+    if (replacement.initialize({&sink, process_request, disconnect, endpoint, SACCADE_AGENT_CAPABILITY_OBSERVE},
+                               &replacement_storage) != SACCADE_OK)
+        return false;
+
+    const int client = socket(AF_UNIX, SOCK_STREAM, 0);
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::memcpy(address.sun_path, endpoint, std::strlen(endpoint) + 1U);
+    constexpr uint64_t handoff_time_ns = 1;
+    const bool connected = client >= 0 &&
+                           connect(client, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0 &&
+                           replacement.advance(handoff_time_ns) == SACCADE_OK && replacement.stats().connections == 1;
+    if (client >= 0) close(client);
+    return connected && replacement.shutdown() == SACCADE_OK;
+}
+
 template <typename T>
 bool read_response(saccade::platform::macos::AgentSocket* server, int client, uint64_t* now_ns, T* output) noexcept {
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
@@ -100,11 +176,16 @@ bool read_response(saccade::platform::macos::AgentSocket* server, int client, ui
 int main() {
     std::array<char, 104> endpoint{};
     std::array<char, 104> retired_endpoint{};
+    std::array<char, 104> process_endpoint{};
     if (snprintf(endpoint.data(), endpoint.size(), "/tmp/saccade-agent-test-%u-%d.sock", geteuid(), getpid()) <= 0)
         return result(TestResult::initialization_failed);
     if (snprintf(retired_endpoint.data(), retired_endpoint.size(), "/tmp/saccade-agent-old-%u-%d.sock", geteuid(),
                  getpid()) <= 0)
         return result(TestResult::initialization_failed);
+    if (snprintf(process_endpoint.data(), process_endpoint.size(), "/tmp/saccade-agent-process-%u-%d.sock", geteuid(),
+                 getpid()) <= 0)
+        return result(TestResult::initialization_failed);
+    if (!cross_process_handoff(process_endpoint.data())) return result(TestResult::process_handoff_failed);
     if (!leave_stale_endpoint(endpoint.data())) return result(TestResult::stale_endpoint_failed);
 
     RequestSink sink{};

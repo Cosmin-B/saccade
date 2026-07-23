@@ -4,10 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SACCADE_TARGET_PACKET_VERSION UINT32_C(0x00010001)
+#define SACCADE_TARGET_PACKET_VERSION UINT32_C(0x00010002)
 #define SACCADE_TARGET_PACKET_MAX_TARGETS UINT32_C(10000)
 #define SACCADE_TARGET_PACKET_MAX_TEXT_BYTES UINT32_C(16384)
 
+/* INCOMPLETE marks a partial set from a bounded or interrupted source. */
 enum { SACCADE_TARGET_PACKET_INCOMPLETE = UINT32_C(1) << 0, SACCADE_TARGET_PACKET_TEXT_TRUNCATED = UINT32_C(1) << 1 };
 
 typedef uint32_t SaccadeCoordinateSpace;
@@ -72,18 +73,23 @@ typedef struct SaccadeTargetPacketHeader {
     uint32_t target_stride;
     uint32_t flags;
     SaccadeCoordinateSpace coordinate_space;
+    /* Immutable publication identifier. */
     uint64_t scene_epoch;
     uint64_t frame_id;
+    /* Monotonic capture timestamp in nanoseconds. Zero means unavailable. */
+    uint64_t capture_time_ns;
     uint64_t model_epoch;
     uint64_t session_epoch;
     uint64_t transform_epoch;
     uint64_t topology_epoch;
     uint64_t source_id;
+    /* Byte offset from the packet start to target_stride-spaced records. */
     uint64_t targets_offset;
     uint64_t total_size;
 } SaccadeTargetPacketHeader;
 
 typedef struct SaccadeTargetTextRef {
+    /* Offset and size are measured in the packet's bounded UTF-8 text lane. */
     uint16_t offset;
     uint16_t size;
 } SaccadeTargetTextRef;

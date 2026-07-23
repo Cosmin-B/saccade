@@ -75,6 +75,15 @@ if(SACCADE_MODEL_ARTIFACT)
             "$<TARGET_FILE_DIR:saccade_app>/saccade.model"
         VERBATIM)
 endif()
+if(SACCADE_MODEL_ARTIFACT AND TARGET saccade_runtime_probe)
+    add_dependencies(saccade_app saccade_runtime_probe)
+    add_custom_command(TARGET saccade_app PRE_LINK
+        COMMAND "$<TARGET_FILE:saccade_runtime_probe>"
+            "${SACCADE_MODEL_ARTIFACT}"
+            "${PROJECT_BINARY_DIR}/backends/d3d12"
+        COMMENT "Validating the signed DirectML runtime contract"
+        VERBATIM)
+endif()
 if(SACCADE_MODEL_PUBLIC_KEY_XY)
     target_compile_definitions(saccade_app PRIVATE
         SACCADE_MODEL_PUBLIC_KEY_XY="${SACCADE_MODEL_PUBLIC_KEY_XY}")

@@ -13,9 +13,9 @@ subunits, giving one-two-hundred-and-fifty-sixth-unit precision and a range of a
 
 The coordinate spaces are:
 
-- `capture`: pixels in one acquired image or crop;
-- `desktop`: the platform's unvirtualized interaction space;
-- `surface`: backing pixels local to one presentation surface;
+- `capture`: pixels in one acquired image or crop.
+- `desktop`: the platform's unvirtualized interaction space.
+- `surface`: backing pixels local to one presentation surface.
 - `window`: coordinates local to one source window.
 
 On macOS, one desktop unit is one screen point. ScreenCaptureKit describes content in
@@ -32,21 +32,20 @@ destination space names, a transform epoch, and a 0, 90, 180, or 270 degree cloc
 rotation. Initialization validates every bound and precomputes three Q32.32 scales per
 axis:
 
-- a lower scale for conservative near rectangle edges;
-- an upper scale for conservative far rectangle edges;
-- a nearest scale for points.
+- A lower scale for conservative near rectangle edges.
+- An upper scale for conservative far rectangle edges.
+- A nearest scale for points.
 
 Point mapping subtracts the source origin, applies the quarter turn, multiplies by the
 nearest scale, shifts, and adds the destination origin. Source and destination endpoints
-are handled exactly. A point outside the source bounds is rejected rather than silently
-clamped.
+are handled exactly. A point outside the source bounds is rejected and never clamped.
 
 Rectangle mapping first clips to the source bounds. It maps the half-open near edge down
 and the far edge up, so a changed or actionable capture pixel cannot disappear through
 quantization. A completely clipped rectangle reports `SACCADE_ERROR_NOT_FOUND`.
 Constructing an inverse swaps the spaces and bounds and applies the inverse quarter turn.
-Scaling can be many-to-one, so inverse point mapping has bounded quantization error; it
-does not claim that every subunit survives downscaling.
+Scaling can be many-to-one, so inverse point mapping has bounded quantization error.
+Downscaling can merge adjacent subunits within that bound.
 
 Initialization performs the only integer divisions. Mapping uses fixed arithmetic and
 does not allocate, lock, retry a compare-and-swap, or read shared state.
@@ -55,12 +54,12 @@ does not allocate, lock, retry a compare-and-swap, or read shared state.
 
 The portable catalog owns at most 16 display records. Each 80-byte record contains:
 
-- the platform display identifier;
-- top-left desktop bounds and work bounds;
-- top, left, bottom, and right safe-area insets;
-- presentation backing width and height;
-- maximum refresh rate and quarter-turn rotation;
-- main, built-in, active, asleep, and mirrored flags.
+- The platform display identifier.
+- Top-left desktop bounds and work bounds.
+- Top, left, bottom, and right safe-area insets.
+- Presentation backing width and height.
+- Maximum refresh rate and quarter-turn rotation.
+- Main, built-in, active, asleep, and mirrored flags.
 
 Records are sorted by display identifier before publication. Reordering the input does
 not change the epoch. Geometry, work-area, safe-area, scale, refresh, rotation, display
@@ -69,7 +68,7 @@ the previous 1,296-byte snapshot unchanged. Publication and lookup allocate no m
 
 Desktop-to-overlay transforms use the drawable's presented width and height and therefore
 have zero additional quarter-turn rotation. AppKit has already oriented those dimensions.
-Physical display rotation stays in the catalog for capture correlation; applying it again
+Physical display rotation stays in the catalog for capture correlation. Applying it again
 would rotate the overlay twice.
 
 The macOS collector and its statistics are main-thread owned. It obtains the documented
