@@ -267,8 +267,8 @@ bool emit_action_completion(const SaccadeAgentActionCompletion& completion, cons
         line.reset();
         if (!(line.append(",\"next_generation\":{\"generation\":") &&
               line.append_unsigned(completion.next_generation.generation) && line.append(",\"scene_epoch\":") &&
-              line.append_unsigned(completion.next_generation.scene_epoch) && line.append(",\"focus_id\":") &&
-              line.append_unsigned(completion.next_generation.focus_id) && line.append(",\"window_id\":") &&
+              line.append_unsigned(completion.next_generation.scene_epoch) && line.append(",\"process_id\":") &&
+              line.append_unsigned(completion.next_generation.process_id) && line.append(",\"window_id\":") &&
               line.append_unsigned(completion.next_generation.window_id) && line.append(",\"display_id\":") &&
               line.append_unsigned(completion.next_generation.display_id) && line.append("}") &&
               write_stdout(line.view())))
