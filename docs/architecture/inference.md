@@ -1,11 +1,10 @@
 # Inference execution and model tooling
 
-Saccade has a task-oriented inference API. It does not expose a general operator graph.
-A provider answers whether it can compile one complete model, creates a context for one
-device and queue policy, then accepts frame-scoped submissions with explicit epochs.
-
-This boundary is deliberate. Native backends can combine owned kernels and platform
-model runtimes without placing framework tensors, events, or headers in the public ABI.
+Saccade exposes a task-oriented whole-model inference API. A provider answers whether it
+can compile one complete model, creates a context for one device and queue policy, then
+accepts frame-scoped submissions with explicit epochs. Native backends can combine owned
+kernels and platform model runtimes without placing framework tensors, events, or headers
+in the public ABI.
 
 ## Artifact admission
 
@@ -14,8 +13,8 @@ artifact kind, model identity, input shape and channels, precision, maximum targ
 output capacity, provider compatibility, payload span, and an optional fixed-size
 signature. Provider payloads also carry model-specific postprocess calibration: the
 global confidence threshold, an optional short-side confidence band, IoU threshold, and
-bounded target count. Release admission requires a signature. The signed message is the exact byte
-range from the manifest magic through the final payload byte; the 64-byte signature must
+bounded target count. Release admission requires a signature. The signed message is the
+exact byte range from the manifest magic through the final payload byte. The 64-byte signature must
 end the file, so no interpreted data sits outside the authenticated range. The parser
 validates only bounded structure and ranges.
 
@@ -26,8 +25,7 @@ platforms. The artifact file is mapped read-only and verified in place, avoiding
 copy of ONNX or compiled-model metadata. Runtime creation, provider freeze, device
 selection, model admission, and session teardown then pass through one shared bootstrap.
 
-No manifest hash or signature work occurs during capture, preprocessing, inference,
-postprocessing, scene publication, or presentation. The admitted payload is then owned by
+Manifest hashing and signature verification finish during cold admission. The admitted payload is then owned by
 the selected provider according to its documented import contract. A compiled Core ML
 bundle uses a package-relative locator and signed directory digest. Production admission
 compares that digest before loading the bundle and rejects symlinks, special entries, and
@@ -37,8 +35,10 @@ unbounded directory shapes. Memory-native graph formats may use the payload dire
 
 Model creation is cold-path work. A provider validates the artifact, chooses precision,
 packs weights, compiles pipelines, and reports required host, device, and opaque runtime
-memory before interaction begins. Execution contexts own queue depth, in-flight state,
-scratch storage, and device-specific compiled state.
+memory before interaction begins.
+
+An execution context then owns queue depth, in-flight state, scratch storage, and
+device-specific compiled state.
 
 Ahead-of-time artifacts are preferred when the target device family is known. On-device
 compilation is allowed for small portable models, but its time and peak memory are part
@@ -64,7 +64,7 @@ native capture surface
 
 Provider import bits and alignment fields describe the surfaces a device can consume.
 Native tensor buffers, heaps, fences, and queue events remain provider-owned. A ticket
-represents completion at the portable boundary; it does not force a CPU wait or expose a
+represents completion at the portable boundary. It does not force a CPU wait or expose a
 framework event object.
 
 Intermediate tensors are not read back to the CPU. A backend may return compact target
@@ -85,8 +85,8 @@ runtime frame that references it.
 Metal 4 is selected when supported, with a reusable command allocator, argument table,
 residency set, command buffer, and shared event. Metal 3 uses one bounded command queue and
 the same shader and tensor contract. The preprocessor performs no CPU pixel conversion or
-per-frame Saccade-owned allocation; framework and driver allocations are outside that
-claim.
+per-frame Saccade-owned allocation. Framework and driver allocations require separate
+operating-system measurement.
 
 ## macOS Core ML provider
 
@@ -95,10 +95,14 @@ compiled `.mlmodelc` bundle. Admission validates the fixed BGRA8 image input, in
 dimensions, named float target-row output, named count output, candidate capacity, and
 maximum target packet before a context starts. The configured Core ML compute policy is
 reflected in provider and device capabilities after intersecting the selected policy with
-`MLModel.availableComputeDevices`; CPU-only does not advertise GPU or Neural Engine
+`MLModel.availableComputeDevices`. CPU-only does not advertise GPU or Neural Engine
 execution, and Intel Macs do not advertise a Neural Engine. Core ML exposes CPU-only,
 CPU-plus-GPU, CPU-plus-Neural-Engine, and all-device modes, not GPU-only or
 Neural-Engine-only execution, so the application uses those exact terms.
+
+The packaging tool compares manifest feature names, data types, dimensions, and output
+shapes with the compiled Core ML metadata before signing. A native runtime probe loads the
+signed artifact before the application target links.
 
 Fixed-shape models use the infrequent-reshape hint on macOS 14.4 and newer and the
 fast-prediction specialization strategy on macOS 15 and newer. Each context owns one
@@ -111,7 +115,7 @@ not expose cancellation for a synchronous prediction already in progress, so Sac
 acknowledges cancellation only after worker ownership ends and suppresses that result.
 
 The image bridge maps only the aspect-fitted content rectangle back to desktop
-coordinates, so targets in letterbox pixels are clipped instead of stretched onto the
+coordinates, so targets in letterbox pixels are clipped before they can stretch onto the
 display. Runtime retirement returns the image lane to the preprocessor through a direct
 owner-thread callback.
 
@@ -123,8 +127,8 @@ Framework allocation and residency require OS-level measurement.
 
 The deterministic Core ML fixture covers artifact admission, runtime registration,
 IOSurface import, asynchronous execution, cancellation, epoch propagation, and packet
-parity through the public C ABI. Model quality and end-to-end cadence are separate
-concerns.
+parity through the public C ABI. Full-model fixtures measure quality and end-to-end
+cadence separately.
 
 ## Windows DirectML provider
 
@@ -133,7 +137,7 @@ Capture runs on a native D3D11 device for the same adapter. A bounded transfer o
 copies each selected WGC frame once into a shared D3D12 resource and signals a shared
 fence. The public Win32 frame import retains both the resource and readiness dependency
 for the runtime ticket lifetime. On the dedicated GPU worker, the provider inserts the
-fence wait before preprocessing; the capture thread never accesses the DirectML queue.
+fence wait before preprocessing. The capture thread never accesses the DirectML queue.
 Preprocessing, DirectML inference, target postprocessing, and bounded packet readback then
 remain ordered on that worker-owned queue.
 
@@ -146,7 +150,7 @@ confidence, and role. An owned D3D12 dispatch removes letterboxing and packs the
 the 16-byte internal dense layout without a CPU readback. Unused rows have zero
 confidence, so the GPU can process the fixed capacity without reading a candidate count
 back to the CPU. Input names, candidate capacity, thresholds, normalization, and
-letterbox values are part of the signed artifact contract rather than process
+letterbox values are fixed by the signed artifact contract and cannot vary through process
 configuration.
 
 Model admission creates persistent preprocessing, inference, candidate, radix,
@@ -155,19 +159,25 @@ once to the worker thread. Submission then performs a release/acquire handoff wi
 mutex, allocation, or compare-and-swap loop. Cancellation suppresses output after any
 already-running DirectML call retires.
 
+The worker registers itself with the MMCSS `Games` task at high relative priority before
+accepting commands. It owns that registration and reverts it before exit. Registration
+state and the worker thread ID are published only for cold qualification. They create no
+atomic or scheduling traffic in the command loop. The full-scope qualifier requires both
+the 120 Hz owner and DirectML worker registrations.
+
 DirectML receives the worker's D3D12 queue during session creation. After ONNX Runtime
 submits a graph, Saccade signals one persistent fence on that same queue and waits on one
 reusable event before postprocessing. Persistent run options suppress ONNX Runtime's
 redundant end-of-run execution-provider synchronization. Queue order makes the Saccade
 fence cover the complete graph without calling the allocating `SynchronizeBoundOutputs`
-wrapper. The Saccade-owned synchronization path performs no steady-state allocation;
+wrapper. The Saccade-owned synchronization path performs no steady-state allocation.
 ONNX Runtime, DirectML, and driver behavior is measured separately.
 
 The automatic and GPU policies select a hardware D3D12 adapter. The current CPU policy
 selects Microsoft's Windows Advanced Rasterization Platform (WARP), which executes the
-D3D12 and DirectML graph in software on CPU cores and advertises CPU rather than GPU
-capability through the same provider contract. WARP is a functional compatibility and
-validation fallback: capture, model execution, and bounded packet publication remain
+D3D12 and DirectML graph in software on CPU cores and advertises CPU capability through
+the same provider contract. WARP is a functional compatibility and
+validation fallback. Capture, model execution, and bounded packet publication remain
 available while the 120 Hz interaction path continues to use the newest immutable
 scene. It is not intended to meet the 30 Hz neural target.
 
@@ -178,13 +188,13 @@ creation, steady-state percentiles, and process memory for a supplied artifact.
 The D3D12 postprocessor uses 16 stable four-bit radix passes followed by GPU containment
 and IoU masks. It reads back only the bounded target packet. Its parity fixture matches
 the scalar packet byte-for-byte across empty, threadgroup-boundary, and partial-block
-candidate counts. The end-to-end fixture uses a real WGC frame and a minimal ONNX graph
-to prove ownership and execution; it does not claim detector accuracy.
+candidate counts. The end-to-end fixture checks ownership and execution with a real WGC
+frame and a minimal ONNX graph. Detector quality uses the shipping graph and frozen suites.
 
 ## GPU target postprocessing
 
 The owned target postprocessor consumes a persistent provider output buffer. The provider
-registers that buffer once during initialization; a hot submission changes only the
+registers that buffer once during initialization. A hot submission changes only the
 candidate count, thresholds, and epochs. Metal 4 argument tables and residency are fixed
 before the first submission. Metal 3 binds the same fixed resources through its compute
 encoder.
@@ -201,7 +211,7 @@ total                                  16 bytes
 
 Q3 covers a surface up to 8191.875 pixels with one-eighth-pixel precision. Publication
 widens coordinates to signed Q8 scene records. The narrow candidate layout is an internal
-model-output contract; the public 80-byte target record remains independent.
+model-output contract. The public 80-byte target record remains independent.
 
 The GPU graph is deterministic:
 
@@ -220,7 +230,7 @@ candidate index. The scalar oracle uses the same order and suppression rules. Me
 and Metal 4 packets must match it byte for byte. The scan never waits for another
 workgroup inside a dispatch, so it does not rely on inter-workgroup forward progress on
 Apple GPUs. Exact dispatch sizes consume a candidate shape already validated at model
-load; shaders do not repeat capacity or bounds validation.
+load. Shaders do not repeat capacity or bounds validation.
 
 The optional confidence band lowers the threshold only when the candidate's shorter Q3
 side falls in the signed half-open interval `[minimum, maximum)`. The predicate runs
@@ -250,10 +260,10 @@ capture-to-target path.
 Each provider context executes one neural frame at a time. The full-desktop coordinator
 keeps one newest pending frame per display, snapshots up to 16 displays at a 30 Hz scene
 deadline, and runs that fixed batch sequentially on the owned accelerator lane. Results
-are mapped into desktop coordinates and reduced to one bounded confidence-ordered scene;
-an individual display can no longer replace another display in the same neural tick.
+are mapped into desktop coordinates and reduced to one bounded confidence-ordered scene.
+An individual display can no longer replace another display in the same neural tick.
 Frames arriving while a batch runs populate the next per-display snapshot. The provider
-receives frame, model, session, source-transform, and topology epochs; the aggregate scene
+receives frame, model, session, source-transform, and topology epochs. The aggregate scene
 also carries one desktop-transform epoch, so late source output cannot become actionable.
 The owner records both batch-start-to-commit latency and oldest-captured-frame-to-commit
 full-scope latency for every published scene. The latest samples and cumulative, maximum,
@@ -262,7 +272,7 @@ the platform monotonic clock with the scheduler, so provider threads perform no 
 calls and share no statistics state.
 
 Preprocessing, inference, postprocessing, and target publication share the 30 Hz scene
-budget. Input and overlay presentation continue at 120 Hz while a neural ticket is
+budget. Input and overlay presentation continue at up to 120 Hz while a neural ticket is
 running.
 
 Cancellation, device loss, and reset are explicit. A backend may use native fences to
@@ -277,12 +287,12 @@ INT4 or INT8 weights, integer activations, FP16 compute, and selected FP32 opera
 
 Every candidate backend and model is evaluated for:
 
-- target precision, recall, ordering, and safe-point stability;
-- full-scope p50, p95, and p99 latency;
-- model bytes, packed-weight bytes, activation high-water, and compile peak;
-- startup and cache reuse;
-- power and thermal behavior;
-- fallback parity on macOS and Windows.
+- Target precision, recall, ordering, and safe-point stability.
+- Full-scope p50, p95, and p99 latency.
+- Model bytes, packed-weight bytes, activation high-water, and compile peak.
+- Startup and cache reuse.
+- Power and thermal behavior.
+- Fallback parity on macOS and Windows.
 
 Weight-only quantization can reduce package size while making latency worse if weights
 are dequantized into float at runtime. Static activation quantization can help an NPU but
@@ -301,14 +311,14 @@ public ABI.
 
 An inference backend reports:
 
-- exact input/output shapes, layouts, data types, and alignment requirements;
-- supported native surface imports and whether each path copies;
-- compile, first-run, steady-state, cancellation, and teardown latency;
-- host, device, imported, workspace, packed-weight, and opaque memory;
-- threads created, their ownership, and behavior under system pressure;
-- device-loss recovery and deterministic fallback;
-- per-frame allocation and synchronization behavior;
-- package size and license obligations.
+- Exact input/output shapes, layouts, data types, and alignment requirements.
+- Supported native surface imports and whether each path copies.
+- Compile, first-run, steady-state, cancellation, and teardown latency.
+- Host, device, imported, workspace, packed-weight, and opaque memory.
+- Threads created, their ownership, and behavior under system pressure.
+- Device-loss recovery and deterministic fallback.
+- Per-frame allocation and synchronization behavior.
+- Package size and license obligations.
 
 Provider selection considers the complete capture-to-target path, including input and
 presentation isolation, startup, memory, and deployment.

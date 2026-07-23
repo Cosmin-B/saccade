@@ -175,8 +175,8 @@ int main(int argc, char** argv) {
         neural.retire(neural.retire_context, neural.frame);
         neural = {};
         ready = false;
-        if (bridge.begin_cached(clock_gettime_nsec_np(CLOCK_UPTIME_RAW)) != SACCADE_OK ||
-            bridge.poll(&neural, &ready) != SACCADE_OK || !ready || neural.frame == 0 ||
+        if (bridge.begin_cached() != SACCADE_OK || bridge.poll(&neural, &ready) != SACCADE_OK || !ready ||
+            neural.frame == 0 || neural.capture_time_ns != frame.frame.timestamp_ns ||
             saccade_frame_release(runtime, neural.frame) != SACCADE_OK) {
             return 16;
         }

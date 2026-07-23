@@ -25,6 +25,7 @@ struct FusionConfig {
 struct FusionEpochs {
     uint64_t scene_epoch = 0;
     uint64_t frame_id = 0;
+    uint64_t capture_time_ns = 0;
     uint64_t model_epoch = 0;
     uint64_t session_epoch = 0;
     uint64_t transform_epoch = 0;

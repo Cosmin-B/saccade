@@ -49,6 +49,7 @@ struct TargetPacketHeader {
     uint coordinate_space;
     ulong scene_epoch;
     ulong frame_id;
+    ulong capture_time_ns;
     ulong model_epoch;
     ulong session_epoch;
     ulong transform_epoch;
@@ -302,8 +303,8 @@ kernel void saccade_targets_finalize(device const DenseCandidate* candidates [[b
     }
     *counters = {};
     *header = {};
-    header->struct_size = 96;
-    header->packet_version = 0x00010001;
+    header->struct_size = 104;
+    header->packet_version = 0x00010002;
     header->target_stride = 80;
     header->coordinate_space = parameters.coordinate_space;
     header->frame_id = parameters.frame_id;
@@ -312,8 +313,9 @@ kernel void saccade_targets_finalize(device const DenseCandidate* candidates [[b
     header->transform_epoch = parameters.transform_epoch;
     header->topology_epoch = parameters.topology_epoch;
     header->source_id = parameters.source_id;
-    header->targets_offset = 96;
-    device TargetRecord* targets = reinterpret_cast<device TargetRecord*>(reinterpret_cast<device uchar*>(header) + 96);
+    header->targets_offset = 104;
+    device TargetRecord* targets =
+        reinterpret_cast<device TargetRecord*>(reinterpret_cast<device uchar*>(header) + 104);
 
     for (uint ordered = 0; ordered < selected_count; ++ordered) {
         const RadixEntry entry = entries[ordered];
@@ -351,6 +353,6 @@ kernel void saccade_targets_finalize(device const DenseCandidate* candidates [[b
         target.order = header->target_count;
         targets[header->target_count++] = target;
     }
-    header->total_size = 96 + ulong(header->target_count) * 80;
+    header->total_size = 104 + ulong(header->target_count) * 80;
     counters->targets_written = header->target_count;
 }

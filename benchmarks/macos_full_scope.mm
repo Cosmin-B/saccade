@@ -284,7 +284,7 @@ SaccadeResult begin_frames(const DisplaySnapshot& displays, SceneCaptureSet* cap
     if (acquired_count == 0) {
         if (full_refresh) return SACCADE_OK;
         const uint64_t started_ns = monotonic_ns();
-        const SaccadeResult result = bridge->bridge.begin_cached(started_ns);
+        const SaccadeResult result = bridge->bridge.begin_cached();
         if (result == SACCADE_OK) bridge->preprocess_started_ns = started_ns;
         return result;
     }
@@ -329,7 +329,7 @@ SaccadeResult begin_frames(const DisplaySnapshot& displays, SceneCaptureSet* cap
 SaccadeResult begin_cached(BridgeSlot* bridge) noexcept {
     if (bridge->bridge.busy()) return SACCADE_OK;
     const uint64_t started_ns = monotonic_ns();
-    const SaccadeResult result = bridge->bridge.begin_cached(started_ns);
+    const SaccadeResult result = bridge->bridge.begin_cached();
     if (result == SACCADE_OK) bridge->preprocess_started_ns = started_ns;
     return result;
 }

@@ -128,6 +128,7 @@ SaccadeResult NeuralCoordinator::publish_output(size_t byte_size, NeuralAdvance*
     SaccadeTargetPacketHeader header = input_header;
     header.coordinate_space = SACCADE_COORDINATE_SPACE_DESKTOP_Q8;
     header.scene_epoch = next_scene_epoch_++;
+    header.capture_time_ns = running_frame_.capture_time_ns;
     header.target_count = 0;
     std::memcpy(output.data, &header, sizeof(header));
     auto* output_targets = reinterpret_cast<SaccadeTargetRecord*>(output.data + sizeof(SaccadeTargetPacketHeader));

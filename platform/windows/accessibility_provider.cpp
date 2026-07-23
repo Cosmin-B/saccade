@@ -862,8 +862,8 @@ AccessibilityProvider::AccessibilityProvider() noexcept {
 AccessibilityProvider::~AccessibilityProvider() {
     if (state_ == nullptr) return;
     if (shutdown() != SACCADE_OK) {
-        // A UIA call that ignores both its timeout and COM cancellation keeps this
-        // control block alive until process teardown instead of racing its worker.
+        // A UIA call that ignores its timeout and COM cancellation keeps this
+        // control block alive until process teardown, preventing a worker race.
         state_ = nullptr;
         return;
     }

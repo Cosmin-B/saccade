@@ -5,13 +5,14 @@
 # Saccade
 
 Saccade is a native keyboard-driven pointer system for macOS and Windows. It combines
-captured pixels, accessibility data, and a compact local vision model to find useful
+captured pixels, accessibility data, and a compact local vision model to identify
 controls without sending screen contents over the network.
 
 ## What it does
 
 - Targets controls across the full desktop, active window, one display, or a grid.
-- Fuses neural, accessibility, pixel, and grid evidence into one immutable scene.
+- Fuses frame-matched pixel and semantic evidence into one immutable scene. Grid is a
+  separate whole-screen source.
 - Assigns prefix-free keyboard hints with Single, Dual, Multi, and Path selection.
 - Moves, clicks, holds, drags, scrolls, selects text, repeats actions, and navigates
   windows through validated native input plans.
@@ -45,10 +46,9 @@ DirectComposition, and `SendInput`.
 Input reduction, pointer feedback, and overlay presentation target 120 Hz. Full-scope
 neural refresh independently targets 30 Hz for version 0.1.
 
-Production model artifacts are signed outside this repository and supplied explicitly to
-the packaging build. A releasable desktop package is required to contain the application,
-local agent tools, platform accelerator runtime, compiled shaders, and configured model
-assets.
+Distribution builds require externally supplied signed model artifacts. A release package
+contains the application, local agent tools, platform accelerator runtime, compiled shaders,
+and configured model assets.
 
 ## Build
 

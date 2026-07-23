@@ -13,6 +13,7 @@ add_library(saccade_platform_windows STATIC
     neural_bridge.cpp
     operating_system.cpp
     overlay_surface.cpp
+    runtime_scheduling.cpp
     scene_capture.cpp
     screen_capture.cpp)
 target_include_directories(saccade_platform_windows
@@ -25,6 +26,7 @@ target_link_libraries(saccade_platform_windows
     PRIVATE
         saccade_build_settings
         advapi32
+        avrt
         d3d11
         d3d12
         dcomp

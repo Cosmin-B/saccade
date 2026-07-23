@@ -69,6 +69,7 @@ class AgentSocket final {
     SaccadeResult process(uint64_t now_ns) noexcept;
     SaccadeResult hello(size_t* output_size) noexcept;
     SaccadeResult disconnect() noexcept;
+    void unlink_owned_endpoint() noexcept;
     bool peer_allowed(int client) noexcept;
 
     static constexpr size_t endpoint_capacity_ = 104;
@@ -80,6 +81,8 @@ class AgentSocket final {
     uint32_t response_size_ = 0;
     size_t frame_offset_ = 0;
     size_t message_offset_ = 0;
+    uint64_t endpoint_device_ = 0;
+    uint64_t endpoint_inode_ = 0;
     SaccadeAgentCapabilityBits client_capability_bits_ = 0;
     int listener_ = -1;
     int client_ = -1;

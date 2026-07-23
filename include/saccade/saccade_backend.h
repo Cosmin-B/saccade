@@ -592,6 +592,12 @@ typedef struct SaccadeInputProviderDesc {
     uint64_t reserved[4];
 } SaccadeInputProviderDesc;
 
+/* Registration is accepted only before saccade_runtime_freeze and has no
+   unregister counterpart. In version 0.1 only inference providers are
+   selected and invoked through this registry (saccade_inference_*). Capture,
+   overlay, accessibility, and input registrations are accepted and validated
+   but not yet consumed by the runtime, which drives its native providers
+   directly. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_register_inference_provider(SaccadeRuntimeHandle,
                                                                            const SaccadeInferenceProviderDesc*);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_register_capture_provider(SaccadeRuntimeHandle,

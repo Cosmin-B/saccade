@@ -1,8 +1,8 @@
 #ifndef SACCADE_AGENT_SERVICE_HPP
 #define SACCADE_AGENT_SERVICE_HPP
 
-#include "application/interaction_controller.hpp"
 #include "interaction/action_planner.hpp"
+#include "interaction/interaction_state.hpp"
 #include "scene/packet.hpp"
 
 #include <saccade/saccade_agent.h>
@@ -22,7 +22,7 @@ using CycleWindowFn = SaccadeResult (*)(void*, bool backward) noexcept;
 struct ServiceConfig {
     void* context = nullptr;
     AcquireSceneFn acquire_scene = nullptr;
-    application::ReadInteractionStateFn read_state = nullptr;
+    interaction::ReadInteractionStateFn read_state = nullptr;
     ExecutePlanFn execute_plan = nullptr;
     ReadPhysicalStateFn read_physical_state = nullptr;
     AbortInputFn abort_input = nullptr;

@@ -6,7 +6,7 @@ _Static_assert(sizeof(SaccadeAgentHelloCompletion) == 56, "hello completion ABI"
 _Static_assert(sizeof(SaccadeAgentTarget) == 88, "target ABI");
 _Static_assert(sizeof(SaccadeAgentQueryFilter) == 72, "query filter ABI");
 _Static_assert(sizeof(SaccadeAgentAction) == 80, "action ABI");
-_Static_assert(sizeof(SaccadeAgentActionCompletion) == 184, "completion ABI");
+_Static_assert(sizeof(SaccadeAgentActionCompletion) == 192, "completion ABI");
 
 int main(void) {
     SaccadeAgentHelloRequest hello = {0};

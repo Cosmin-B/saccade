@@ -1,5 +1,7 @@
 #include "agent_client.hpp"
+#include "agent_result_text.hpp"
 #include "core/stack_string_builder.hpp"
+#include "saccade_tool_version.h"
 
 #include <saccade/saccade_agent.h>
 
@@ -66,9 +68,48 @@ FILE* open_file(const char* path, const char* mode) noexcept {
 #endif
 }
 
+int fail(ExitCode code, const char* reason) noexcept {
+    std::fputs("saccade: ", stderr);
+    std::fputs(reason, stderr);
+    std::fputc('\n', stderr);
+    return exit_code(code);
+}
+
+void print_usage(FILE* stream) noexcept {
+    std::fputs("Usage: saccade <command> [options]\n"
+               "\n"
+               "Commands:\n"
+               "  observe [--json]                    Capture the current scene snapshot.\n"
+               "  query [options] [--json]            Filter targets in the current scene.\n"
+               "    --generation <id>                 Query an exact scene generation.\n"
+               "    --after-generation <id>           Wait for a generation newer than <id>.\n"
+               "    --target <id>  --role <n>  --capability <bits>  --source <bits>\n"
+               "    --minimum-confidence <q16>  --text <value>  --text-file <path>\n"
+               "    --text-match exact|prefix|substring\n"
+               "  act [options] [--json]              Execute one validated action.\n"
+               "    --kind move|hover|click|hold|drag|scroll|key|key-chord|text|window|\n"
+               "           cycle|abort|physical|release|text-select|invoke\n"
+               "    --target <id>  --to <id>  --x-q8 <n> --y-q8 <n>  --to-x-q8 <n> --to-y-q8 <n>\n"
+               "    --button <bits>  --modifiers <bits>  --key <usage>  --repeat <n>\n"
+               "    --backward <0|1>  --text-file <path>\n"
+               "    --dry-run                         Validate the batch without executing input.\n"
+               "    --verify-next-generation          Confirm the post-action scene generation.\n"
+               "  wait <generation> [--json]          Observe once a newer generation exists.\n"
+               "  batch <file> [--json]               Send a raw binary action batch.\n"
+               "\n"
+               "Global options:\n"
+               "  --json      Emit structured JSON instead of raw wire bytes.\n"
+               "  --help      Show this help.\n"
+               "  --version   Show the tool version.\n"
+               "\n"
+               "The Windows executable is named saccade-cli.\n",
+               stream);
+}
+
 bool emit_error(SaccadeAgentResult result, int32_t platform_error) noexcept {
     saccade::core::StackStringBuilder<256> line;
-    return line.append("{\"result\":") && line.append_signed(result) && line.append(",\"platform_error\":") &&
+    return line.append("{\"result\":") && line.append_signed(result) && line.append(",\"result_text\":\"") &&
+           line.append(saccade::tools::agent_result_text(result)) && line.append("\",\"platform_error\":") &&
            line.append_signed(platform_error) && line.append("}\n") && write_stdout(line.view());
 }
 
@@ -164,39 +205,89 @@ SaccadeAgentScope default_scope() noexcept {
 
 SaccadeAgentCapabilityBits requested_capabilities(int argc, char** argv) noexcept {
     if (std::strcmp(argv[1], "batch") == 0) {
-        return SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_WINDOW;
+        return SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
+               SACCADE_AGENT_CAPABILITY_WINDOW;
     }
     if (std::strcmp(argv[1], "act") != 0) return SACCADE_AGENT_CAPABILITY_OBSERVE;
     const char* kind = "click";
-    for (int index = 2; index + 1 < argc; ++index) {
-        if (std::strcmp(argv[index], "--kind") == 0) {
-            kind = argv[index + 1];
-            break;
-        }
+    SaccadeAgentCapabilityBits extra = 0;
+    for (int index = 2; index < argc; ++index) {
+        if (std::strcmp(argv[index], "--verify-next-generation") == 0) extra |= SACCADE_AGENT_CAPABILITY_OBSERVE;
+        if (index + 1 < argc && std::strcmp(argv[index], "--kind") == 0) kind = argv[index + 1];
     }
-    if (std::strcmp(kind, "text") == 0) return SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_POINTER;
-    if (std::strcmp(kind, "key") == 0 || std::strcmp(kind, "key-chord") == 0) return SACCADE_AGENT_CAPABILITY_KEYBOARD;
-    if (std::strcmp(kind, "window") == 0 || std::strcmp(kind, "cycle") == 0) return SACCADE_AGENT_CAPABILITY_WINDOW;
-    if (std::strcmp(kind, "abort") == 0) return SACCADE_AGENT_CAPABILITY_POINTER;
-    if (std::strcmp(kind, "physical") == 0) return SACCADE_AGENT_CAPABILITY_OBSERVE;
-    return SACCADE_AGENT_CAPABILITY_POINTER;
+    if (std::strcmp(kind, "text") == 0)
+        return extra | SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_POINTER;
+    if (std::strcmp(kind, "key") == 0 || std::strcmp(kind, "key-chord") == 0)
+        return extra | SACCADE_AGENT_CAPABILITY_KEYBOARD;
+    if (std::strcmp(kind, "window") == 0 || std::strcmp(kind, "cycle") == 0)
+        return extra | SACCADE_AGENT_CAPABILITY_WINDOW;
+    if (std::strcmp(kind, "abort") == 0) return extra | SACCADE_AGENT_CAPABILITY_POINTER;
+    if (std::strcmp(kind, "physical") == 0) return extra | SACCADE_AGENT_CAPABILITY_OBSERVE;
+    return extra | SACCADE_AGENT_CAPABILITY_POINTER;
 }
 
-bool emit_action_completion(const SaccadeAgentActionCompletion& completion) noexcept {
+bool emit_action_result(const SaccadeAgentActionResult& entry, bool first) noexcept {
+    saccade::core::StackStringBuilder<256> line;
+    return line.append(first ? "  {\"index\":" : "  ,{\"index\":") && line.append_unsigned(entry.action_index) &&
+           line.append(",\"kind\":") && line.append_unsigned(entry.kind) && line.append(",\"result\":") &&
+           line.append_signed(entry.result) && line.append(",\"result_text\":\"") &&
+           line.append(saccade::tools::agent_result_text(entry.result)) && line.append("\",\"platform_error\":") &&
+           line.append_signed(entry.platform_error) && line.append(",\"target\":") &&
+           line.append_unsigned(entry.resolved_target_id) && line.append(",\"secondary_target\":") &&
+           line.append_unsigned(entry.resolved_secondary_target_id) && line.append(",\"validated_generation\":") &&
+           line.append_unsigned(entry.validated_generation) && line.append(",\"flags\":") &&
+           line.append_unsigned(entry.flags) && line.append("}\n") && write_stdout(line.view());
+}
+
+bool emit_action_completion(const SaccadeAgentActionCompletion& completion, const uint8_t* response,
+                            size_t response_size) noexcept {
     saccade::core::StackStringBuilder<512> line;
-    return line.append("{\"request_id\":") && line.append_unsigned(completion.request_id) &&
-           line.append(",\"result\":") && line.append_signed(completion.result) &&
-           line.append(",\"completed_actions\":") && line.append_unsigned(completion.completed_action_count) &&
-           line.append(",\"failed_action\":") && line.append_unsigned(completion.failed_action_index) &&
-           line.append(",\"validated_generation\":") && line.append_unsigned(completion.validated_generation) &&
-           line.append(",\"physical\":{\"x_q8\":") && line.append_signed(completion.physical_state.pointer.x_q8) &&
-           line.append(",\"y_q8\":") && line.append_signed(completion.physical_state.pointer.y_q8) &&
-           line.append(",\"buttons\":") && line.append_unsigned(completion.physical_state.buttons) &&
-           line.append(",\"modifiers\":") && line.append_unsigned(completion.physical_state.modifiers) &&
-           line.append(",\"active_lease_id\":") && line.append_unsigned(completion.physical_state.active_lease_id) &&
-           line.append(",\"permission_epoch\":") && line.append_unsigned(completion.physical_state.permission_epoch) &&
-           line.append(",\"sequence\":") && line.append_unsigned(completion.physical_state.physical_sequence) &&
-           line.append("}}\n") && write_stdout(line.view());
+    if (!(line.append("{\"request_id\":") && line.append_unsigned(completion.request_id) &&
+          line.append(",\"result\":") && line.append_signed(completion.result) && line.append(",\"result_text\":\"") &&
+          line.append(saccade::tools::agent_result_text(completion.result)) && line.append("\",\"platform_error\":") &&
+          line.append_signed(completion.platform_error) && line.append(",\"completed_actions\":") &&
+          line.append_unsigned(completion.completed_action_count) && line.append(",\"failed_action\":") &&
+          line.append_unsigned(completion.failed_action_index) && line.append(",\"validated_generation\":") &&
+          line.append_unsigned(completion.validated_generation) && write_stdout(line.view())))
+        return false;
+    line.reset();
+    if (!(line.append(",\"physical\":{\"x_q8\":") && line.append_signed(completion.physical_state.pointer.x_q8) &&
+          line.append(",\"y_q8\":") && line.append_signed(completion.physical_state.pointer.y_q8) &&
+          line.append(",\"buttons\":") && line.append_unsigned(completion.physical_state.buttons) &&
+          line.append(",\"modifiers\":") && line.append_unsigned(completion.physical_state.modifiers) &&
+          line.append(",\"active_lease_id\":") && line.append_unsigned(completion.physical_state.active_lease_id) &&
+          line.append(",\"permission_epoch\":") && line.append_unsigned(completion.physical_state.permission_epoch) &&
+          line.append(",\"sequence\":") && line.append_unsigned(completion.physical_state.physical_sequence) &&
+          line.append(",\"flags\":") && line.append_unsigned(completion.physical_state.flags) && line.append("}") &&
+          write_stdout(line.view())))
+        return false;
+    if ((completion.header.flags & SACCADE_AGENT_MESSAGE_NEXT_GENERATION_AVAILABLE) != 0) {
+        line.reset();
+        if (!(line.append(",\"next_generation\":{\"generation\":") &&
+              line.append_unsigned(completion.next_generation.generation) && line.append(",\"scene_epoch\":") &&
+              line.append_unsigned(completion.next_generation.scene_epoch) && line.append(",\"process_id\":") &&
+              line.append_unsigned(completion.next_generation.process_id) && line.append(",\"window_id\":") &&
+              line.append_unsigned(completion.next_generation.window_id) && line.append(",\"display_id\":") &&
+              line.append_unsigned(completion.next_generation.display_id) && line.append("}") &&
+              write_stdout(line.view())))
+            return false;
+    }
+    const size_t result_bytes = static_cast<size_t>(completion.action_result_count) * completion.action_result_stride;
+    if (completion.action_result_count != 0 && completion.action_result_stride == sizeof(SaccadeAgentActionResult) &&
+        completion.action_results_offset <= response_size &&
+        result_bytes <= response_size - completion.action_results_offset) {
+        if (!write_stdout(",\"actions\":[\n")) return false;
+        for (uint32_t index = 0; index < completion.action_result_count; ++index) {
+            SaccadeAgentActionResult entry{};
+            std::memcpy(&entry,
+                        response + completion.action_results_offset +
+                            static_cast<size_t>(index) * completion.action_result_stride,
+                        sizeof(entry));
+            if (!emit_action_result(entry, index == 0)) return false;
+        }
+        if (!write_stdout("]")) return false;
+    }
+    return write_stdout("}\n");
 }
 
 ExitCode observe(Client* client, ClientStorage* storage, uint64_t after_generation, bool json) noexcept {
@@ -292,6 +383,10 @@ ExitCode query(Client* client, ClientStorage* storage, int argc, char** argv, bo
         if (!parse_u64(argument, &value)) return ExitCode::usage;
         if (std::strcmp(option, "--generation") == 0) {
             request->generation = value;
+        } else if (std::strcmp(option, "--after-generation") == 0) {
+            request->freshness.policy = SACCADE_AGENT_FRESHNESS_AFTER_GENERATION;
+            request->freshness.after_generation = value;
+            request->freshness.timeout_ns = UINT64_C(2'000'000'000);
         } else if (std::strcmp(option, "--target") == 0) {
             filter->flags |= SACCADE_AGENT_QUERY_STABLE_ID;
             filter->target_id = value;
@@ -380,7 +475,7 @@ ExitCode batch(Client* client, ClientStorage* storage, const char* path, bool js
         if (!write_stdout(storage->response.data(), response_size)) return ExitCode::output_failed;
         return completion.result == SACCADE_AGENT_OK ? ExitCode::success : ExitCode::request_failed;
     }
-    if (!emit_action_completion(completion)) return ExitCode::output_failed;
+    if (!emit_action_completion(completion, storage->response.data(), response_size)) return ExitCode::output_failed;
     return completion.result == SACCADE_AGENT_OK ? ExitCode::success : ExitCode::request_failed;
 }
 
@@ -411,6 +506,16 @@ ExitCode act(Client* client, ClientStorage* storage, int argc, char** argv, bool
     bool secondary_point_y = false;
     for (int index = 2; index < argc;) {
         if (std::strcmp(argv[index], "--json") == 0) {
+            ++index;
+            continue;
+        }
+        if (std::strcmp(argv[index], "--dry-run") == 0) {
+            batch->header.flags |= SACCADE_AGENT_BATCH_DRY_RUN;
+            ++index;
+            continue;
+        }
+        if (std::strcmp(argv[index], "--verify-next-generation") == 0) {
+            batch->header.flags |= SACCADE_AGENT_BATCH_VERIFY_NEXT_GENERATION;
             ++index;
             continue;
         }
@@ -533,28 +638,74 @@ ExitCode act(Client* client, ClientStorage* storage, int argc, char** argv, bool
         if (!write_stdout(storage->response.data(), response_size)) return ExitCode::output_failed;
         return completion.result == SACCADE_AGENT_OK ? ExitCode::success : ExitCode::request_failed;
     }
-    if (!emit_action_completion(completion)) return ExitCode::output_failed;
+    if (!emit_action_completion(completion, storage->response.data(), response_size)) return ExitCode::output_failed;
     return completion.result == SACCADE_AGENT_OK ? ExitCode::success : ExitCode::request_failed;
+}
+
+int finish(ExitCode code) noexcept {
+    switch (code) {
+    case ExitCode::success:
+        return exit_code(code);
+    case ExitCode::usage:
+        return fail(code, "invalid arguments (run 'saccade --help')");
+    case ExitCode::connection_failed:
+        return fail(code, "connection lost");
+    case ExitCode::protocol_failed:
+        return fail(code, "protocol error in the service response");
+    case ExitCode::request_failed:
+        return fail(code, "request rejected by the agent service");
+    case ExitCode::output_failed:
+        return fail(code, "failed to write output");
+    case ExitCode::input_failed:
+        return fail(code, "failed to read input");
+    }
+    return exit_code(code);
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 2) return exit_code(ExitCode::usage);
+    if (argc < 2) {
+        print_usage(stderr);
+        return fail(ExitCode::usage, "missing command");
+    }
+    // Global flags work at any position and never touch the service, so
+    // `saccade act --help` cannot fail with a connection error.
+    for (int index = 1; index < argc; ++index) {
+        if (std::strcmp(argv[index], "--help") == 0 || std::strcmp(argv[index], "-h") == 0 ||
+            std::strcmp(argv[index], "help") == 0) {
+            print_usage(stdout);
+            return exit_code(ExitCode::success);
+        }
+        if (std::strcmp(argv[index], "--version") == 0) {
+            std::fputs("saccade " SACCADE_TOOL_VERSION "\n", stdout);
+            return exit_code(ExitCode::success);
+        }
+    }
+    const bool known_command = std::strcmp(argv[1], "observe") == 0 || std::strcmp(argv[1], "query") == 0 ||
+                               std::strcmp(argv[1], "act") == 0 || std::strcmp(argv[1], "wait") == 0 ||
+                               std::strcmp(argv[1], "batch") == 0;
+    if (!known_command) {
+        print_usage(stderr);
+        return fail(ExitCode::usage, "unknown command");
+    }
     static ClientStorage storage;
     Client client;
-    if (!client.connect()) return exit_code(ExitCode::connection_failed);
+    if (!client.connect())
+        return fail(ExitCode::connection_failed, "connection failed (is the Saccade application running?)");
     const SaccadeAgentCapabilityBits requested = requested_capabilities(argc, argv);
     SaccadeAgentCapabilityBits granted = 0;
     if (!client.hello(requested, &storage, &granted) || (granted & requested) != requested)
-        return exit_code(ExitCode::protocol_failed);
+        return fail(ExitCode::protocol_failed, "handshake failed or a required capability was not granted");
     bool json = false;
     for (int index = 2; index < argc; ++index)
         json |= std::strcmp(argv[index], "--json") == 0;
-    if (std::strcmp(argv[1], "observe") == 0 && (argc == 2 || (argc == 3 && json)))
-        return exit_code(observe(&client, &storage, 0, json));
-    if (std::strcmp(argv[1], "query") == 0) return exit_code(query(&client, &storage, argc, argv, json));
-    if (std::strcmp(argv[1], "act") == 0) return exit_code(act(&client, &storage, argc, argv, json));
+    if (std::strcmp(argv[1], "observe") == 0) {
+        if (argc == 2 || (argc == 3 && json)) return finish(observe(&client, &storage, 0, json));
+        return finish(ExitCode::usage);
+    }
+    if (std::strcmp(argv[1], "query") == 0) return finish(query(&client, &storage, argc, argv, json));
+    if (std::strcmp(argv[1], "act") == 0) return finish(act(&client, &storage, argc, argv, json));
     if (std::strcmp(argv[1], "wait") == 0) {
         uint64_t generation = 0;
         const char* value = nullptr;
@@ -565,23 +716,20 @@ int main(int argc, char** argv) {
             else if (value == nullptr)
                 value = argv[index];
             else
-                return exit_code(ExitCode::usage);
+                return finish(ExitCode::usage);
         }
-        return parse_u64(value, &generation) ? exit_code(observe(&client, &storage, generation, json))
-                                             : exit_code(ExitCode::usage);
+        return parse_u64(value, &generation) ? finish(observe(&client, &storage, generation, json))
+                                             : finish(ExitCode::usage);
     }
-    if (std::strcmp(argv[1], "batch") == 0) {
-        const char* path = nullptr;
-        for (int index = 2; index < argc; ++index) {
-            if (std::strcmp(argv[index], "--json") == 0) continue;
-            if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
-                path = argv[++index];
-            else if (path == nullptr)
-                path = argv[index];
-            else
-                return exit_code(ExitCode::usage);
-        }
-        return path != nullptr ? exit_code(batch(&client, &storage, path, json)) : exit_code(ExitCode::usage);
+    const char* path = nullptr;
+    for (int index = 2; index < argc; ++index) {
+        if (std::strcmp(argv[index], "--json") == 0) continue;
+        if (std::strcmp(argv[index], "--input") == 0 && index + 1 < argc)
+            path = argv[++index];
+        else if (path == nullptr)
+            path = argv[index];
+        else
+            return finish(ExitCode::usage);
     }
-    return exit_code(ExitCode::usage);
+    return path != nullptr ? finish(batch(&client, &storage, path, json)) : finish(ExitCode::usage);
 }

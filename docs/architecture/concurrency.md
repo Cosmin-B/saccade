@@ -1,13 +1,13 @@
-# Concurrency and frame rates
+# Concurrency and scheduler deadlines
 
 Saccade has an interaction path and a scene path. Their deadlines and overload behavior
 are different, so they cannot share one serial loop.
 
 ## Interaction path
 
-The interaction path targets 120 Hz. It owns keyboard reduction, hint filtering,
-pointer feedback, action validation, and overlay publication. A 120 Hz tick has 8.33 ms,
-but the path should normally be event-driven and finish well below that budget.
+The interaction path owns keyboard reduction, hint filtering, pointer feedback, action
+validation, and overlay publication. Its scheduler deadline is independent from the scene
+path, and the path should normally be event-driven.
 
 The interaction path reads an immutable target scene. It does not wait for capture,
 accessibility, neural inference, model compilation, or a GPU fence.
@@ -19,8 +19,9 @@ publication. The design does not use CAS retry loops on a steady-state path.
 
 ## Scene path
 
-Version 0.1 targets a 30 Hz full-scope neural refresh, a 33.33 ms interval. Capture,
-preprocessing, inference, postprocessing, and scene publication all consume that budget.
+The scene path has a separate neural-refresh deadline. Capture, preprocessing, inference,
+postprocessing, and scene publication consume that budget when a neural refresh is
+scheduled.
 
 Inference is asynchronous: submission returns a ticket before the result is ready. A
 worker or native runtime completes the ticket while input and presentation continue.
@@ -29,18 +30,18 @@ Polling, waiting, cancellation, and collection are explicit provider operations.
 Region-bounded work means the scheduler can mark changed or high-value rectangles as
 priority input and cap temporary work to known storage. It does not change the product
 full-scope rule. A full-scope pass must still let every visible point affect the
-result. Under overload, old work is canceled or replaced rather than allowed to build an
-unbounded queue.
+result. Under overload, old work is canceled or replaced before a queue can build behind
+the current scene.
 
 ## Bounded communication
 
 The runtime design uses:
 
-- a newest-frame mailbox between capture and scene scheduling;
-- bounded single-producer paths where ownership permits;
-- fixed ticket tables for asynchronous provider work;
-- immutable scenes published by handle or index;
-- explicit counters for replacement, queue pressure, cancellation, and lateness.
+- A newest-frame mailbox between capture and scene scheduling.
+- Bounded single-producer paths where ownership permits.
+- Fixed ticket tables for asynchronous provider work.
+- Immutable scenes published by handle or index.
+- Explicit counters for replacement, queue pressure, cancellation, and lateness.
 
 Queue depth is a policy, not a throughput fix. Deep queues increase latency and memory.
 The normal neural path keeps at most one frame executing and one newer frame pending.
@@ -50,32 +51,38 @@ The normal neural path keeps at most one frame executing and one newer frame pen
 Runtime creation, destruction, provider registration, and the rare global registry-domain
 refill pass through one CAS-and-wait gate. This gate is never entered by frame publication,
 frame release, capture callbacks, provider tickets, inference kernels, input, or overlay
-presentation. Provider contexts are owned by their scheduler thread rather than internally
-serialized.
+presentation. Their scheduler thread owns each provider context, so the context needs no
+internal serialization.
 
 Host imports now publish generation-safe frame handles through one atomic latest-only
 mailbox. Replacement and consumption are linearizable, fixed-capacity, and allocation
 free. Each transfer uses one bounded atomic exchange with no retry loop, and it runs on
-the 30/60 Hz scene boundary rather than the 120 Hz interaction path. Control-path
+the scene boundary, outside the interaction path. Control-path
 cancellation is serialized outside the mailbox. Producer, consumer, and control
 counters are single-writer cache-line-separated fields sampled only while quiescent,
 not shared atomic accumulators. A stress test accounts for every handle as either
 replaced or consumed.
 
 Registry construction obtains domain IDs from a thread-local block. Refilling a block
-uses the same statically stored cold gate; normal construction does not touch shared
+uses the same statically stored cold gate. Normal construction does not touch shared
 allocator or atomic state. Repository checks permit CAS only in that gate and reject
 mutex types everywhere.
 
-Destructive-interference spacing is an architecture constant rather than
-`std::hardware_destructive_interference_size`: Apple arm64 uses 128 bytes, while the
-x86_64 path uses 64. Ordinary 64-byte buffer alignment is separate and does
-not claim to isolate cache lines.
+The Windows desktop owner and DirectML worker each join the MMCSS `Games` task at high
+relative priority. The owner also ensures that the process priority is at least
+`ABOVE_NORMAL_PRIORITY_CLASS`. Each thread registers and reverts its own MMCSS handle
+during cold lifetime transitions. The qualifier reads both registrations and rejects a
+run when either is absent. The 120 Hz loop and DirectML command loop perform no scheduling
+call, allocation, lock, compare-and-swap, or reference-count update.
+
+Destructive-interference spacing is an architecture constant. Apple arm64 uses 128 bytes,
+while the x86_64 path uses 64. Ordinary 64-byte buffer alignment serves a different
+purpose and provides no destructive-interference spacing.
 
 The portable dual-rate scheduler is implemented as thread-owned state. It emits at most
-one interaction tick after a delayed wake, skips stale catch-up ticks, and tracks 120 Hz
-and 30 Hz deadlines independently. The scene side admits exactly one running item and one
-newest pending timestamp; another deadline replaces pending work without a queue. Scene
+one interaction tick after a delayed wake, skips stale catch-up ticks, and tracks the two
+deadlines independently. The scene side admits exactly one running item and one
+newest pending timestamp. Another deadline replaces pending work without a queue. Scene
 completion immediately promotes pending work.
 
 The macOS scene capture set is owned by its scheduler thread. It reconciles fixed-capacity
@@ -92,18 +99,18 @@ one native accessibility ticket without waiting, consumes the newest neural scen
 publishes newer semantic-only snapshots between neural frames, fuses exact epoch matches,
 and rejects late semantic results. It writes the fusion result directly into a scene-store
 slot and allocates nothing after initialization. Native application event loops poll the
-120 Hz interaction path, platform capture, input leases, overlay presentation, and local
-agent channels without waiting for neural completion.
+interaction path, platform capture, input leases, overlay presentation, and local agent
+channels without waiting for neural completion.
 
 Scene fusion consumes up to four already-validated desktop-Q8 packets in explicit
-priority order. Accepted targets are indexed into five size-adaptive spatial levels;
-each new candidate probes only its own level and neighboring cells. A duplicate keeps
+priority order. Accepted targets are indexed into five size-adaptive spatial levels.
+Each new candidate probes only its own level and neighboring cells. A duplicate keeps
 the higher-priority geometry and identity while merging provenance and capabilities.
 Disabled or secure evidence dominates the merge and clears all action capabilities.
 The kernel writes directly into the final immutable packet and owns no allocator path.
 
 Native accessibility traversal remains outside the interaction owner. Windows uses one
-MTA thread and Win32 events; macOS uses one pthread and Mach semaphores. Both expose one
+MTA thread and Win32 events. macOS uses one pthread and Mach semaphores. Both expose one
 in-flight query and one retained snapshot, publish completion with release/acquire state,
 and perform framework traversal only on their worker. Coordinator polling never enters UI
 Automation or Accessibility and never waits.
@@ -113,7 +120,7 @@ console/login session state, frontmost process, focused Accessibility role and o
 subrole, protected-content state, ancestor window classification, and secure event input.
 An activation and the final native input boundary take a fresh sample. While an action,
 session, or synthetic lease is active, the owner refreshes the sample at the 250 ms
-permission cadence; the ordinary idle 120 Hz path only reads the cached disposition.
+permission cadence. The ordinary idle path only reads the cached disposition.
 Any missing, malformed, mismatched, untrusted, bounded-traversal, secure-text, system
 dialog, or system-floating-window evidence blocks the action and follows the existing
 release-all path. Diagnostics expose the bounded reason bits and sample epoch.
@@ -121,7 +128,7 @@ release-all path. Diagnostics expose the bounded reason bits and sample epoch.
 ## Kernel work
 
 The first owned image kernel converts packed color to exact integer luma. Its scalar
-implementation is the oracle. arm64 builds compile a NEON path, while x64 builds compile
+implementation is the oracle. Arm64 builds compile a NEON path, while x64 builds compile
 an AVX2 path in a separate translation unit and select it only on a compatible CPU.
 Tests force every available path, compare exact output, exercise vector tails, and check
 that row padding is untouched.
@@ -161,7 +168,7 @@ The fixed-storage interaction controller is that callback's portable ownership p
 It cancels the frozen-label session first, then asks the native executor adapter whether
 its physical ledger has a lease and releases it only when needed. Hotkey actions, mode
 changes, repeat action, and shell-only commands remain direct calls on the same owner
-thread; `start_interaction_command` and `observe_interaction_input` fit the existing
+thread. `start_interaction_command` and `observe_interaction_input` fit the existing
 router and monitor callback shapes without an event queue or shared action state.
 
 The implemented scalar overlay expander validates immutable packets and produces the
@@ -177,8 +184,8 @@ macOS surface lifecycle and diagnostics are main-thread owned. The display-link 
 runs on the registered main run loop and records callback duration, missed presentation
 deadlines, missing scenes, busy slots, failures, and the last rendered epochs. The frame
 source is a direct function pointer plus context, not an allocating callable wrapper.
-Initialized surfaces and surface sets are also destroyed on their owning main thread;
-debug builds assert that lifecycle contract.
+Initialized surfaces and surface sets are also destroyed on their owning main thread.
+Debug builds assert that lifecycle contract.
 
 The display catalog is thread owned. Its macOS collector rejects calls away from the
 main thread before changing observations or topology state. The Windows collector

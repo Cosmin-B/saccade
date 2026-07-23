@@ -4,6 +4,7 @@
 #include "model/mapped_artifact.hpp"
 #include "platform/windows/display_topology.hpp"
 #include "platform/windows/neural_bridge.hpp"
+#include "platform/windows/runtime_scheduling.hpp"
 #include "platform/windows/scene_capture.hpp"
 #include "platform/windows/screen_capture.hpp"
 #include "scene/store.hpp"
@@ -40,6 +41,7 @@ using saccade::model::MappedArtifact;
 using saccade::platform::windows::DisplayCollector;
 using saccade::platform::windows::NeuralBridge;
 using saccade::platform::windows::NeuralBridgeConfig;
+using saccade::platform::windows::RuntimeScheduling;
 using saccade::platform::windows::SceneCaptureFrame;
 using saccade::platform::windows::SceneCaptureSet;
 using saccade::platform::windows::ScreenCaptureProvider;
@@ -59,6 +61,7 @@ constexpr uint64_t desktop_source_id = UINT64_C(0x5341434341444501);
 constexpr uint64_t drain_timeout_ns = UINT64_C(5'000'000'000);
 constexpr uint64_t capture_start_timeout_ns = UINT64_C(5'000'000'000);
 constexpr uint64_t minimum_refresh_millihz = UINT64_C(29'000);
+constexpr uint64_t minimum_interaction_millihz = UINT64_C(115'000);
 constexpr uint64_t maximum_deadline_miss_ppm = UINT64_C(1'000);
 constexpr uint32_t warmup_scene_count = 4;
 
@@ -68,6 +71,7 @@ enum class ExitCode : int {
     success,
     usage,
     timing,
+    scheduling,
     artifact,
     provider,
     inference,
@@ -336,11 +340,14 @@ int main(int argc, char** argv) {
     if (argc == 5 && !parse_mode(argv[4], &mode)) return exit_code(ExitCode::usage);
 
     const DPI_AWARENESS_CONTEXT previous_dpi = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    RuntimeScheduling scheduling;
+    SaccadeResult result = scheduling.initialize();
+    if (result != SACCADE_OK) return fail(ExitCode::scheduling, "scheduling", result);
     const uint64_t initialized_at = monotonic_ns();
     if (initialized_at == 0) return exit_code(ExitCode::timing);
     const saccade::model::ArtifactVerifier verifier{nullptr, trust_benchmark_artifact};
     static MappedArtifact artifact;
-    SaccadeResult result = artifact.initialize(argv[1], verifier);
+    result = artifact.initialize(argv[1], verifier);
     if (result != SACCADE_OK) return fail(ExitCode::artifact, "artifact", result);
 
     static DirectMlInferenceProvider provider;
@@ -597,6 +604,8 @@ int main(int argc, char** argv) {
         coordinator_stats.full_scope_deadlines_missed - coordinator_baseline.full_scope_deadlines_missed;
     const uint64_t deadline_misses = std::max(batch_deadline_misses, full_scope_deadline_misses);
     const uint64_t refresh_millihz = batches_published * UINT64_C(1'000'000'000'000) / measured_ns;
+    const uint64_t interaction_ticks = scheduler_stats.interaction_ticks - scheduler_baseline.interaction_ticks;
+    const uint64_t interaction_refresh_millihz = interaction_ticks * UINT64_C(1'000'000'000'000) / measured_ns;
     const uint64_t deadline_miss_ppm =
         batches_published == 0 ? UINT64_MAX : deadline_misses * UINT64_C(1'000'000) / batches_published;
     const uint64_t inference_high_water_growth =
@@ -608,7 +617,9 @@ int main(int argc, char** argv) {
             ? capture_memory.high_water_bytes - capture_memory_baseline.high_water_bytes
             : 0;
     const bool memory_stable = inference_high_water_growth == 0 && capture_high_water_growth == 0;
-    const bool qualified = refresh_millihz >= minimum_refresh_millihz &&
+    const bool scheduling_ready = scheduling.mmcss_active() && provider.worker_mmcss_active();
+    const bool qualified = scheduling_ready && refresh_millihz >= minimum_refresh_millihz &&
+                           interaction_refresh_millihz >= minimum_interaction_millihz &&
                            batch_p95 <= saccade::scheduler::scene_period_30hz_ns &&
                            full_p95 <= saccade::scheduler::scene_period_30hz_ns &&
                            deadline_miss_ppm <= maximum_deadline_miss_ppm && memory_stable;
@@ -616,6 +627,10 @@ int main(int argc, char** argv) {
     StackStringBuilder<2048> output;
     bool written =
         output.append("windows_full_scope mode=") && output.append(mode_name(mode)) && output.append(' ') &&
+        append_metric(&output, "mmcss", scheduling.mmcss_active() ? 1U : 0U) &&
+        append_metric(&output, "worker_mmcss", provider.worker_mmcss_active() ? 1U : 0U) &&
+        append_metric(&output, "worker_thread_id", provider.worker_thread_id()) &&
+        append_metric(&output, "process_priority_elevated", scheduling.process_priority_elevated() ? 1U : 0U) &&
         append_metric(&output, "duration_ns", measured_ns) &&
         append_metric(&output, "displays", displays.snapshot().count) &&
         append_metric(&output, "warmup_scenes", coordinator_baseline.batches_published) &&
@@ -625,6 +640,8 @@ int main(int argc, char** argv) {
         append_metric(&output, "frames_offered", frames_offered) &&
         append_metric(&output, "scenes", batches_published) &&
         append_metric(&output, "refresh_millihz", refresh_millihz) &&
+        append_metric(&output, "interaction_refresh_millihz", interaction_refresh_millihz) &&
+        append_metric(&output, "minimum_interaction_millihz", minimum_interaction_millihz) &&
         append_metric(&output, "batch_p50_ns", batch_p50) && append_metric(&output, "batch_p95_ns", batch_p95) &&
         append_metric(&output, "batch_p99_ns", batch_p99) && append_metric(&output, "full_scope_p50_ns", full_p50) &&
         append_metric(&output, "full_scope_p95_ns", full_p95) &&
@@ -636,8 +653,7 @@ int main(int argc, char** argv) {
         append_metric(&output, "full_scope_misses", full_scope_deadline_misses) &&
         append_metric(&output, "deadline_miss_ppm", deadline_miss_ppm) &&
         append_metric(&output, "scene_replaced", scheduler_stats.scene_replaced - scheduler_baseline.scene_replaced) &&
-        append_metric(&output, "interaction_ticks",
-                      scheduler_stats.interaction_ticks - scheduler_baseline.interaction_ticks) &&
+        append_metric(&output, "interaction_ticks", interaction_ticks) &&
         append_metric(&output, "interaction_skipped",
                       scheduler_stats.interaction_skipped - scheduler_baseline.interaction_skipped) &&
         append_metric(&output, "capture_empty", capture_stats.empty_acquires - capture_baseline.empty_acquires) &&
@@ -679,6 +695,7 @@ int main(int argc, char** argv) {
     if (inference.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
     if (provider.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
     if (artifact.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
+    if (scheduling.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
     if (previous_dpi != nullptr) (void)SetThreadDpiAwarenessContext(previous_dpi);
     if (cleanup != SACCADE_OK) return exit_code(ExitCode::cleanup);
     if (!qualified) return exit_code(ExitCode::qualification);

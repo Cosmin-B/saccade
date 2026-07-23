@@ -9,9 +9,11 @@
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#include <windows.h>
+
+#include <avrt.h>
 #include <d3d11.h>
 #include <d3d12.h>
-#include <windows.h>
 #include <wrl/client.h>
 
 #include <algorithm>
@@ -38,6 +40,7 @@ constexpr size_t maximum_packet_bytes =
     static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
 constexpr uint32_t base_capability_bits = SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT |
                                           SACCADE_PROVIDER_CAPABILITY_ASYNC | SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
+constexpr wchar_t inference_task[] = L"Games";
 
 constexpr uint32_t api_major(uint32_t version) noexcept {
     return version >> 16U;
@@ -298,6 +301,14 @@ struct DirectMlInferenceProvider::Impl {
     }
 
     void worker_loop() noexcept {
+        DWORD task_index = 0;
+        HANDLE scheduling_task = AvSetMmThreadCharacteristicsW(inference_task, &task_index);
+        if (scheduling_task != nullptr && AvSetMmThreadPriority(scheduling_task, AVRT_PRIORITY_HIGH) == 0) {
+            (void)AvRevertMmThreadCharacteristics(scheduling_task);
+            scheduling_task = nullptr;
+        }
+        worker_thread_id_.store(GetCurrentThreadId(), std::memory_order_relaxed);
+        worker_mmcss_active_.store(scheduling_task != nullptr, std::memory_order_relaxed);
         const SaccadeResult adopted_graphics = graphics_.adopt_current_thread();
         const SaccadeResult adopted_preprocessor = preprocessor_.adopt_current_thread();
         const SaccadeResult adopted_inference = inference_.adopt_current_thread();
@@ -307,14 +318,20 @@ struct DirectMlInferenceProvider::Impl {
                                : adopted_inference != SACCADE_OK    ? adopted_inference
                                                                     : adopted_postprocessor;
         (void)SetEvent(worker_ready_event_);
-        if (worker_start_result_ != SACCADE_OK) return;
-        for (;;) {
-            (void)WaitForSingleObject(command_event_, INFINITE);
-            if (stop_requested_.load(std::memory_order_acquire)) return;
-            if (control_state_.load(std::memory_order_acquire) == SACCADE_TICKET_QUEUED) {
-                process_ticket();
+        if (worker_start_result_ == SACCADE_OK) {
+            for (;;) {
+                (void)WaitForSingleObject(command_event_, INFINITE);
+                if (stop_requested_.load(std::memory_order_acquire)) break;
+                if (control_state_.load(std::memory_order_acquire) == SACCADE_TICKET_QUEUED) {
+                    process_ticket();
+                }
             }
         }
+        const SaccadeResult cleanup =
+            scheduling_task == nullptr || AvRevertMmThreadCharacteristics(scheduling_task) != 0 ? SACCADE_OK
+                                                                                                : SACCADE_ERROR_BACKEND;
+        worker_mmcss_active_.store(false, std::memory_order_relaxed);
+        worker_cleanup_result_.store(cleanup, std::memory_order_relaxed);
     }
 
     void release_ticket() noexcept {
@@ -324,12 +341,13 @@ struct DirectMlInferenceProvider::Impl {
         (void)ResetEvent(completion_event_);
     }
 
-    void stop_worker() noexcept {
-        if (!worker_.joinable()) return;
+    SaccadeResult stop_worker() noexcept {
+        if (!worker_.joinable()) return SACCADE_OK;
         stop_requested_.store(true, std::memory_order_release);
         (void)SetEvent(command_event_);
         worker_.join();
         stop_requested_.store(false, std::memory_order_relaxed);
+        return static_cast<SaccadeResult>(worker_cleanup_result_.load(std::memory_order_relaxed));
     }
 
     void reset_model_objects() noexcept {
@@ -380,6 +398,9 @@ struct DirectMlInferenceProvider::Impl {
     std::atomic<uint32_t> control_state_{0};
     std::atomic<bool> cancel_requested_{false};
     std::atomic<bool> stop_requested_{false};
+    std::atomic<bool> worker_mmcss_active_{false};
+    std::atomic<uint32_t> worker_thread_id_{0};
+    std::atomic<int32_t> worker_cleanup_result_{SACCADE_OK};
     HANDLE command_event_ = nullptr;
     HANDLE completion_event_ = nullptr;
     HANDLE worker_ready_event_ = nullptr;
@@ -418,7 +439,7 @@ DirectMlInferenceProvider::DirectMlInferenceProvider() noexcept {
 
 DirectMlInferenceProvider::~DirectMlInferenceProvider() {
     Impl& state = impl();
-    state.stop_worker();
+    (void)state.stop_worker();
     if (state.model_live_) state.reset_model_objects();
     if (state.command_event_ != nullptr) (void)CloseHandle(state.command_event_);
     if (state.completion_event_ != nullptr) (void)CloseHandle(state.completion_event_);
@@ -483,7 +504,7 @@ SaccadeResult DirectMlInferenceProvider::shutdown() noexcept {
         state.reset_model_objects();
         state.model_live_ = false;
     }
-    state.stop_worker();
+    const SaccadeResult worker_shutdown = state.stop_worker();
     if (state.command_event_ != nullptr) (void)CloseHandle(state.command_event_);
     if (state.completion_event_ != nullptr) (void)CloseHandle(state.completion_event_);
     if (state.worker_ready_event_ != nullptr) (void)CloseHandle(state.worker_ready_event_);
@@ -497,7 +518,7 @@ SaccadeResult DirectMlInferenceProvider::shutdown() noexcept {
     state.capability_bits_ = base_capability_bits | SACCADE_PROVIDER_CAPABILITY_GPU;
     state.device_id_ = 0;
     state.initialized_ = false;
-    return SACCADE_OK;
+    return worker_shutdown;
 }
 
 ID3D11Device* DirectMlInferenceProvider::capture_device() const noexcept {
@@ -518,6 +539,14 @@ DirectMlModelStage DirectMlInferenceProvider::model_stage() const noexcept {
 
 DirectMlPipelineStats DirectMlInferenceProvider::pipeline_stats() const noexcept {
     return impl().pipeline_stats_;
+}
+
+bool DirectMlInferenceProvider::worker_mmcss_active() const noexcept {
+    return impl().worker_mmcss_active_.load(std::memory_order_relaxed);
+}
+
+uint32_t DirectMlInferenceProvider::worker_thread_id() const noexcept {
+    return impl().worker_thread_id_.load(std::memory_order_relaxed);
 }
 
 SaccadeResult SACCADE_CALL DirectMlInferenceProvider::Impl::enumerate_devices(void* context, uint32_t index,
@@ -717,10 +746,13 @@ SaccadeResult SACCADE_CALL DirectMlInferenceProvider::Impl::create_context(
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     (void)ResetEvent(state->worker_ready_event_);
+    state->worker_thread_id_.store(0, std::memory_order_relaxed);
+    state->worker_mmcss_active_.store(false, std::memory_order_relaxed);
+    state->worker_cleanup_result_.store(SACCADE_OK, std::memory_order_relaxed);
     state->worker_ = std::thread([state]() noexcept { state->worker_loop(); });
     if (WaitForSingleObject(state->worker_ready_event_, 5'000) != WAIT_OBJECT_0 ||
         state->worker_start_result_ != SACCADE_OK) {
-        state->stop_worker();
+        (void)state->stop_worker();
         return state->worker_start_result_ != SACCADE_OK ? state->worker_start_result_ : SACCADE_ERROR_TIMEOUT;
     }
     state->context_live_ = true;
@@ -738,10 +770,10 @@ DirectMlInferenceProvider::Impl::destroy_context(void* context, SaccadeExecution
         return SACCADE_ERROR_STALE_HANDLE;
     }
     if (state->ticket_.active_) return SACCADE_ERROR_BUSY;
-    state->stop_worker();
+    const SaccadeResult worker_shutdown = state->stop_worker();
     state->context_live_ = false;
     state->context_generation_ = next_generation(state->context_generation_);
-    return SACCADE_OK;
+    return worker_shutdown;
 }
 
 SaccadeResult SACCADE_CALL DirectMlInferenceProvider::Impl::submit(void* context,

@@ -60,6 +60,7 @@ saccade::scheduler::NeuralFrame neural_frame(SaccadeFrameHandle frame, uint64_t 
     value.source_id = 100;
     value.topology_epoch = 200;
     value.transform_epoch = epoch;
+    value.capture_time_ns = epoch + 1000;
     value.width = 1;
     value.height = 1;
     value.source_to_desktop = transform(epoch);
@@ -134,8 +135,8 @@ int main() {
     saccade::scene::PacketView scene{};
     if (scenes.acquire_latest(&scene) != SACCADE_OK ||
         scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 || scene.header->frame_id != 1 ||
-        scene.header->scene_epoch != 1 || scene.targets[0].x_q8 != 2560 || scene.targets[0].y_q8 != 5120 ||
-        scene.targets[0].width_q8 != 512 || scene.targets[0].height_q8 != 768) {
+        scene.header->scene_epoch != 1 || scene.header->capture_time_ns != 1001 || scene.targets[0].x_q8 != 2560 ||
+        scene.targets[0].y_q8 != 5120 || scene.targets[0].width_q8 != 512 || scene.targets[0].height_q8 != 768) {
         return 6;
     }
 
@@ -156,7 +157,8 @@ int main() {
         !advance.scene_published || advance.scene_epoch != 3) {
         return 8;
     }
-    if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->frame_id != 4 || scene.header->scene_epoch != 3) {
+    if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->frame_id != 4 || scene.header->scene_epoch != 3 ||
+        scene.header->capture_time_ns != 1004) {
         return 9;
     }
     const auto stats = coordinator.stats();

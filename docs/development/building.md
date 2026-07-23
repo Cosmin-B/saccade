@@ -7,10 +7,10 @@ code generators from the network.
 
 The portable source requires:
 
-- CMake 3.30 or newer;
-- Ninja 1.11 or newer;
-- Clang 16, GCC 13, or MSVC 2022 with current updates;
-- a 64-bit target.
+- CMake 3.30 or newer.
+- Ninja 1.11 or newer.
+- Clang 16, GCC 13, or MSVC 2022 with current updates.
+- A 64-bit target.
 
 The native macOS build uses the Xcode 26 SDK so the same binary can compile the Metal 4
 path while retaining a macOS 14 deployment target and Metal 3 runtime fallback. The
@@ -31,7 +31,7 @@ Packaged Windows inference uses the current stable
 `Microsoft.Windows.AI.MachineLearning` 2.1.74 package, which bundles ONNX Runtime
 1.24.6 commit `800ac32`. CMake verifies its package version and architecture-specific
 runtime hashes before compiling. Xcode, Visual Studio, the Windows SDK, CMake, Ninja,
-and WiX are build tools; they do not enter the
+and WiX are build tools. They do not enter the
 application package. Runtime libraries, shaders, and model assets do enter the package
 and are hash-checked as release inputs.
 
@@ -77,7 +77,7 @@ The main cache options are:
 | `SACCADE_MSVC_STATIC_RUNTIME` | `OFF` | Statically link the MSVC runtime for a self-contained Windows package. |
 | `SACCADE_MODEL_ARTIFACT` | empty | Signed platform model artifact bundled with the application. |
 | `SACCADE_COREML_MODEL_BUNDLE` | empty | Compiled Core ML bundle copied into the macOS application. |
-| `SACCADE_MACOS_CODESIGN_IDENTITY` | `-` | Certificate identity, or an ad-hoc development signature. |
+| `SACCADE_MACOS_CODESIGN_IDENTITY` | `-` | Stable Apple Development or Developer ID identity. |
 | `SACCADE_MACOS_NOTARY_PROFILE` | empty | Keychain profile used by `notarytool`. |
 | `SACCADE_MACOS_HARDENED_RUNTIME` | `ON` | Sign the completed macOS bundle with hardened runtime. |
 | `SACCADE_WINDOWS_SIGNTOOL` | auto | Explicit `signtool.exe` path when it is not on `PATH`. |
@@ -107,14 +107,15 @@ key_xy=$(python3 tools/model/package_artifact.py public-key \
 python3 tools/model/package_artifact.py directml \
   --key model-signing-key.pem --onnx detector.onnx \
   --output build/model/windows/saccade.model \
-  --precision fp16 --width 1536 --height 1024 \
-  --candidates 10000 --targets 10000
+  --precision fp16 --width 1280 --height 768 \
+  --input-name input --candidates-name candidates \
+  --candidates 1024 --targets 160
 ```
 
-Both graphs expose normalized six-value target rows. DirectML consumes FP16 rows;
+Both graphs expose normalized six-value target rows. DirectML consumes FP16 rows.
 Core ML exposes Float32 rows independently of the compiled graph's storage precision.
 On Windows, an owned D3D12 dispatch converts those rows into the narrow Q3 candidate
-workspace before sorting and suppression; the model graph does not manufacture
+workspace before sorting and suppression. The model graph does not manufacture
 byte-packed native records. Core ML uses the same row meaning from a compiled bundle:
 
 ```sh
@@ -122,12 +123,17 @@ python3 tools/model/package_artifact.py coreml \
   --key model-signing-key.pem --locator SaccadeDetector.mlmodelc \
   --model-bundle /absolute/path/SaccadeDetector.mlmodelc \
   --output build/model/macos/saccade.model \
-  --precision fp16 \
-  --width 1536 --height 1024 --candidates 10000 --targets 10000
+  --precision fp16 --input-name input \
+  --rows-name target_rows --count-name target_count \
+  --width 1280 --height 768 --candidates 1024 --targets 160
 ```
 
-`--precision` records the Core ML bundle's storage precision in the signed artifact;
-use `fp32` only when the compiled bundle was deliberately exported at full precision.
+`--precision` records the Core ML bundle's storage precision in the signed artifact.
+Use `fp32` only when the compiled bundle was deliberately exported at full precision.
+The Core ML packager reads the compiled bundle metadata and rejects mismatched feature
+names, dimensions, row shapes, or scalar-count shape before signing the artifact. When
+the tools and application are enabled together, each desktop app target runs its native
+runtime probe against the signed artifact before linking the application.
 
 Configure release builds with `SACCADE_MODEL_PUBLIC_KEY_XY=$key_xy` and the matching
 `SACCADE_MODEL_ARTIFACT`. The macOS build also receives
@@ -135,10 +141,13 @@ Configure release builds with `SACCADE_MODEL_PUBLIC_KEY_XY=$key_xy` and the matc
 outside the source and build trees.
 
 The macOS target signs only after every model and shader resource has entered the
-bundle. The default `-` identity creates a sealed ad-hoc development bundle. A
-distribution build sets `SACCADE_MACOS_CODESIGN_IDENTITY` to its Developer ID
-Application identity; that path also requests a trusted timestamp. Hardened runtime is
-enabled in both cases unless explicitly disabled.
+bundle. The default `-` identity creates a sealed ad-hoc development bundle, but its
+designated requirement is tied to that exact executable. Screen Recording and
+Accessibility grants therefore do not survive a rebuild. Development builds that need
+grant continuity set `SACCADE_MACOS_CODESIGN_IDENTITY` to a stable Apple Development
+identity. Distribution builds use a Developer ID Application identity and request a
+trusted timestamp. Hardened runtime is enabled in every signed configuration unless
+explicitly disabled.
 
 Windows assistive-technology releases set `SACCADE_WINDOWS_UIACCESS=ON`, are
 Authenticode-signed, and install below `Program Files`. Development builds leave it off
@@ -149,11 +158,11 @@ app and local tools do not depend on a separately installed Visual C++ redistrib
 Set `SACCADE_DISTRIBUTION_BUILD=ON` only for a releasable package. Configuration then
 requires the signed private model artifact and its public verification key. macOS also
 requires a compiled Core ML bundle, non-ad-hoc Developer ID identity, hardened runtime,
-and notary keychain profile; CPack signs and strictly verifies the generated DMG before
+and notary keychain profile. CPack signs and strictly verifies the generated DMG before
 submitting it, then staples and validates the notarization. Windows also
-requires the packaged ML runtime, UIAccess, a certificate thumbprint, and timestamp URL;
-the application and generated MSI are both Authenticode-signed. Missing release inputs
-fail configuration instead of producing an inert package.
+requires the packaged ML runtime, UIAccess, a certificate thumbprint, and timestamp URL.
+The application and generated MSI are both Authenticode-signed. Missing release inputs
+fail configuration before an inert package can be produced.
 
 ## Desktop packages
 
@@ -277,7 +286,7 @@ ctest --preset asan-ubsan --output-on-failure
 ```
 
 MSVC supports the address sanitizer only. Keep that lane test-only with the dynamic
-runtime; CMake's MSVC manifest wrapper cannot embed the shipping GUI manifest while
+runtime. CMake's MSVC manifest wrapper cannot embed the shipping GUI manifest while
 linking the ASan executable. The ordinary Release lane still builds and packages the
 application:
 
@@ -318,11 +327,11 @@ cmake --build build/benchmark-release -j
 
 | Area | Maintained measurements |
 |---|---|
-| Overlay and coordinates | Packet validation, target expansion, composition, transforms, Metal expansion, and an offscreen indirect draw. |
+| Overlay and coordinates | Packet validation, target expansion, composition, transforms, and an offscreen draw. |
 | Interaction | Hint assignment, prefix resolution, Path selection, action planning, and the 120 Hz scheduler budget. |
 | Scene fusion | Semantic and neural candidate fusion, publication latency, and the 30 Hz scene budget. |
-| Native inference | Core ML and DirectML creation, dispatch latency, tensor bytes, accelerator memory, and failure recovery. |
-| Capture and preprocessing | Live capture, GPU import, fused resize and color conversion, freshness, and transfer bytes. |
+| Native inference | Core ML and DirectML creation, dispatch latency, tensor bytes, memory, and recovery. |
+| Capture and preprocessing | Capture, GPU import, fused resize, color conversion, freshness, and transfer bytes. |
 | Full scope | Capture through target publication while the independent interaction clock runs. |
 | Longevity | Process, handle, accelerator, and Saccade-owned memory over a fixed cadence. |
 
@@ -361,15 +370,13 @@ reports its actual pass count, elapsed nanoseconds, and measured millihertz at e
 for the full hour. Source dimensions are explicit in every result and are bounded by the
 Q3 desktop-coordinate range, including 7,680 by 4,320 input.
 
-The Windows full-scope tool has separate `live` and `replay` modes. `live` measures
-fresh WGC capture timestamps through scene publication and therefore advances only when
-the compositor supplies a new desktop frame. `replay` first leases one real WGC desktop
-surface per display, then submits fresh runtime handles from those unchanged native
-textures at the 120 Hz capture/interaction cadence while neural publication remains at
-30 Hz. It performs no pixel copy and exercises newest-frame replacement, preprocessing,
-DirectML, postprocessing, full-desktop coordination, scene publication, and the
-concurrent interaction scheduler under sustained load. Replay latency is processing
-latency from submission, not live capture freshness.
+The Windows full-scope tool has separate `live` and `replay` modes. `live` measures WGC
+capture timestamps through scene publication when the compositor supplies a desktop frame.
+`replay` leases one WGC desktop surface per display and submits fresh runtime handles from
+those unchanged native textures. It performs no pixel copy and exercises newest-frame
+replacement, preprocessing, DirectML, postprocessing, full-desktop coordination, scene
+publication, and the concurrent interaction scheduler. Replay latency is processing
+latency from submission, not capture freshness.
 
 ```bat
 scripts\run_windows_full_scope.cmd detector.model 60 live
@@ -378,10 +385,15 @@ scripts\run_windows_full_scope.cmd detector.model 60 replay
 
 Both modes report their name, scene refresh rate, p50/p95/p99 batch and full-scope
 latency, deadline misses, replacements, interaction ticks, target count, and memory
-high-water marks. Run both modes when characterizing a release build; replay throughput
+high-water marks. Run both modes when characterizing a release build. Replay throughput
 does not represent live capture latency. Replay exits successfully only when refresh is at
 least 29 Hz, batch and full-scope p95 are within 33.33 ms, and the larger of the batch or
 full-scope deadline-miss rates is at most 1,000 parts per million.
+
+The same qualification result requires measured interaction cadence of at least 115 Hz.
+The output reports `interaction_refresh_millihz`, `minimum_interaction_millihz`, and
+`interaction_ticks` so the 120 Hz interaction clock is visible beside the 30 Hz scene
+rate. Live runs remain subject to capture freshness and the full-scope latency gates.
 
 The CPU model diagnostic compares MLAS, hybrid XNNPACK, and strict XNNPACK using the same
 FP32 graph. Strict mode rejects any graph partition assigned to the default CPU provider.
@@ -389,8 +401,8 @@ It is a fallback diagnostic, not the Windows release path.
 
 ### macOS performance tools
 
-The macOS full-scope tool uses live ScreenCaptureKit frames rather than a retained
-replay surface. ScreenCaptureKit requests display-rate updates, atlas admission starts
+The macOS full-scope tool uses live ScreenCaptureKit frames. ScreenCaptureKit requests
+display-rate updates, atlas admission starts
 2 ms before each 30 Hz neural boundary, and latency begins at WindowServer's native
 mach-absolute display event. It covers Metal image preprocessing, IOSurface import,
 Core ML, target publication, and full-desktop scene commit.
@@ -443,15 +455,15 @@ The default test lane excludes every test that registers system-wide input, crea
 desktop window, posts native input, captures the desktop, or presents an overlay. Live
 tests are split into five explicit categories:
 
-- `registration` registers global hotkeys;
-- `owned-window` creates only a test-owned Accessibility or UI Automation window;
+- `registration` registers global hotkeys.
+- `owned-window` creates only a test-owned Accessibility or UI Automation window.
 - `workflow` posts pointer, button, scroll, and text input only to a test-owned window,
-  checks stale-plan and physical-override behavior, and restores the pointer;
-- `capture` reads the current desktop or an owned capture surface;
+  checks stale-plan and physical-override behavior, and restores the pointer.
+- `capture` reads the current desktop or an owned capture surface.
 - `overlay` creates click-through, nonactivating overlay surfaces.
 
 The runner requires the selected category twice so an accidental CTest invocation cannot
-cross the live boundary. For example, after reviewing the capture tests:
+cross the live boundary. After reviewing the capture tests, run:
 
 ```sh
 SACCADE_ALLOW_LIVE_TESTS=capture cmake \
@@ -460,9 +472,9 @@ SACCADE_ALLOW_LIVE_TESTS=capture cmake \
     -P scripts/run_live_tests.cmake
 ```
 
-Use `CATEGORY=all` and `SACCADE_ALLOW_LIVE_TESTS=all` only for an attended acceptance run.
+Use `CATEGORY=all` and `SACCADE_ALLOW_LIVE_TESTS=all` only for a deliberate acceptance run.
 Pass `-DREPORT_FILE=<path>` to write a JUnit report. Input translation and executor unit
-tests use capture sinks and remain in the default headless lane; only the guarded
+tests use capture sinks and remain in the default headless lane. Only the guarded
 `workflow` category posts native input.
 
 ## Source-tree rules

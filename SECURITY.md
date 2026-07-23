@@ -1,13 +1,15 @@
 # Security
 
-The finished Saccade application will handle screen content, accessibility metadata,
+Saccade handles screen content, accessibility metadata, local model inference, overlays,
 and synthetic input. A mistake at any of those boundaries can expose private data or
-trigger the wrong action. Reports about permission handling, capture exclusion, input
-validation, provider loading, and package integrity are security reports.
+trigger the wrong action. Reports about permission handling, capture exclusion, action
+validation, provider loading, local agent authentication, and package integrity are
+security reports.
 
-The current repository is a portable foundation and does not yet ship native capture
-or input adapters. ABI validation, stale handles, provider lifetime, package exports,
-and diagnostic data handling are already in scope.
+The repository contains the portable runtime plus native macOS and Windows providers for
+capture, accessibility, accelerated inference, overlay presentation, and input. ABI
+validation, stale handles, provider lifetime, package exports, model admission, and
+diagnostic data handling are also in scope.
 
 Use GitHub's private vulnerability reporting for this repository. Include the
 affected commit, operating system, hardware, reproduction steps, and any relevant

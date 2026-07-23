@@ -14,6 +14,7 @@
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <mach-o/dyld.h>
+#import <os/log.h>
 
 #include <algorithm>
 #include <array>
@@ -35,6 +36,7 @@ using saccade::platform::macos::GlobalHotkeys;
 using saccade::platform::macos::InputMonitor;
 
 constexpr uint64_t permission_retry_period_ns = UINT64_C(1'000'000'000);
+constexpr uint64_t agent_socket_retry_period_ns = UINT64_C(50'000'000);
 
 uint64_t timestamp_ns() noexcept {
     timespec time{};
@@ -103,6 +105,7 @@ class ApplicationState final {
     void update_menu() noexcept;
     void tick(uint64_t) noexcept;
     SaccadeResult synchronize_input_monitor(uint64_t) noexcept;
+    SaccadeResult initialize_agent_socket(uint64_t) noexcept;
     SaccadeResult initialize_pipeline(uint64_t) noexcept;
     SaccadeResult shutdown_pipeline() noexcept;
     void begin_pipeline_recovery(SaccadeResult, uint64_t) noexcept;
@@ -119,6 +122,7 @@ class ApplicationState final {
     std::array<char, 4096> model_root_{};
     std::array<char, 4096> metallib_path_{};
     uint64_t next_input_monitor_retry_ns_ = 0;
+    uint64_t next_agent_socket_retry_ns_ = 0;
     saccade::application::RecoverySchedule pipeline_recovery_{};
     __weak SaccadeAppDelegate* delegate_ = nil;
     SaccadeResult fault_ = SACCADE_OK;
@@ -377,6 +381,23 @@ SaccadeResult quit_application(void*) noexcept {
     return SACCADE_OK;
 }
 
+SaccadeResult ApplicationState::initialize_agent_socket(uint64_t now_ns) noexcept {
+    if (!pipeline_initialized_ || agent_socket_initialized_ || now_ns == 0) return SACCADE_ERROR_STATE;
+
+    next_agent_socket_retry_ns_ =
+        now_ns > UINT64_MAX - agent_socket_retry_period_ns ? UINT64_MAX : now_ns + agent_socket_retry_period_ns;
+    constexpr SaccadeAgentCapabilityBits capabilities =
+        SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
+        SACCADE_AGENT_CAPABILITY_WINDOW;
+    const SaccadeResult result = agent_socket_.initialize(
+        {this, process_agent, neutralize_input, nullptr, capabilities}, &agent_socket_storage_);
+    if (result == SACCADE_OK) {
+        agent_socket_initialized_ = true;
+        next_agent_socket_retry_ns_ = 0;
+    }
+    return result;
+}
+
 SaccadeResult ApplicationState::initialize_pipeline(uint64_t now_ns) noexcept {
     if (now_ns == 0 || verifier_initialized_ || pipeline_initialized_ || pipeline_cleanup_required_ ||
         agent_socket_initialized_)
@@ -386,16 +407,12 @@ SaccadeResult ApplicationState::initialize_pipeline(uint64_t now_ns) noexcept {
     if (result == SACCADE_OK) verifier_initialized_ = true;
     if (result == SACCADE_OK) {
         result = pipeline_.initialize({artifact_path_.data(), model_root_.data(), metallib_path_.data(),
-                                       &settings_.current(), verifier_.descriptor(), this, nullptr, now_ns});
+                                       &settings_.current(), verifier_.descriptor(), this, nullptr, now_ns, true});
         if (result == SACCADE_OK) pipeline_initialized_ = true;
     }
     if (result == SACCADE_OK) {
-        constexpr SaccadeAgentCapabilityBits agent_capabilities =
-            SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
-            SACCADE_AGENT_CAPABILITY_WINDOW;
-        result = agent_socket_.initialize({this, process_agent, neutralize_input, nullptr, agent_capabilities},
-                                          &agent_socket_storage_);
-        if (result == SACCADE_OK) agent_socket_initialized_ = true;
+        const SaccadeResult agent_result = initialize_agent_socket(now_ns);
+        if (agent_result != SACCADE_ERROR_ALREADY_EXISTS) result = agent_result;
     }
     if (result == SACCADE_OK) return SACCADE_OK;
 
@@ -427,6 +444,7 @@ SaccadeResult ApplicationState::initialize_pipeline(uint64_t now_ns) noexcept {
 
 SaccadeResult ApplicationState::shutdown_pipeline() noexcept {
     SaccadeResult result = SACCADE_OK;
+    next_agent_socket_retry_ns_ = 0;
     if (agent_socket_initialized_) {
         const SaccadeResult stopped = agent_socket_.shutdown();
         if (stopped == SACCADE_OK)
@@ -496,11 +514,12 @@ SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcep
         return SACCADE_OK;
     }
     std::memcpy(model_root_.data(), root, std::strlen(root) + 1U);
-    request_platform_permissions();
     const uint64_t now_ns = timestamp_ns();
     result = initialize_pipeline(now_ns);
     if (result != SACCADE_OK) {
         fault_ = result;
+        os_log_error(OS_LOG_DEFAULT, "Pipeline initialization failed: result=%{public}d stage=%{public}u", result,
+                     static_cast<uint32_t>(pipeline_.last_stage()));
         if (result == SACCADE_ERROR_BACKEND) pipeline_recovery_.start(now_ns);
         if (result == SACCADE_ERROR_STATE && pipeline_cleanup_required_) (void)restart_application(this);
         return SACCADE_OK;
@@ -576,6 +595,13 @@ void ApplicationState::tick(uint64_t now_ns) noexcept {
         const bool incomplete = (output.runtime.scene.packet_flags & SACCADE_TARGET_PACKET_INCOMPLETE) != 0;
         if (scene_incomplete_ != incomplete) {
             scene_incomplete_ = incomplete;
+            update_menu();
+        }
+    }
+    if (!agent_socket_initialized_ && now_ns >= next_agent_socket_retry_ns_) {
+        const SaccadeResult agent_result = initialize_agent_socket(now_ns);
+        if (agent_result != SACCADE_OK && agent_result != SACCADE_ERROR_ALREADY_EXISTS) {
+            fault_ = agent_result;
             update_menu();
         }
     }
@@ -1057,7 +1083,7 @@ static SaccadeResult run_binding_editor() {
         @[ settings_label(@"Timeout (ms)"), timeout ],
         @[ settings_label(@"Hold (ms)"), hold ],
         @[ settings_label(@"Drag (ms)"), drag ],
-        @[ settings_label(@"Continuous scroll lease (ms; 0 = 250)"), scrollDuration ],
+        @[ settings_label(@"Continuous scroll lease (ms, 0 = 250)"), scrollDuration ],
         @[ settings_label(@"Vertical scroll (Q8)"), scrollVertical ],
         @[ settings_label(@"Horizontal scroll (Q8)"), scrollHorizontal ],
         @[
@@ -1259,7 +1285,7 @@ static SaccadeResult run_binding_editor() {
                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
                     backing:NSBackingStoreBuffered
                       defer:NO];
-    self.diagnosticsPanel.title = @"Saccade Debugger";
+    self.diagnosticsPanel.title = @"Saccade Diagnostics";
     self.diagnosticsPanel.releasedWhenClosed = NO;
     self.diagnosticsPanel.contentMinSize =
         NSMakeSize(saccade::application::debugger_minimum_width, saccade::application::debugger_minimum_height);

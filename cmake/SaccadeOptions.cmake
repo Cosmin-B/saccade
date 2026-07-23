@@ -23,7 +23,7 @@ set(SACCADE_MODEL_ARTIFACT "" CACHE FILEPATH
 set(SACCADE_COREML_MODEL_BUNDLE "" CACHE PATH
     "Compiled .mlmodelc directory referenced by the macOS model artifact")
 set(SACCADE_MACOS_CODESIGN_IDENTITY "-" CACHE STRING
-    "macOS code-signing identity; use - for an ad-hoc development signature")
+    "macOS identity. Use - only for builds that do not need persistent privacy grants")
 set(SACCADE_MACOS_NOTARY_PROFILE "" CACHE STRING
     "Keychain profile used by xcrun notarytool for distribution packages")
 option(SACCADE_MACOS_HARDENED_RUNTIME

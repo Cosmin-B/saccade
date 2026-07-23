@@ -757,6 +757,17 @@ if(TARGET saccade_platform_windows)
     add_test(NAME platform.windows.operating_system
         COMMAND saccade_platform_windows_operating_system)
 
+    add_executable(saccade_platform_windows_runtime_scheduling
+        platform/windows/runtime_scheduling.cpp)
+    target_include_directories(saccade_platform_windows_runtime_scheduling PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/include")
+    target_link_libraries(saccade_platform_windows_runtime_scheduling PRIVATE
+        saccade_platform_windows
+        saccade_build_settings)
+    add_test(NAME platform.windows.runtime_scheduling
+        COMMAND saccade_platform_windows_runtime_scheduling)
+
     add_executable(saccade_platform_windows_glyph_atlas
         platform/windows/glyph_atlas.cpp)
     target_include_directories(saccade_platform_windows_glyph_atlas PRIVATE

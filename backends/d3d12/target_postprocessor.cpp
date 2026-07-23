@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -560,7 +561,8 @@ SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& sub
     uint64_t total_size = 0;
     std::memcpy(&structure_size, state.readback_bytes_, sizeof(structure_size));
     std::memcpy(&target_count, state.readback_bytes_ + 8, sizeof(target_count));
-    std::memcpy(&total_size, state.readback_bytes_ + 88, sizeof(total_size));
+    std::memcpy(&total_size, state.readback_bytes_ + offsetof(SaccadeTargetPacketHeader, total_size),
+                sizeof(total_size));
     if (structure_size != sizeof(SaccadeTargetPacketHeader) || target_count > state.spec_.target_capacity ||
         total_size < sizeof(SaccadeTargetPacketHeader) || total_size > state.packet_capacity_) {
         ++state.stats_.failures;

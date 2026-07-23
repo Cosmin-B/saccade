@@ -8,6 +8,7 @@
 #include "model/p256_verifier.hpp"
 #include "platform/windows/agent_pipe.hpp"
 #include "platform/windows/desktop_pipeline.hpp"
+#include "platform/windows/runtime_scheduling.hpp"
 #endif
 #include "platform/windows/global_hotkeys.hpp"
 #include "platform/windows/keyboard.hpp"
@@ -264,6 +265,7 @@ class Application final {
     saccade::application::SettingsController settings_{};
 #if defined(SACCADE_HAS_WINDOWS_ML)
     saccade::model::P256ArtifactVerifier verifier_{};
+    saccade::platform::windows::RuntimeScheduling runtime_scheduling_{};
     saccade::platform::windows::DesktopPipeline pipeline_{};
     saccade::platform::windows::AgentPipe agent_pipe_{};
     saccade::platform::windows::AgentPipeStorage agent_pipe_storage_{};
@@ -556,7 +558,7 @@ void Application::create_settings_view() noexcept {
     unsigned_text(settings.actions.drag_duration_ms, false, value.data(), value.size());
     field(L"Drag (ms)", settings_drag_duration, value.data());
     unsigned_text(settings.actions.scroll_duration_ms, false, value.data(), value.size());
-    field(L"Continuous scroll lease (ms; 0 = 250)", settings_scroll_duration, value.data());
+    field(L"Continuous scroll lease (ms, 0 = 250)", settings_scroll_duration, value.data());
     (void)swprintf_s(value.data(), value.size(), L"%d", settings.actions.scroll_vertical_q8);
     field(L"Vertical scroll (Q8)", settings_scroll_vertical, value.data());
     (void)swprintf_s(value.data(), value.size(), L"%d", settings.actions.scroll_horizontal_q8);
@@ -1233,6 +1235,10 @@ SaccadeResult Application::initialize(HINSTANCE instance, int show_command) noex
     result = settings_.initialize(initial, {this, apply_settings});
     if (result != SACCADE_OK) return result;
     settings_initialized_ = true;
+#if defined(SACCADE_HAS_WINDOWS_ML)
+    result = runtime_scheduling_.initialize();
+    if (result != SACCADE_OK) return result;
+#endif
     result = initialize_pipeline();
     if (result != SACCADE_OK) {
         fault_ = result;
@@ -1484,7 +1490,7 @@ void Application::show_diagnostics() noexcept {
         (void)SetForegroundWindow(diagnostics_window_);
         return;
     }
-    diagnostics_window_ = CreateWindowExW(WS_EX_TOOLWINDOW, diagnostics_class_name, L"Saccade Debugger",
+    diagnostics_window_ = CreateWindowExW(WS_EX_TOOLWINDOW, diagnostics_class_name, L"Saccade Diagnostics",
                                           WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME, CW_USEDEFAULT,
                                           CW_USEDEFAULT, 900, 620, window_, nullptr, instance_, this);
     if (diagnostics_window_ == nullptr) return;
@@ -1855,6 +1861,7 @@ void Application::shutdown() noexcept {
 #if defined(SACCADE_HAS_WINDOWS_ML)
     pipeline_recovery_.complete();
     (void)shutdown_pipeline();
+    if (runtime_scheduling_.initialized()) (void)runtime_scheduling_.shutdown();
 #endif
     if (settings_initialized_) {
         (void)settings_.shutdown();

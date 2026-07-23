@@ -49,6 +49,14 @@ typedef struct SaccadeSpanU8 {
     size_t size;
 } SaccadeSpanU8;
 
+/* Extensible runtime and provider structs in this API begin with struct_size
+   and api_version. Callers set struct_size to the bytes they provide. The
+   runtime reads only the prefix it knows, ignores unknown trailing bytes
+   from a larger same-major struct, and requires the reserved bytes of the
+   known prefix to be zero (SACCADE_ERROR_INVALID_ARGUMENT otherwise). An
+   incompatible major version fails with SACCADE_ERROR_VERSION. Agent, scene,
+   overlay, and input packet headers carry their own exact-version rules
+   instead. See docs/architecture/abi.md. */
 typedef struct SaccadeRuntimeDesc {
     uint32_t struct_size;
     uint32_t api_version;
@@ -59,6 +67,7 @@ typedef struct SaccadeRuntimeDesc {
 typedef struct SaccadeHostFrameDesc {
     uint32_t struct_size;
     uint32_t api_version;
+    /* Borrowed, not copied. See saccade_frame_import_host. */
     SaccadeSpanU8 data;
     uint32_t width;
     uint32_t height;
@@ -107,12 +116,23 @@ extern "C" {
 #endif
 
 SACCADE_API SaccadeApiVersion SACCADE_CALL saccade_api_version(void);
+/* Returns the calling thread's last error text. The span is thread-local. It
+   stays valid only until the next Saccade call on this thread that returns a
+   SaccadeResult. That call clears or replaces it. */
 SACCADE_API SaccadeSpanU8 SACCADE_CALL saccade_last_error(void);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc,
                                                               SaccadeRuntimeHandle* out_runtime);
+/* Freezing is one-way: register providers before this call, create inference
+   sessions after it. Doing either in the wrong order fails with
+   SACCADE_ERROR_STATE. There is no unfreeze and no unregister, because the
+   registry uses fixed storage that must not change while the pipeline runs. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_freeze(SaccadeRuntimeHandle runtime);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(SaccadeRuntimeHandle runtime);
 
+/* Frame imports borrow the caller's bytes or native resource without copying.
+   For host frames, desc->data must remain valid until saccade_frame_release
+   returns for this frame. Release removes a pending frame from the
+   newest-frame mailbox before returning buffer ownership to the caller. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime,
                                                                  const SaccadeHostFrameDesc* desc,
                                                                  SaccadeFrameHandle* out_frame);

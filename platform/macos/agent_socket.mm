@@ -128,11 +128,24 @@ SaccadeResult AgentSocket::initialize(AgentSocketConfig config, AgentSocketStora
         }
         (void)unlink(endpoint_.data());
     }
-    if (bind(listener_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0 ||
-        chmod(endpoint_.data(), S_IRUSR | S_IWUSR) != 0 || listen(listener_, 1) != 0) {
+    if (bind(listener_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0) {
         close(listener_);
         listener_ = -1;
-        (void)unlink(endpoint_.data());
+        return SACCADE_ERROR_BACKEND;
+    }
+
+    struct stat endpoint_status{};
+    if (lstat(endpoint_.data(), &endpoint_status) != 0 || !S_ISSOCK(endpoint_status.st_mode)) {
+        close(listener_);
+        listener_ = -1;
+        return SACCADE_ERROR_BACKEND;
+    }
+    endpoint_device_ = static_cast<uint64_t>(endpoint_status.st_dev);
+    endpoint_inode_ = static_cast<uint64_t>(endpoint_status.st_ino);
+    if (chmod(endpoint_.data(), S_IRUSR | S_IWUSR) != 0 || listen(listener_, 1) != 0) {
+        close(listener_);
+        listener_ = -1;
+        unlink_owned_endpoint();
         return SACCADE_ERROR_BACKEND;
     }
     config_ = config;
@@ -296,6 +309,19 @@ SaccadeResult AgentSocket::disconnect() noexcept {
     return neutralized;
 }
 
+void AgentSocket::unlink_owned_endpoint() noexcept {
+    if (endpoint_inode_ == 0) return;
+
+    struct stat endpoint_status{};
+    if (lstat(endpoint_.data(), &endpoint_status) == 0 && S_ISSOCK(endpoint_status.st_mode) &&
+        static_cast<uint64_t>(endpoint_status.st_dev) == endpoint_device_ &&
+        static_cast<uint64_t>(endpoint_status.st_ino) == endpoint_inode_) {
+        (void)unlink(endpoint_.data());
+    }
+    endpoint_device_ = 0;
+    endpoint_inode_ = 0;
+}
+
 SaccadeResult AgentSocket::advance(uint64_t now_ns) noexcept {
     if (!initialized_ || now_ns == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
     SaccadeResult result = SACCADE_OK;
@@ -325,7 +351,7 @@ SaccadeResult AgentSocket::shutdown() noexcept {
     const SaccadeResult neutralized = disconnect();
     close(listener_);
     listener_ = -1;
-    (void)unlink(endpoint_.data());
+    unlink_owned_endpoint();
     config_ = {};
     storage_ = nullptr;
     initialized_ = false;

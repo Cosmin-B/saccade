@@ -94,6 +94,7 @@ FusionEpochs epochs() {
     FusionEpochs value{};
     value.scene_epoch = 100;
     value.frame_id = 3;
+    value.capture_time_ns = 2;
     value.model_epoch = 70;
     value.session_epoch = 4;
     value.transform_epoch = 5;
@@ -130,7 +131,7 @@ int main() {
     }
     saccade::scene::PacketView fused{};
     if (saccade::scene::validate_packet({output.data(), required}, &fused) != SACCADE_OK ||
-        fused.header->scene_epoch != 100 || fused.header->target_count != 2 ||
+        fused.header->scene_epoch != 100 || fused.header->capture_time_ns != 2 || fused.header->target_count != 2 ||
         fused.header->flags != SACCADE_TARGET_PACKET_INCOMPLETE || fused.targets[0].target_id != 10 ||
         fused.targets[0].source_bits != (SACCADE_TARGET_SOURCE_ACCESSIBILITY | SACCADE_TARGET_SOURCE_NEURAL) ||
         fused.targets[0].flags != SACCADE_TARGET_DISABLED || fused.targets[0].capability_bits != 0 ||

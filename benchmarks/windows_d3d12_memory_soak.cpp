@@ -199,7 +199,7 @@ int fail(Result result, std::string_view stage) noexcept {
 
 void usage() noexcept {
     write_text("usage: windows_d3d12_memory_soak <artifact> <shader-directory> [--duration=seconds] "
-               "[--frames-per-second=count; 0 is uncapped] "
+               "[--frames-per-second=count, 0 is uncapped] "
                "[--minimum-measured-millihz=count] "
                "[--private-budget-mb=MB] [--handle-budget=count] [--video-budget-mb=MB] "
                "[--saccade-budget-mb=MB] [--monotonic-samples=count] "

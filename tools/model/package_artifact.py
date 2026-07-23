@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import json
 import pathlib
 import stat
 import struct
@@ -13,7 +14,7 @@ import tempfile
 ARTIFACT_HEADER_BYTES = 96
 SIGNATURE_BYTES = 64
 TARGET_RECORD_BYTES = 80
-TARGET_PACKET_HEADER_BYTES = 96
+TARGET_PACKET_HEADER_BYTES = 104
 PRECISION_FP32 = 1 << 0
 PRECISION_FP16 = 1 << 1
 PRECISION_INT8 = 1 << 2
@@ -139,6 +140,48 @@ def directory_digest(root):
     return digest.digest()
 
 
+def schema_shape(value):
+    if isinstance(value, str):
+        value = json.loads(value)
+    if not isinstance(value, list) or any(not isinstance(dimension, int) for dimension in value):
+        raise ValueError("invalid Core ML feature shape")
+    return value
+
+
+def validate_coreml_metadata(args):
+    if args.locator != args.model_bundle.name:
+        raise ValueError("Core ML locator must match the compiled bundle name")
+    metadata_path = args.model_bundle / "metadata.json"
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError("Core ML model bundle has no readable metadata.json") from error
+    models = metadata if isinstance(metadata, list) else [metadata]
+    for model in models:
+        if not isinstance(model, dict):
+            continue
+        inputs = {feature.get("name"): feature for feature in model.get("inputSchema", [])
+                  if isinstance(feature, dict)}
+        outputs = {feature.get("name"): feature for feature in model.get("outputSchema", [])
+                   if isinstance(feature, dict)}
+        image = inputs.get(args.input_name)
+        rows = outputs.get(args.rows_name)
+        count = outputs.get(args.count_name)
+        if image is None or rows is None or count is None:
+            continue
+        if (image.get("type") != "Image" or int(image.get("width", 0)) != args.width or
+                int(image.get("height", 0)) != args.height):
+            raise ValueError("Core ML image feature does not match the signed contract")
+        if (rows.get("type") != "MultiArray" or rows.get("dataType") != "Float32" or
+                schema_shape(rows.get("shape")) != [args.candidates, 6]):
+            raise ValueError("Core ML target-row feature does not match the signed contract")
+        if (count.get("type") != "MultiArray" or count.get("dataType") != "Float32" or
+                schema_shape(count.get("shape")) != [1]):
+            raise ValueError("Core ML target-count feature does not match the signed contract")
+        return
+    raise ValueError("Core ML feature names do not match the signed contract")
+
+
 def artifact(payload, artifact_kind, precision, width, height, maximum_targets,
              compatibility, flags, private_key):
     payload_offset = ARTIFACT_HEADER_BYTES
@@ -172,6 +215,7 @@ def artifact(payload, artifact_kind, precision, width, height, maximum_targets,
 
 
 def coreml_payload(args):
+    validate_coreml_metadata(args)
     values = [args.locator, args.input_name, args.rows_name, args.count_name]
     encoded = [value.encode("ascii") for value in values]
     header = bytearray(112)
@@ -247,9 +291,9 @@ def main():
     coreml.add_argument("--locator", required=True)
     coreml.add_argument("--model-bundle", type=pathlib.Path, required=True)
     coreml.add_argument("--precision", choices=("fp16", "fp32"), default="fp16")
-    coreml.add_argument("--input-name", default="image")
-    coreml.add_argument("--rows-name", default="target_rows")
-    coreml.add_argument("--count-name", default="target_count")
+    coreml.add_argument("--input-name", required=True)
+    coreml.add_argument("--rows-name", required=True)
+    coreml.add_argument("--count-name", required=True)
     coreml.add_argument("--letterbox", type=float, nargs=3,
                         default=(0.0, 0.0, 0.0))
 
@@ -257,39 +301,42 @@ def main():
     add_common(directml)
     directml.add_argument("--onnx", type=pathlib.Path, required=True)
     directml.add_argument("--precision", choices=("fp16", "int8"), required=True)
-    directml.add_argument("--input-name", default="image")
-    directml.add_argument("--candidates-name", default="target_rows")
+    directml.add_argument("--input-name", required=True)
+    directml.add_argument("--candidates-name", required=True)
     directml.add_argument("--scale", type=float, nargs=3, default=(1.0, 1.0, 1.0))
     directml.add_argument("--bias", type=float, nargs=3, default=(0.0, 0.0, 0.0))
     directml.add_argument("--letterbox", type=float, nargs=3,
                           default=(0.0, 0.0, 0.0))
     args = parser.parse_args()
 
-    if args.command == "public-key":
-        print(public_key_xy(args.key).hex())
-        return
-    if args.targets > args.candidates:
-        parser.error("--targets cannot exceed --candidates")
-    band_disabled = (args.band_confidence_q16 == 0 and
-                     args.band_min_short_side_q3 == 0 and
-                     args.band_max_short_side_q3 == 0)
-    band_enabled = (0 < args.band_confidence_q16 <= args.confidence_q16 and
-                    args.band_min_short_side_q3 < args.band_max_short_side_q3)
-    if not band_disabled and not band_enabled:
-        parser.error("confidence band must be entirely disabled or define a lower threshold and increasing q3 bounds")
-    if args.command == "coreml":
-        payload = coreml_payload(args)
-        precision = PRECISION_FP16 if args.precision == "fp16" else PRECISION_FP32
-        data = artifact(payload, 2, precision, args.width, args.height,
-                        args.targets, COREML_COMPATIBILITY, RELATIVE_LOCATOR,
-                        args.key)
-    else:
-        payload = directml_payload(args)
-        precision = PRECISION_FP16 if args.precision == "fp16" else PRECISION_INT8
-        data = artifact(payload, 3, precision, args.width, args.height,
-                        args.targets, DIRECTML_COMPATIBILITY, 0, args.key)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_bytes(data)
+    try:
+        if args.command == "public-key":
+            print(public_key_xy(args.key).hex())
+            return
+        if args.targets > args.candidates:
+            parser.error("--targets cannot exceed --candidates")
+        band_disabled = (args.band_confidence_q16 == 0 and
+                         args.band_min_short_side_q3 == 0 and
+                         args.band_max_short_side_q3 == 0)
+        band_enabled = (0 < args.band_confidence_q16 <= args.confidence_q16 and
+                        args.band_min_short_side_q3 < args.band_max_short_side_q3)
+        if not band_disabled and not band_enabled:
+            parser.error("confidence band must be entirely disabled or define a lower threshold and increasing q3 bounds")
+        if args.command == "coreml":
+            payload = coreml_payload(args)
+            precision = PRECISION_FP16 if args.precision == "fp16" else PRECISION_FP32
+            data = artifact(payload, 2, precision, args.width, args.height,
+                            args.targets, COREML_COMPATIBILITY, RELATIVE_LOCATOR,
+                            args.key)
+        else:
+            payload = directml_payload(args)
+            precision = PRECISION_FP16 if args.precision == "fp16" else PRECISION_INT8
+            data = artifact(payload, 3, precision, args.width, args.height,
+                            args.targets, DIRECTML_COMPATIBILITY, 0, args.key)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_bytes(data)
+    except (OSError, UnicodeError, ValueError, subprocess.CalledProcessError) as error:
+        parser.error(str(error))
 
 
 if __name__ == "__main__":

@@ -1,9 +1,7 @@
 # Version 0.1 product contract
 
-This document defines the cross-platform desktop behavior for version 0.1.
-
-Version 0.1 targets macOS 14 or newer on Apple Silicon and Windows 11 24H2 or newer on
-x64 and arm64.
+Version 0.1 defines the desktop behavior shared by macOS 14 or newer on Apple Silicon and
+Windows 11 24H2 or newer on x64 and arm64.
 
 ## Activation and scope
 
@@ -14,15 +12,15 @@ Global commands are reduced through one physical-key command schema on both plat
 Physical keyboard or pointer activity neutralizes any active synthetic hold, drag, or
 continuous stream before another action is considered.
 
-The release includes:
+The release contract includes:
 
-- configurable global hotkeys for every action and mode;
-- one command that suspends or resumes all Saccade hotkeys;
-- full-desktop targeting across every attached display as the default scope;
-- active-window targeting;
-- a command that changes scope while hints are visible;
-- stable desktop coordinates across mixed scale factors and rotated displays;
-- display hotplug, sleep, wake, and dock-transition handling;
+- Configurable global hotkeys for every action and mode.
+- One command that suspends or resumes all Saccade hotkeys.
+- Full-desktop targeting across every attached display as the default scope.
+- Active-window targeting.
+- A command that changes scope while hints are visible.
+- Stable desktop coordinates across mixed scale factors and rotated displays.
+- Display hotplug, sleep, wake, and dock-transition handling.
 - 4K and 8K operation without changing command semantics.
 
 Activation freezes visible hint labels. New damage may update target geometry before an
@@ -30,7 +28,7 @@ action, but a label cannot jump to another target during the same activation. Ch
 scope ends that activation and starts a new one with a newly frozen target set and label
 map.
 
-On Windows, UIAccess builds may act at integrity levels allowed by the signed installation.
+On Windows, UIAccess builds may act at integrity levels allowed by the installation.
 On macOS, input requires Accessibility permission. Neither platform acts on a login, lock,
 consent, password, or other secure screen.
 
@@ -44,17 +42,17 @@ Every targeting session offers four sources:
   point.
 - Fused correlates frame-matched Pixel and Semantic evidence into one deduplicated scene.
 
-Pixel is the default. A command can switch source while hints are visible. The switch ends
-the current activation and starts a new one, so frozen labels remain stable within an
-activation rather than across source changes. Fused waits for matching capture,
-transform, and topology epochs before combining evidence; the overlay presents one
-deduplicated scene.
+Pixel is the default source.
+
+A source switch ends the current activation and starts a new one, keeping frozen labels
+stable. Fused waits for matching capture, transform, and topology epochs before combining
+evidence. The overlay presents one deduplicated scene.
 
 Pixel and Fused settings include confidence, minimum target size, text sensitivity, merge
 policy, and duplicate suppression. Disabling the merge policy keeps overlapping source
-records separate. Semantic mode reports an inaccessible or incomplete tree instead of
-pretending that no targets exist. Grid settings include rows, columns, margins, and
-monitor scope.
+records separate. Semantic mode reports an inaccessible or incomplete tree and never
+turns that failure into an empty successful scene. Grid settings include rows, columns,
+margins, and monitor scope.
 
 ## Hints and target adjustment
 
@@ -64,16 +62,16 @@ model coordinate.
 
 The release supports:
 
-- sorted or randomized hint assignment;
-- priority near the pointer or the center of the active scope;
-- a configurable hint alphabet and physical-key priority;
-- labels from the active keyboard language or an explicitly selected language;
-- four-direction edge snapping;
-- nine fixed positions arranged as a three-by-three target grid;
-- fine keyboard movement inside or outside target bounds;
-- unrestricted pointer movement when no detected target is suitable;
-- configurable label placement, font, size, weight, color, outline, and glow;
-- high-contrast, light, dark, and user-defined themes.
+- Sorted or randomized hint assignment.
+- Priority near the pointer or the center of the active scope.
+- A configurable hint alphabet and physical-key priority.
+- Labels from the active keyboard language or an explicitly selected language.
+- Four-direction edge snapping.
+- Nine fixed positions arranged as a three-by-three target grid.
+- Fine keyboard movement inside or outside target bounds.
+- Unrestricted pointer movement when no detected target is suitable.
+- Configurable label placement, font, size, weight, color, outline, and glow.
+- High-contrast, light, dark, and user-defined themes.
 
 Labels use each display's scale. A label cannot cover its own safe point or prevent a
 neighboring label from being typed.
@@ -93,17 +91,17 @@ every mode.
 
 ## Pointer, scroll, and text actions
 
-Every action can have its own activation hotkey. Version 0.1 includes:
+Every action can have its own activation hotkey. The action set includes:
 
-- pointer move and hover;
-- left, right, middle, and double click;
-- click and hold;
-- drag and drop between two selected targets;
-- vertical and horizontal scrolling in step and continuous forms;
-- text-range selection between two targets;
-- repeated clicks over Multi or Path selections;
-- modifier-assisted clicks;
-- final pointer placement at the target, original position, or a configured anchor.
+- Pointer move and hover.
+- Left, right, middle, and double click.
+- Click and hold.
+- Drag and drop between two selected targets.
+- Vertical and horizontal scrolling in step and continuous forms.
+- Text-range selection between two targets.
+- Repeated clicks over Multi or Path selections.
+- Modifier-assisted clicks.
+- Final pointer placement at the target, original position, or a configured anchor.
 
 Drag, hold, and continuous scroll use a physical action ledger. Abort, timeout,
 permission loss, backend failure, and process shutdown release every synthetic button
@@ -117,18 +115,18 @@ provider receives the action plan.
 
 Window mode includes:
 
-- directional activation based on window geometry;
-- forward and backward cycling through overlapping windows;
-- activation of the next window behind the foreground window;
-- hint-based selection of visible windows;
-- restoration and activation of minimized windows when the operating system permits it;
-- exclusion of Saccade windows from candidates;
-- deterministic geometry ordering across displays and scale factors; overlap cycling
+- Directional activation based on window geometry.
+- Forward and backward cycling through overlapping windows.
+- Activation of the next window behind the foreground window.
+- Hint-based selection of visible windows.
+- Restoration and activation of minimized windows when the operating system permits it.
+- Exclusion of Saccade windows from candidates.
+- Deterministic geometry ordering across displays and scale factors. Overlap cycling
   follows the operating system's current z-order.
 
-Version 0.1 activates and cycles windows on the current desktop. It does not move another
-application's windows between macOS Spaces or Windows virtual desktops. It uses public
-workspace and window APIs only.
+Saccade activates and cycles windows on the current desktop through public workspace
+and window APIs. Moving another application's windows between macOS Spaces or Windows
+virtual desktops is outside this contract.
 
 ## Local agent control
 
@@ -138,8 +136,8 @@ The binary C11 wire ABI is shared by macOS and Windows. It exposes no platform h
 C++ library type.
 
 Observation, pointer, keyboard, clipboard, window, and settings capabilities are
-negotiated independently. Version 0.1 applications grant observation, pointer, keyboard,
-and window actions. Images and crops are not part of the version 0.1 protocol.
+negotiated independently. The applications grant observation, pointer, keyboard, and
+window actions. Protocol version 0.1 omits images and crops.
 
 Agent actions use the same generation, focus, transform, permission, safe-point, and
 physical-input validation as interactive actions. A client disconnect, physical user
@@ -155,15 +153,15 @@ move between operating systems and keyboard layouts.
 
 Settings cover:
 
-- action, mode, navigation, suspend, confirm, and abort bindings;
-- hint alphabet, language, priority, placement, and sorting;
-- target-source and detector tuning;
-- desktop, active-window, monitor, and mixed-DPI scope behavior;
-- final pointer position and movement speed;
-- theme, font, size, appearance, animation, and reduced motion;
-- automatic, CPU-only, CPU-plus-GPU, CPU-plus-accelerator, and named-device compute policies;
-- import and export of the complete versioned settings document;
-- per-page reset and full reset.
+- Action, mode, navigation, suspend, confirm, and abort bindings.
+- Hint alphabet, language, priority, placement, and sorting.
+- Target-source and detector tuning.
+- Desktop, active-window, monitor, and mixed-DPI scope behavior.
+- Final pointer position and movement speed.
+- Theme, font, size, appearance, animation, and reduced motion.
+- Automatic, CPU-only, CPU-plus-GPU, CPU-plus-accelerator, and named-device compute policies.
+- Import and export of the complete versioned settings document.
+- Per-page reset and full reset.
 
 The menu bar or notification-area menu opens settings, suspends hotkeys, reports faults,
 offers a restart command, and quits cleanly.
@@ -172,14 +170,14 @@ offers a restart command, and quits cleanly.
 
 User-facing diagnostics report:
 
-- capture, accessibility, and input permissions;
-- displays, coordinate transforms, and active scope;
-- graphics adapters and selected providers;
-- model identity, precision, and fallback policy;
-- host and device memory high-water marks;
-- queue pressure, replaced frames, cancellation, and late results;
-- overlay slot pressure, presentation deadlines, and active instance counts;
-- the most recent bounded local trace.
+- Capture, accessibility, and input permissions.
+- Displays, coordinate transforms, and active scope.
+- Graphics adapters and selected providers.
+- Model identity, precision, and fallback policy.
+- Host and device memory high-water marks.
+- Queue pressure, replaced frames, cancellation, and late results.
+- Overlay slot pressure, presentation deadlines, and active instance counts.
+- The most recent bounded local trace.
 
 One bounded debugger host presents views for providers and devices, frames and transforms,
 target scenes and fusion, overlays, memory, timing, and GPU counters. It also provides
@@ -192,17 +190,17 @@ Normal operation has no network path. Saccade has no account, cloud inference,
 telemetry, screenshot history, recognized-text history, or interaction history. A
 packaged release works offline after installation.
 
-Version 0.1 has no in-application update client. A user installs a signed replacement
-package explicitly; installation, repair, and removal remain offline-capable. Model and
-accelerator files are shipped with the package or supplied by the operating system;
-activation never downloads them.
+The release has no in-application update client. A user installs a signed replacement
+package explicitly. Installation, repair, and removal remain offline-capable. Model and
+accelerator files are supplied with the package or by the operating system. Activation
+never downloads them.
 
 ## Performance contract
 
-Input reduction, pointer feedback, and overlay presentation target 120 Hz. The version
-0.1 neural path targets a complete 30 Hz refresh of the selected full scope on supported
-hardware. Region priority may schedule work and recover from overload, but every visible
-point must still be able to affect a full-scope result.
+Input reduction, pointer feedback, and overlay presentation target 120 Hz. The version 0.1
+neural path targets a complete 30 Hz refresh of the selected full scope on supported
+hardware. Region priority may schedule work and recover from overload, while every visible
+point can still affect a full-scope result.
 
 Inference never blocks the interaction path. The scheduler keeps bounded work, replaces
 superseded frames, and records missed deadlines. Providers report latency, memory, startup,

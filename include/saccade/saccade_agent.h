@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SACCADE_AGENT_API_VERSION UINT32_C(0x00010000)
+#define SACCADE_AGENT_API_VERSION UINT32_C(0x00010001)
 #define SACCADE_AGENT_MAX_MESSAGE_BYTES UINT32_C(1048576)
 #define SACCADE_AGENT_MAX_TARGETS UINT32_C(10000)
 #define SACCADE_AGENT_MAX_FILTERS UINT32_C(32)
@@ -95,6 +95,10 @@ enum {
     SACCADE_AGENT_FRESHNESS_REQUIRE_NEURAL_REFRESH = UINT32_C(1) << 1
 };
 
+/* The next four enums are wire copies of the scene target vocabulary in
+   include/saccade/saccade_scene.h. Values must stay numerically identical.
+   src/agent/service.cpp asserts every pair at compile time.
+   SACCADE_AGENT_TARGET_KEYBOARD is agent-only and has no scene counterpart. */
 typedef uint32_t SaccadeAgentTargetCapabilityBits;
 
 enum {
@@ -175,6 +179,8 @@ enum {
     SACCADE_AGENT_RELATION_SIBLING = 6,
     SACCADE_AGENT_RELATION_CONTAINS = 7,
     SACCADE_AGENT_RELATION_CONTAINED_BY = 8,
+    /* Reserved for a future version. Version 0.1 services reject queries using
+       this relation with SACCADE_AGENT_ERROR_ACTION_UNSUPPORTED. */
     SACCADE_AGENT_RELATION_NEAREST = 9
 };
 
@@ -233,7 +239,7 @@ typedef uint32_t SaccadeAgentPreconditionFlags;
 
 enum {
     SACCADE_AGENT_PRECONDITION_GENERATION = UINT32_C(1) << 0,
-    SACCADE_AGENT_PRECONDITION_FOCUS = UINT32_C(1) << 1,
+    SACCADE_AGENT_PRECONDITION_PROCESS = UINT32_C(1) << 1,
     SACCADE_AGENT_PRECONDITION_WINDOW = UINT32_C(1) << 2,
     SACCADE_AGENT_PRECONDITION_DISPLAY = UINT32_C(1) << 3,
     SACCADE_AGENT_PRECONDITION_TRANSFORM = UINT32_C(1) << 4,
@@ -282,23 +288,32 @@ typedef struct SaccadeAgentPointQ8 {
 
 typedef struct SaccadeAgentScope {
     SaccadeAgentScopeKind kind;
+    /* Source selection is a filter. Fused selects the published fused scene. */
     SaccadeAgentSourceMode source_mode;
+    /* Display and active-window scopes use stable_id. Rect scopes use rect. */
     uint64_t stable_id;
     SaccadeAgentRectQ8 rect;
 } SaccadeAgentScope;
 
 typedef struct SaccadeAgentFreshness {
+    /* The service currently supports LATEST_VALID and AFTER_GENERATION. */
     SaccadeAgentFreshnessPolicy policy;
+    /* Freshness flags are reserved for policies that the current service rejects. */
     uint32_t flags;
     uint64_t after_generation;
     uint64_t timeout_ns;
 } SaccadeAgentFreshness;
 
 typedef struct SaccadeAgentGeneration {
+    /* The returned generation is the published scene_epoch. */
     uint64_t generation;
     uint64_t scene_epoch;
-    uint64_t damage_epoch;
-    uint64_t focus_id;
+    /* Capture frame used to build this scene. */
+    uint64_t frame_id;
+    /* Monotonic capture timestamp from the scene. Zero means unavailable. */
+    uint64_t capture_time_ns;
+    /* Foreground process that owned the captured scene. */
+    uint64_t process_id;
     uint64_t window_id;
     uint64_t display_id;
     uint64_t transform_epoch;
@@ -318,6 +333,7 @@ typedef struct SaccadeAgentTarget {
     SaccadeAgentTargetRole role;
     SaccadeAgentTargetSourceBits source_bits;
     uint32_t confidence_q16;
+    /* Absolute byte offset from the completion start to UTF-8 target text. */
     uint32_t text_offset;
     uint32_t text_size;
     uint32_t order;
@@ -360,6 +376,7 @@ typedef struct SaccadeAgentObserveCompletion {
     SaccadeAgentCapabilityBits granted_capability_bits;
     uint32_t target_count;
     uint32_t target_stride;
+    /* Absolute byte offset from the completion start to target records. */
     uint32_t targets_offset;
     uint32_t total_size;
     uint32_t reserved;
@@ -389,6 +406,7 @@ typedef struct SaccadeAgentQueryCompletion {
     SaccadeAgentCapabilityBits granted_capability_bits;
     uint32_t target_count;
     uint32_t target_stride;
+    /* Absolute byte offset from the completion start to target records. */
     uint32_t targets_offset;
     uint32_t total_size;
     uint32_t reserved;
@@ -402,7 +420,7 @@ typedef struct SaccadeAgentPreconditions {
     SaccadeAgentModifierBits expected_modifiers;
     uint32_t reserved;
     uint64_t generation;
-    uint64_t focus_id;
+    uint64_t process_id;
     uint64_t window_id;
     uint64_t display_id;
     uint64_t transform_epoch;
@@ -479,6 +497,7 @@ typedef struct SaccadeAgentActionCompletion {
     uint32_t total_size;
     uint64_t validated_generation;
     SaccadeAgentPhysicalState physical_state;
+    /* Populated when next-generation verification has completed. */
     SaccadeAgentGeneration next_generation;
 } SaccadeAgentActionCompletion;
 

@@ -357,6 +357,8 @@ struct ScreenCaptureProvider::Impl {
     }
 
     SaccadeResult refresh_sources() noexcept {
+        if (!CGPreflightScreenCaptureAccess()) return SACCADE_ERROR_PERMISSION;
+
         __block SCShareableContent* content = nil;
         __block NSError* failure = nil;
         dispatch_semaphore_t complete = dispatch_semaphore_create(0);

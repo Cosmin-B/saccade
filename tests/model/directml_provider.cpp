@@ -89,7 +89,8 @@ enum class TestResult : int {
     software_device_failed,
     software_runtime_failed,
     software_session_failed,
-    software_cleanup_failed
+    software_cleanup_failed,
+    worker_scheduling_failed
 };
 
 int result(TestResult value) noexcept {
@@ -215,6 +216,9 @@ TestResult verify_software_model(const char* shader_directory, Verification* ver
     SaccadeInferenceSessionInfo session_info = output_structure<SaccadeInferenceSessionInfo>();
     if (saccade_inference_session_create(runtime, &session_desc, &session, &session_info) != SACCADE_OK) {
         return TestResult::software_session_failed;
+    }
+    if (!provider.worker_mmcss_active() || provider.worker_thread_id() == 0) {
+        return TestResult::worker_scheduling_failed;
     }
 
     if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK ||

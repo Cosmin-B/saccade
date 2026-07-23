@@ -78,7 +78,6 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     uint64_t topology_epoch = 0;
     uint64_t frame_id = 0;
     uint64_t transform_epoch = 0;
-    uint64_t capture_time_ns = std::numeric_limits<uint64_t>::max();
     for (uint32_t index = 0; index < display_count; ++index) {
         if (!frame_matches_display(frames[index], displays[index]) ||
             (topology_epoch != 0 && frames[index].topology_epoch != topology_epoch)) {
@@ -87,7 +86,6 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
         topology_epoch = frames[index].topology_epoch;
         frame_id = std::max(frame_id, frames[index].frame.frame_id);
         transform_epoch = std::max(transform_epoch, frames[index].frame.transform_epoch);
-        capture_time_ns = std::min(capture_time_ns, frames[index].frame.timestamp_ns);
         surfaces[index] = {displays[index].desktop_bounds, frames[index].native.width, frames[index].native.height};
     }
 
@@ -111,9 +109,28 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     }
 
     if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    const bool preserve_atlas = atlas_matches(scope, topology_epoch);
+    auto capture_stamps =
+        preserve_atlas ? atlas_capture_stamps_ : std::array<AtlasCaptureStamp, geometry::display_capacity>{};
+    uint32_t capture_stamp_count = preserve_atlas ? atlas_capture_stamp_count_ : 0;
+    for (uint32_t index = 0; index < display_count; ++index) {
+        uint32_t stamp_index = 0;
+        while (stamp_index < capture_stamp_count &&
+               capture_stamps[stamp_index].display_id != displays[index].display_id)
+            ++stamp_index;
+        if (stamp_index == capture_stamp_count) {
+            if (capture_stamp_count == capture_stamps.size()) return SACCADE_ERROR_CAPACITY;
+            ++capture_stamp_count;
+        }
+        capture_stamps[stamp_index] = {displays[index].display_id, frames[index].frame.timestamp_ns};
+    }
+    uint64_t atlas_capture_time_ns = std::numeric_limits<uint64_t>::max();
+    for (uint32_t index = 0; index < capture_stamp_count; ++index)
+        atlas_capture_time_ns = std::min(atlas_capture_time_ns, capture_stamps[index].capture_time_ns);
+
     backend::metal::PreprocessSubmission submission{};
     const backend::metal::AtlasLoad load =
-        atlas_matches(scope, topology_epoch) ? backend::metal::AtlasLoad::preserve : backend::metal::AtlasLoad::clear;
+        preserve_atlas ? backend::metal::AtlasLoad::preserve : backend::metal::AtlasLoad::clear;
     result =
         preprocessor_.submit_atlas(atlas_sources.data(), layout.count,
                                    {layout.content.x, layout.content.y, layout.content.width, layout.content.height},
@@ -130,7 +147,10 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     topology_epoch_ = topology_epoch;
     frame_id_ = next_output_frame_id_++;
     transform_epoch_ = transform_epoch;
-    capture_time_ns_ = capture_time_ns;
+    capture_time_ns_ = atlas_capture_time_ns;
+    atlas_capture_stamps_ = capture_stamps;
+    atlas_capture_stamp_count_ = capture_stamp_count;
+    atlas_capture_time_ns_ = atlas_capture_time_ns;
     atlas_scope_ = scope;
     atlas_topology_epoch_ = topology_epoch;
     atlas_ready_ = true;
@@ -141,15 +161,15 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     return SACCADE_OK;
 }
 
-SaccadeResult CoreMlImageBridge::begin_cached(uint64_t capture_time_ns) noexcept {
-    if (!initialized_ || !atlas_ready_ || capture_time_ns == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult CoreMlImageBridge::begin_cached() noexcept {
+    if (!initialized_ || !atlas_ready_ || atlas_capture_time_ns_ == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
     if (preprocessing_ || output_in_use_) {
         ++stats_.busy_submissions;
         return SACCADE_ERROR_BUSY;
     }
     if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
     frame_id_ = next_output_frame_id_++;
-    capture_time_ns_ = capture_time_ns;
+    capture_time_ns_ = atlas_capture_time_ns_;
     replay_pending_ = true;
     preprocessing_ = true;
     ++stats_.submissions;
@@ -307,6 +327,9 @@ SaccadeResult CoreMlImageBridge::shutdown() noexcept {
     preprocessing_ = false;
     replay_pending_ = false;
     atlas_ready_ = false;
+    atlas_capture_stamps_ = {};
+    atlas_capture_stamp_count_ = 0;
+    atlas_capture_time_ns_ = 0;
     atlas_scope_ = {};
     atlas_topology_epoch_ = 0;
     next_output_frame_id_ = 1;

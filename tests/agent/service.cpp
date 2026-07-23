@@ -29,7 +29,7 @@ constexpr size_t packet_size =
 struct Fixture {
     alignas(8) std::array<uint8_t, packet_size> packet{};
     saccade::scene::PacketView scene{};
-    saccade::application::InteractionState state{};
+    saccade::interaction::InteractionState state{};
     SaccadeAgentPhysicalState physical{};
     uint32_t plans = 0;
     uint32_t aborts = 0;
@@ -50,7 +50,7 @@ SaccadeResult acquire_scene(void* context, saccade::scene::PacketView* output) n
     return SACCADE_OK;
 }
 
-SaccadeResult read_state(void* context, saccade::application::InteractionState* output) noexcept {
+SaccadeResult read_state(void* context, saccade::interaction::InteractionState* output) noexcept {
     *output = static_cast<Fixture*>(context)->state;
     return SACCADE_OK;
 }
@@ -116,6 +116,7 @@ void make_scene(Fixture* fixture) noexcept {
     header->coordinate_space = SACCADE_COORDINATE_SPACE_DESKTOP_Q8;
     header->scene_epoch = 42;
     header->frame_id = 43;
+    header->capture_time_ns = 49;
     header->model_epoch = 44;
     header->session_epoch = 45;
     header->transform_epoch = 46;
@@ -199,10 +200,12 @@ int main() {
         return result(TestResult::observation_failed);
     const auto* observed = reinterpret_cast<const SaccadeAgentObserveCompletion*>(output.data());
     const auto* observed_target = reinterpret_cast<const SaccadeAgentTarget*>(output.data() + observed->targets_offset);
-    if (observed->target_count != 2 || observed->generation.generation != 42 || observed->generation.focus_id != 700 ||
+    if (observed->target_count != 2 || observed->generation.generation != 42 ||
+        observed->generation.process_id != 700 ||
         (observed->header.flags & SACCADE_AGENT_MESSAGE_SOURCE_INCOMPLETE) == 0 ||
         observed->generation.window_id != 7 || observed->generation.display_id != 8 ||
-        observed->generation.topology_epoch != 47 || observed_target->target_id != 11 ||
+        observed->generation.capture_time_ns != 49 || observed->generation.topology_epoch != 47 ||
+        observed_target->target_id != 11 ||
         (observed_target->capability_bits & SACCADE_AGENT_TARGET_TEXT_SELECT) == 0 || observed_target->text_size != 6 ||
         std::memcmp(output.data() + observed_target->text_offset, "Button", 6) != 0)
         return result(TestResult::observation_failed);
@@ -331,11 +334,11 @@ int main() {
     batch->requested_capability_bits = SACCADE_AGENT_CAPABILITY_POINTER;
     batch->policy = SACCADE_AGENT_BATCH_STOP_ON_FAILURE;
     batch->deadline_ns = 1000;
-    batch->preconditions.flags = SACCADE_AGENT_PRECONDITION_GENERATION | SACCADE_AGENT_PRECONDITION_FOCUS |
+    batch->preconditions.flags = SACCADE_AGENT_PRECONDITION_GENERATION | SACCADE_AGENT_PRECONDITION_PROCESS |
                                  SACCADE_AGENT_PRECONDITION_WINDOW | SACCADE_AGENT_PRECONDITION_DISPLAY |
                                  SACCADE_AGENT_PRECONDITION_TRANSFORM | SACCADE_AGENT_PRECONDITION_PERMISSION;
     batch->preconditions.generation = 42;
-    batch->preconditions.focus_id = 700;
+    batch->preconditions.process_id = 700;
     batch->preconditions.window_id = 7;
     batch->preconditions.display_id = 8;
     batch->preconditions.transform_epoch = 46;
@@ -459,6 +462,28 @@ int main() {
         reinterpret_cast<const SaccadeAgentActionCompletion*>(output.data())->result != SACCADE_AGENT_OK ||
         fixture.window_cycles != -1)
         return result(TestResult::action_failed);
+
+    // A dry run validates abort and cycle but must not run their side
+    // effects. The counters must stay where the live calls above left them.
+    batch->header.flags = SACCADE_AGENT_BATCH_DRY_RUN;
+    action[0] = {};
+    action[0].kind = SACCADE_AGENT_ACTION_ABORT;
+    batch->requested_capability_bits = SACCADE_AGENT_CAPABILITY_POINTER;
+    if (service.process({action_bytes.data(), action_bytes.size()}, capabilities, 1, {output.data(), output.size()},
+                        &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentActionCompletion*>(output.data())->result != SACCADE_AGENT_OK ||
+        fixture.aborts != 1)
+        return result(TestResult::action_failed);
+
+    action[0].kind = SACCADE_AGENT_ACTION_WINDOW_CYCLE;
+    action[0].flags = SACCADE_AGENT_ACTION_CYCLE_BACKWARD;
+    batch->requested_capability_bits = SACCADE_AGENT_CAPABILITY_WINDOW;
+    if (service.process({action_bytes.data(), action_bytes.size()}, capabilities, 1, {output.data(), output.size()},
+                        &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentActionCompletion*>(output.data())->result != SACCADE_AGENT_OK ||
+        fixture.window_cycles != -1)
+        return result(TestResult::action_failed);
+    batch->header.flags = 0;
 
     fixture.physical.pointer = {123, 456};
     fixture.physical.physical_sequence = 17;
