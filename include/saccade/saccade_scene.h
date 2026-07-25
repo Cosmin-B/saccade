@@ -117,4 +117,108 @@ typedef struct SaccadeTargetRecord {
     SaccadeTargetTextRef text;
 } SaccadeTargetRecord;
 
+#define SACCADE_SCENE_DELTA_VERSION UINT32_C(0x00010000)
+#define SACCADE_SCENE_DELTA_MAX_OPERATIONS (SACCADE_TARGET_PACKET_MAX_TARGETS * UINT32_C(3))
+
+typedef uint8_t SaccadeSceneDeltaOperation;
+
+enum {
+    SACCADE_SCENE_DELTA_ADD = 1,
+    SACCADE_SCENE_DELTA_UPDATE = 2,
+    SACCADE_SCENE_DELTA_REMOVE = 3,
+    SACCADE_SCENE_DELTA_WINDOW_TRANSFORM = 4
+};
+
+enum {
+    SACCADE_SCENE_DELTA_OWNER = UINT8_C(1) << 0,
+    SACCADE_SCENE_DELTA_GEOMETRY = UINT8_C(1) << 1,
+    SACCADE_SCENE_DELTA_CONFIDENCE = UINT8_C(1) << 2,
+    SACCADE_SCENE_DELTA_CLASSIFICATION = UINT8_C(1) << 3,
+    SACCADE_SCENE_DELTA_CAPABILITIES = UINT8_C(1) << 4,
+    SACCADE_SCENE_DELTA_FLAGS = UINT8_C(1) << 5,
+    SACCADE_SCENE_DELTA_ORDER = UINT8_C(1) << 6,
+    SACCADE_SCENE_DELTA_TEXT = UINT8_C(1) << 7
+};
+
+enum {
+    SACCADE_SCENE_DELTA_BASELINE = UINT32_C(1) << 0,
+    SACCADE_SCENE_DELTA_RESET = UINT32_C(1) << 1,
+    SACCADE_SCENE_DELTA_WINDOW_TRANSFORMS = UINT32_C(1) << 2,
+    SACCADE_SCENE_DELTA_SOURCE_INCOMPLETE = UINT32_C(1) << 3,
+    SACCADE_SCENE_DELTA_SOURCE_TEXT_TRUNCATED = UINT32_C(1) << 4,
+    SACCADE_SCENE_DELTA_TRANSFORM_CHANGED = UINT32_C(1) << 5,
+    SACCADE_SCENE_DELTA_TOPOLOGY_CHANGED = UINT32_C(1) << 6
+};
+
+enum { SACCADE_SCENE_WINDOW_TRANSFORM_DISPLAY_CHANGED = UINT32_C(1) << 0 };
+
+/* Payload groups appear in changed-field bit order. Text occupies the
+   remaining payload bytes and may be empty when an update clears it. */
+typedef struct SaccadeSceneDeltaOwner {
+    uint64_t parent_id;
+    uint64_t display_id;
+} SaccadeSceneDeltaOwner;
+
+typedef struct SaccadeSceneDeltaGeometry {
+    int32_t x_q8;
+    int32_t y_q8;
+    int32_t width_q8;
+    int32_t height_q8;
+    int32_t safe_x_q8;
+    int32_t safe_y_q8;
+} SaccadeSceneDeltaGeometry;
+
+typedef struct SaccadeSceneDeltaClassification {
+    SaccadeTargetRole role;
+    uint16_t source_bits;
+} SaccadeSceneDeltaClassification;
+
+/* Applied to retained targets owned by window_id before target operations.
+   display_id is zero when the window's targets span multiple displays. */
+typedef struct SaccadeSceneWindowTransform {
+    uint64_t display_id;
+    int32_t translation_x_q8;
+    int32_t translation_y_q8;
+    uint32_t target_count;
+    uint32_t flags;
+} SaccadeSceneWindowTransform;
+
+typedef struct SaccadeSceneDeltaRecord {
+    /* window_id and target_id form the target's temporal identity. */
+    uint64_t target_id;
+    uint64_t window_id;
+    /* Byte offset from the batch start. Zero for REMOVE. */
+    uint32_t payload_offset;
+    uint16_t payload_size;
+    uint8_t changed_fields;
+    SaccadeSceneDeltaOperation operation;
+} SaccadeSceneDeltaRecord;
+
+typedef struct SaccadeSceneDeltaHeader {
+    uint32_t struct_size;
+    uint32_t delta_version;
+    uint32_t operation_count;
+    uint32_t operation_stride;
+    uint32_t flags;
+    SaccadeCoordinateSpace coordinate_space;
+    uint32_t operations_offset;
+    uint32_t payload_offset;
+    uint32_t payload_size;
+    uint32_t total_size;
+    uint64_t previous_scene_epoch;
+    uint64_t scene_epoch;
+    uint64_t previous_frame_id;
+    uint64_t frame_id;
+    uint64_t previous_session_epoch;
+    uint64_t session_epoch;
+    uint64_t previous_transform_epoch;
+    uint64_t transform_epoch;
+    uint64_t previous_topology_epoch;
+    uint64_t topology_epoch;
+    uint64_t capture_time_ns;
+    uint64_t model_epoch;
+    uint64_t source_id;
+    uint64_t reserved;
+} SaccadeSceneDeltaHeader;
+
 #endif

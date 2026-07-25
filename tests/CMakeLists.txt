@@ -424,6 +424,16 @@ target_link_libraries(saccade_scene_fusion PRIVATE
     saccade_build_settings)
 add_test(NAME scene.fusion COMMAND saccade_scene_fusion)
 
+add_executable(saccade_scene_temporal scene/temporal.cpp)
+target_include_directories(saccade_scene_temporal PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_scene_temporal PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME scene.temporal COMMAND saccade_scene_temporal)
+
 add_executable(saccade_geometry_coordinate_transform
     geometry/coordinate_transform.cpp)
 target_include_directories(saccade_geometry_coordinate_transform PRIVATE

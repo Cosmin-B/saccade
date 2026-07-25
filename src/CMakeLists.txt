@@ -38,6 +38,7 @@ set(SACCADE_CORE_SOURCES
     scene/fusion.cpp
     scene/grid.cpp
     scene/store.cpp
+    scene/temporal.cpp
     scene/windows.cpp
     scheduler/dual_rate_scheduler.cpp
     scheduler/desktop_neural_coordinator.cpp
