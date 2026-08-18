@@ -151,7 +151,7 @@ with a fixed spatial hash. It emits a scene-index to surface-index table so acti
 updates do not search after per-display filtering. The maintained 10,000-target benchmark
 measures this publication separately from GPU expansion and presentation.
 
-## Physical Input Override
+## Physical input override
 
 Native input emitters mark every synthetic event with one shared 64-bit value. Native
 monitors ignore that value, so Saccade cannot trigger its own hotkeys or continuously

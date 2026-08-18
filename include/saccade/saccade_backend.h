@@ -399,6 +399,22 @@ typedef struct SaccadeInputStatus {
 extern "C" {
 #endif
 
+/* Provider callback contract
+
+   The first argument is the caller-owned context from the registered provider
+   descriptor. It must remain valid until the parent runtime is destroyed.
+   Provider callbacks run on the scheduler thread that owns the provider context;
+   they are not invoked concurrently for the same context and must not call back
+   into the same runtime. Functions that accept a timeout use monotonic
+   nanoseconds; zero performs a nonblocking check. Poll never waits. Wait and
+   synchronize may block until completion, timeout, or cancellation.
+
+   Output structures must have struct_size and api_version initialized by the
+   caller. Collect operations report the required byte count through their final
+   output argument when capacity is insufficient and return
+   SACCADE_ERROR_CAPACITY. A successful create, submit, or acquire transfers the
+   returned handle to the caller, which must pass it to the matching destroy,
+   collect, or release operation. */
 typedef SaccadeResult(SACCADE_CALL* SaccadeEnumerateDevicesFn)(void*, uint32_t, SaccadeDeviceInfo*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeQueryModelFn)(void*, SaccadeSpanU8, SaccadeModelInfo*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeCreateModelFn)(void*, const SaccadeModelDesc*, SaccadeModelHandle*);

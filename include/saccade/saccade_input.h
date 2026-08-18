@@ -74,11 +74,19 @@ typedef struct SaccadeInputCommand {
     int32_t y_q8;
     int32_t delta_x_q8;
     int32_t delta_y_q8;
+    /* Kind-specific data: button bit or physical key usage in data0; click
+       count or key modifiers in data1; click modifiers in data2. Other kinds
+       require these fields to be zero. */
     uint32_t data0;
     uint32_t data1;
+    /* Monotonic duration in nanoseconds. WAIT requires a nonzero duration;
+       TEXT and WINDOW_ACTIVATE require zero. */
     uint64_t duration_ns;
+    /* TEXT payload location and UTF-8 byte count within the containing plan.
+       Every other command requires both fields to be zero. */
     uint32_t payload_offset;
     uint32_t payload_size;
+    /* Click modifiers. Every other command requires zero. */
     uint32_t data2;
     uint32_t reserved32;
 } SaccadeInputCommand;
@@ -104,6 +112,7 @@ typedef struct SaccadeInputPlanHeader {
     uint64_t focus_id;
     uint64_t window_id;
     uint64_t display_id;
+    /* Absolute monotonic deadline in nanoseconds. Zero is invalid. */
     uint64_t deadline_ns;
     uint64_t commands_offset;
     uint64_t total_size;

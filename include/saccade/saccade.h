@@ -115,11 +115,15 @@ typedef struct SaccadeWin32CaptureFrameDesc {
 extern "C" {
 #endif
 
+/* Returns the ABI version implemented by the loaded library. This call cannot fail. */
 SACCADE_API SaccadeApiVersion SACCADE_CALL saccade_api_version(void);
 /* Returns the calling thread's last error text. The span is thread-local. It
    stays valid only until the next Saccade call on this thread that returns a
    SaccadeResult. That call clears or replaces it. */
 SACCADE_API SaccadeSpanU8 SACCADE_CALL saccade_last_error(void);
+/* Creates a runtime and writes its owned handle to out_runtime. Both pointers are
+   required. On failure, out_runtime remains zero. The returned runtime may be
+   used from multiple threads as documented by each operation. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc,
                                                               SaccadeRuntimeHandle* out_runtime);
 /* Freezing is one-way: register providers before this call, create inference
@@ -127,6 +131,9 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRunti
    SACCADE_ERROR_STATE. There is no unfreeze and no unregister, because the
    registry uses fixed storage that must not change while the pipeline runs. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_freeze(SaccadeRuntimeHandle runtime);
+/* Destroys runtime-owned objects and invalidates all of its outstanding handles.
+   The call waits for runtime-owned work to stop. Concurrent use of runtime while
+   destruction is in progress is invalid. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(SaccadeRuntimeHandle runtime);
 
 /* Frame imports borrow the caller's bytes or native resource without copying.
@@ -145,6 +152,9 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_win32_capture(Saccad
                                                                           const SaccadeWin32CaptureFrameDesc* desc,
                                                                           SaccadeFrameHandle* out_frame);
 
+/* Releases one imported frame. A stale, foreign, or already released handle
+   returns SACCADE_ERROR_STALE_HANDLE. The call returns only after the runtime no
+   longer borrows the host bytes or native resource. */
 SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_release(SaccadeRuntimeHandle runtime, SaccadeFrameHandle frame);
 
 #ifdef __cplusplus
