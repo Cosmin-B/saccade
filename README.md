@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/saccade-icon.png" width="112" height="112" alt="Saccade">
+  <img src="assets/saccade-icon.png" width="112" height="112" alt="">
 </p>
 
 # Saccade
@@ -13,7 +13,8 @@ controls without sending screen contents over the network.
 - Targets controls across the full desktop, active window, one display, or a grid.
 - Fuses frame-matched pixel and semantic evidence into one immutable scene. Grid is a
   separate whole-screen source.
-- Assigns prefix-free keyboard hints with Single, Dual, Multi, and Path selection.
+- Assigns prefix-free keyboard hints. Single selects one target, Dual and Multi
+  select ordered target sets, and Path selects a drag path.
 - Moves, clicks, holds, drags, scrolls, selects text, repeats actions, and navigates
   windows through validated native input plans.
 - Presents mixed-scale overlays on every display without activating its own windows.
