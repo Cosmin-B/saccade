@@ -231,7 +231,6 @@ The provider accounting contract requires:
 
 Reports are sampled at defined lifecycle points. Diagnostics compare provider-owned
 counters with operating-system measurements and record any unavoidable opaque difference.
-The deterministic providers return configured counters, and the scalar CPU provider
-reports its fixed storage and cumulative serialized output bytes. Current Core ML
-counters cover Saccade-owned storage and the active imported surface, not Core ML model
-or workspace residency. OS-level residency is required for complete accounting.
+Current Core ML counters cover Saccade-owned storage and the active imported surface,
+not Core ML model or workspace residency. OS-level residency is required for complete
+accounting.

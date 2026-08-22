@@ -57,46 +57,6 @@ clears the visible fault. If teardown cannot confirm that native ownership ended
 the application launches a clean replacement process before constructing a second GPU
 stack over uncertain resources.
 
-## Deterministic providers
-
-`Saccade::mock` implements all five families for tests. Its configuration controls:
-
-- The number of polls before asynchronous completion.
-- Queue capacity and advertised capabilities.
-- Capture dimensions and formats.
-- Memory counters returned by every family.
-- One-shot faults at named operation boundaries.
-
-The delay is a poll count, not a sleep. Tests can exercise running, completion,
-cancellation, timeout, queue pressure, reset, and teardown without depending on wall
-clock timing. The provider records bounded observations such as submission counts,
-scene epochs, visibility, and command hashes. It does not perform vision work or emit
-real input.
-
-## Scalar CPU provider
-
-`Saccade::reference_cpu` is the first correctness provider. It accepts small borrowed
-host fixtures in BGRA8, RGBA8, BGRX8, or R8 form. Its model is a 12-byte versioned
-record containing an integer luma threshold and minimum component area.
-
-The detector performs:
-
-1. Exact integer luma conversion.
-2. Four-connected bright-region labeling with fixed arrays.
-3. Component bounding boxes and integer center points.
-4. Reading-order sorting.
-5. Deterministic IDs and Q16 confidence.
-6. Explicit little-endian serialization.
-
-The detector accepts fixtures up to 1024 by 1024 pixels, with 128 intermediate components
-and 32 outputs. Those limits keep the allocation-free oracle small. Desktop accuracy and
-speed come from the shipping neural detector.
-
-This provider is deliberately synchronous. Submission creates a bounded ticket. The
-first poll, or a wait with a nonzero timeout, performs the scalar detector before
-reporting completion. It does not advertise the asynchronous capability. Production
-inference providers must run work away from the interaction path.
-
 ## Native providers
 
 A native provider is accepted only after it passes the same descriptor, lifecycle,

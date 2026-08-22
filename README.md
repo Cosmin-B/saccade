@@ -71,7 +71,7 @@ packaging, tests, benchmarks, and installation.
 - `include/saccade/` contains the installed C11 API.
 - `src/` contains the portable runtime and private C++20 implementation.
 - `platform/` contains private operating-system integration.
-- `backends/` contains native GPU and deterministic reference providers.
+- `backends/` contains the native Metal and Direct3D 12 providers.
 - `apps/` contains the native desktop process hosts.
 - `tools/` contains the local CLI, MCP adapter, and release probe.
 - `abi/` records public symbol and layout manifests.
