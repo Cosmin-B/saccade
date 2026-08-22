@@ -67,8 +67,6 @@ The main cache options are:
 | `SACCADE_BUILD_TOOLS` | `ON` | Build maintained diagnostic tools. |
 | `SACCADE_BUILD_APPLICATION` | static native builds | Build the menu-bar or notification-area application. |
 | `SACCADE_DISTRIBUTION_BUILD` | `OFF` | Reject incomplete, ad-hoc, or unsigned desktop packages. |
-| `SACCADE_BACKEND_MOCK` | `ON` | Build deterministic contract-test providers. |
-| `SACCADE_BACKEND_REFERENCE_CPU` | `ON` | Build the scalar CPU parity provider. |
 | `SACCADE_BACKEND_METAL` | Apple hosts | Build the native Metal backend. |
 | `SACCADE_BACKEND_D3D12` | Windows hosts | Build the native Direct3D 12 backend. |
 | `SACCADE_ENABLE_TRACING` | `OFF` | Compile runtime tracing points. |
@@ -89,9 +87,6 @@ Override an option at configure time:
 ```sh
 cmake --preset dev -DSACCADE_BUILD_SHARED=ON
 ```
-
-The mock and scalar CPU providers are separate static targets. They are used by the
-development suite and are not part of the installed public package.
 
 ## Package a model
 
@@ -171,7 +166,7 @@ component. The component contains only the native application, accelerator runti
 shaders, and configured signed model assets. The separately installable C/C++ SDK is not
 part of a desktop package.
 
-Tests, benchmarks, deterministic providers, the runtime probe, source documentation,
+Tests, benchmarks, the runtime probe, source documentation,
 and compiler support files are excluded. Package size is dominated by the configured
 model and the Microsoft ONNX Runtime and DirectML libraries.
 

@@ -32,7 +32,7 @@ a named mechanism.
 - State the scope of a result once, beside the result. Repeated disclaimers make the prose defensive.
 - Vary contrast wording and remove contrasts that add no technical information.
 - Keep complete technical sets intact. A necessary list of operations is not a rhetorical three-part list.
-- Do not add empty sections or placeholder text.
+- Remove unfinished sections before publication.
 - Keep links inside the repository or point to a maintained primary source.
 
 The documentation check rejects unfinished markers, common generated-prose residue,

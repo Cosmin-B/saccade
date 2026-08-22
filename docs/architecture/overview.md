@@ -79,10 +79,6 @@ Provider and device metadata is copied into fixed-capacity storage, so caller-ow
 names may be released after registration. The registry freezes before execution, uses
 domain-tagged handles, and exposes no storage addresses.
 
-The deterministic providers implement all five families for contract tests. The
-scalar CPU provider implements the inference family and exact image fixtures. Neither
-substitutes for a native platform backend.
-
 The [overlay path](overlay.md) defines target and instance records, scene-rate compute
 expansion, display scheduling, and fixed memory. The [inference policy](inference.md)
 defines compiled-model ownership, native buffer rules, mixed precision, and backend
@@ -106,11 +102,10 @@ a direct Metal texture view. Platform types remain outside the installed headers
 
 ## Memory and concurrency
 
-Registries, handle tables, ticket tables, diagnostic text, test-provider state, and
-scalar detector scratch storage have fixed capacities. Contract tests replace global
-`operator new`, reject allocator references in the core archive, and verify selected
-Saccade-owned C++ paths. They do not observe Objective-C, Core ML, ONNX Runtime, COM,
-driver, or compositor allocations.
+Registries, handle tables, ticket tables, and diagnostic text have fixed capacities.
+Contract tests replace global `operator new`, reject allocator references in the core
+archive, and verify selected Saccade-owned C++ paths. They do not observe Objective-C,
+Core ML, ONNX Runtime, COM, driver, or compositor allocations.
 
 Memory reports separate host commitment, host reservation, imported device memory,
 provider-owned device memory, framework residency, copied bytes, and high-water use.
