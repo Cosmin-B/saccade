@@ -34,6 +34,7 @@ enum class TestResult : int {
     scope_filter_failed,
     fusion_setting_failed,
     semantic_freshness_failed,
+    semantic_not_found_failed,
     semantic_cancellation_failed,
     shutdown_failed,
     allocation_failed
@@ -102,6 +103,7 @@ struct AccessibilityFixture {
     uint32_t releases_ = 0;
     bool active_ = false;
     bool incomplete_ = false;
+    bool not_found_ = false;
 
     static AccessibilityFixture* from(void* context) noexcept { return static_cast<AccessibilityFixture*>(context); }
 
@@ -144,6 +146,13 @@ struct AccessibilityFixture {
         if (fixture->running_polls_ != 0) {
             --fixture->running_polls_;
             *output = fixture->status(SACCADE_TICKET_RUNNING);
+        } else if (fixture->not_found_) {
+            *output = fixture->status(SACCADE_TICKET_FAILED);
+            output->result = SACCADE_ERROR_NOT_FOUND;
+            output->snapshot = 0;
+            output->target_count = 0;
+            output->required_bytes = 0;
+            fixture->active_ = false;
         } else {
             *output = fixture->status(SACCADE_TICKET_COMPLETE);
         }
@@ -346,13 +355,18 @@ int main() {
         coordinator.advance(&advance) != SACCADE_OK || !advance.scene_published || advance.target_count != 0 ||
         output_scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->target_count != 0)
         return result(TestResult::scope_filter_failed);
+    accessibility.not_found_ = true;
+    if (coordinator.request_semantic(query(13)) != SACCADE_OK || coordinator.advance(&advance) != SACCADE_OK ||
+        advance.scene_published || advance.semantic_collected || coordinator.semantic_running())
+        return result(TestResult::semantic_not_found_failed);
+    accessibility.not_found_ = false;
     accessibility.running_polls_ = 1;
-    if (coordinator.request_semantic(query(13)) != SACCADE_OK || coordinator.cancel_semantic() != SACCADE_OK || accessibility.active_ ||
+    if (coordinator.request_semantic(query(14)) != SACCADE_OK || coordinator.cancel_semantic() != SACCADE_OK || accessibility.active_ ||
         coordinator.semantic_running()) {
         return result(TestResult::semantic_cancellation_failed);
     }
     accessibility.running_polls_ = 1;
-    if (coordinator.request_semantic(query(14)) != SACCADE_OK || coordinator.shutdown() != SACCADE_OK || accessibility.active_) {
+    if (coordinator.request_semantic(query(15)) != SACCADE_OK || coordinator.shutdown() != SACCADE_OK || accessibility.active_) {
         return result(TestResult::shutdown_failed);
     }
     if (saccade::test::end_allocation_tracking() != 0) {

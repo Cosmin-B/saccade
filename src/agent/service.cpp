@@ -139,9 +139,39 @@ bool scope_request_valid(const SaccadeAgentScope& scope) noexcept {
     return scope.kind != SACCADE_AGENT_SCOPE_WINDOW || scope.stable_id != 0;
 }
 
+bool packet_view_valid(const scene::PacketView& scene) noexcept {
+    if (scene.header == nullptr || scene.byte_size < sizeof(SaccadeTargetPacketHeader) ||
+        scene.header->struct_size != sizeof(SaccadeTargetPacketHeader) ||
+        scene.header->packet_version != SACCADE_TARGET_PACKET_VERSION ||
+        scene.header->target_count > SACCADE_TARGET_PACKET_MAX_TARGETS ||
+        scene.header->target_stride != sizeof(SaccadeTargetRecord) ||
+        scene.header->targets_offset != sizeof(SaccadeTargetPacketHeader) || scene.header->total_size != scene.byte_size)
+        return false;
+    const auto* bytes = reinterpret_cast<const uint8_t*>(scene.header);
+    const size_t targets_offset = scene.header->targets_offset;
+    const size_t target_count = scene.header->target_count;
+    const size_t target_stride = scene.header->target_stride;
+    if (target_count > (scene.byte_size - targets_offset) / target_stride)
+        return false;
+    const size_t text_offset = targets_offset + target_count * target_stride;
+    const size_t text_size = scene.byte_size - text_offset;
+    if (text_size > SACCADE_TARGET_PACKET_MAX_TEXT_BYTES || text_size != scene.text_size ||
+        scene.targets != reinterpret_cast<const SaccadeTargetRecord*>(bytes + targets_offset) || scene.text != bytes + text_offset)
+        return false;
+    for (uint32_t index = 0; index < scene.header->target_count; ++index) {
+        const SaccadeTargetTextRef ref = scene.targets[index].text;
+        if (ref.size != 0 &&
+            (ref.offset > scene.text_size || ref.size > static_cast<uint32_t>(scene.text_size - ref.offset) ||
+             !scene::valid_utf8({scene.text + ref.offset, ref.size})))
+            return false;
+    }
+    return true;
+}
+
 bool coherent(const scene::PacketView& scene, const interaction::InteractionState& state) noexcept {
-    return scene.header != nullptr && (scene.header->target_count == 0 || scene.targets != nullptr) &&
-           state.scene_epoch == scene.header->scene_epoch && state.transform_epoch == scene.header->transform_epoch &&
+    if (!packet_view_valid(scene))
+        return false;
+    return state.scene_epoch == scene.header->scene_epoch && state.transform_epoch == scene.header->transform_epoch &&
            state.topology_epoch == scene.header->topology_epoch;
 }
 

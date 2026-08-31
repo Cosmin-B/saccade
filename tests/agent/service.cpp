@@ -441,6 +441,21 @@ int main() {
         return result(TestResult::coherence_failed);
     fixture.state.topology_epoch = coherent_topology_epoch;
 
+    const uint8_t* coherent_text = fixture.scene.text;
+    fixture.scene.text = nullptr;
+    if (service.process({reinterpret_cast<const uint8_t*>(&observe), sizeof(observe)}, capabilities, 1,
+                        {output.data(), output.size()}, &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentObserveCompletion*>(output.data())->result != SACCADE_AGENT_ERROR_STALE_GENERATION)
+        return result(TestResult::coherence_failed);
+    fixture.scene.text = coherent_text;
+    const SaccadeTargetTextRef coherent_text_ref = scene_targets[0].text;
+    scene_targets[0].text = {static_cast<uint16_t>(fixture.scene.text_size), 1};
+    if (service.process({reinterpret_cast<const uint8_t*>(&observe), sizeof(observe)}, capabilities, 1,
+                        {output.data(), output.size()}, &output_size) != SACCADE_OK ||
+        reinterpret_cast<const SaccadeAgentObserveCompletion*>(output.data())->result != SACCADE_AGENT_ERROR_STALE_GENERATION)
+        return result(TestResult::coherence_failed);
+    scene_targets[0].text = coherent_text_ref;
+
     make_scene(&fixture);
     observe.scope.kind = SACCADE_AGENT_SCOPE_ACTIVE_WINDOW;
     observe.scope.stable_id = 0;

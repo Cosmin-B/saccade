@@ -414,6 +414,15 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
         clear_semantic();
         return SACCADE_OK;
     }
+    if (status.state == SACCADE_TICKET_FAILED) {
+        ++stats_.semantic_failed;
+        const SaccadeResult failure = status.result;
+        clear_semantic();
+        if (failure == SACCADE_ERROR_NOT_FOUND || failure == SACCADE_ERROR_STALE_HANDLE)
+            return SACCADE_OK;
+        ++stats_.failures;
+        return failure == SACCADE_OK ? SACCADE_ERROR_BACKEND : failure;
+    }
     if (status.state != SACCADE_TICKET_COMPLETE || status.result != SACCADE_OK || status.snapshot == 0 || status.required_bytes == 0 ||
         status.required_bytes > storage_->semantic_packet.size()) {
         ++stats_.semantic_failed;
