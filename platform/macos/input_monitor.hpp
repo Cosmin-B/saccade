@@ -17,18 +17,18 @@ enum class PhysicalInputKind : uint32_t { pointer = 1, button = 2, scroll = 3, k
 
 struct PhysicalInputEvent {
     uint64_t timestamp_ns = 0;
-    int32_t pointer_x_q8 = 0;
-    int32_t pointer_y_q8 = 0;
     PhysicalInputKind kind = PhysicalInputKind::pointer;
     uint32_t flags = 0;
 };
 
 using PhysicalInputFn = void (*)(void*, const PhysicalInputEvent&) noexcept;
+using LogicalInputActiveFn = bool (*)(void*) noexcept;
 
 struct InputMonitorSink {
     void* context = nullptr;
     PhysicalInputFn input = nullptr;
     application::KeyFn key = nullptr;
+    LogicalInputActiveFn logical_input_active = nullptr;
 };
 
 struct InputMonitorStats {
@@ -75,10 +75,10 @@ class InputMonitor final {
     bool initialized_ = false;
 };
 
-bool physical_input_event_from_cg_event(CGEventRef, uint32_t timebase_numer, uint32_t timebase_denom,
-                                        PhysicalInputEvent*) noexcept;
+bool physical_input_event_from_cg_event(CGEventRef, uint32_t timebase_numer, uint32_t timebase_denom, PhysicalInputEvent*) noexcept;
+bool key_event_from_cg_event(CGEventRef, uint64_t timestamp_ns, bool include_logical_symbol, application::KeyEvent*) noexcept;
 
-static_assert(sizeof(PhysicalInputEvent) == 24);
+static_assert(sizeof(PhysicalInputEvent) == 16);
 static_assert(sizeof(InputMonitorStats) == 72);
 
 } // namespace saccade::platform::macos

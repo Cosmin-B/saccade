@@ -14,6 +14,8 @@
 #include "platform/macos/coreml_image_bridge.hpp"
 #include "platform/macos/coreml_provider.hpp"
 #include "platform/macos/display_topology.hpp"
+#include "platform/macos/explicit_window_capture.hpp"
+#include "platform/macos/explicit_window_session.hpp"
 #include "platform/macos/input_executor.hpp"
 #include "platform/macos/overlay_surface.hpp"
 #include "platform/macos/scene_capture.hpp"
@@ -176,9 +178,8 @@ class DesktopPipeline final {
 
   private:
     static constexpr size_t overlay_packet_overhead = sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayStyle);
-    static constexpr size_t overlay_arena_capacity =
-        geometry::display_capacity * overlay_packet_overhead +
-        static_cast<size_t>(SACCADE_OVERLAY_MAX_TARGETS) * sizeof(SaccadeOverlayTarget);
+    static constexpr size_t overlay_arena_capacity = geometry::display_capacity * overlay_packet_overhead +
+                                                     static_cast<size_t>(SACCADE_OVERLAY_MAX_TARGETS) * sizeof(SaccadeOverlayTarget);
 
     struct BridgeSlot {
         CoreMlImageBridge bridge_{};
@@ -192,20 +193,23 @@ class DesktopPipeline final {
         std::array<size_t, 2> byte_sizes_{};
         std::array<uint64_t, 2> scene_epochs_{};
         std::array<uint64_t, 2> transform_epochs_{};
-        std::array<uint32_t, 2> active_target_indices_{SACCADE_OVERLAY_ACTIVE_TARGET_NONE,
-                                                       SACCADE_OVERLAY_ACTIVE_TARGET_NONE};
+        std::array<uint32_t, 2> active_target_indices_{SACCADE_OVERLAY_ACTIVE_TARGET_NONE, SACCADE_OVERLAY_ACTIVE_TARGET_NONE};
         std::array<std::atomic<bool>, 2> reading_{};
         uint64_t display_id_ = 0;
         uint32_t reading_index_ = UINT32_MAX;
     };
 
     static SaccadeResult execute_plan(void*, SaccadeSpanU8, uint32_t, uint64_t) noexcept;
-    static SaccadeResult preflight_input(void*, const input::PlanView&, uint32_t command_index,
-                                         uint64_t now_ns) noexcept;
+    static SaccadeResult release_explicit_capture_frame(void*, const SceneCaptureFrame&) noexcept;
+    static SaccadeResult preflight_input(void*, const input::PlanView&, uint32_t command_index, uint64_t now_ns) noexcept;
     static SaccadeResult read_environment(void*, application::InteractionState*) noexcept;
-    static SaccadeResult read_agent_environment(void*, application::InteractionState*) noexcept;
-    static SaccadeResult acquire_agent_scene(void*, scene::PacketView*) noexcept;
+    static SaccadeResult acquire_agent_scene(void*, const SaccadeAgentScope&, const SaccadeAgentFreshness&, scene::PacketView*,
+                                             application::InteractionState*) noexcept;
     static SaccadeResult read_agent_physical_state(void*, SaccadeAgentPhysicalState*) noexcept;
+    static SaccadeResult execute_agent_background_press(void*, uint64_t, const SaccadeAgentGeneration&, uint64_t,
+                                                        const SaccadeAgentTarget&, bool, agent::BackgroundActionExecution*) noexcept;
+    static SaccadeResult prepare_agent_window_activation(void*, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, bool,
+                                                         agent::BackgroundActionExecution*) noexcept;
     static SaccadeResult abort_agent_input(void*) noexcept;
     static SaccadeResult cycle_agent_window(void*, bool backward) noexcept;
     static SaccadeResult forward_command(void*, application::Command, uint64_t) noexcept;
@@ -230,12 +234,18 @@ class DesktopPipeline final {
     SaccadeResult begin_window_action(uint64_t) noexcept;
     SaccadeResult navigate_window(application::Command, uint64_t now_ns) noexcept;
     SaccadeResult restart_action(uint64_t now_ns) noexcept;
-    SaccadeResult resolve_scope(geometry::RectQ8*, uint64_t*) noexcept;
+    SaccadeResult resolve_scope(geometry::RectQ8*, uint64_t* display_id, uint64_t* window_id) noexcept;
     SaccadeResult apply_scope() noexcept;
+    SaccadeResult refresh_active_scope(uint64_t now_ns) noexcept;
     SaccadeResult refresh_hint_language(uint64_t now_ns) noexcept;
     SaccadeResult initialize_bridge() noexcept;
     SaccadeResult synchronize_pending_topology(uint64_t now_ns) noexcept;
     SaccadeResult update_input_desktop() noexcept;
+    SaccadeResult acquire_explicit_agent_scene(const SaccadeAgentScope&, const SaccadeAgentFreshness&, scene::PacketView*,
+                                               application::InteractionState*) noexcept;
+    SaccadeResult cancel_agent_actions(ExplicitWindowRetirementReason) noexcept;
+    SaccadeResult drain_cancelled_agent_actions() noexcept;
+    SaccadeResult retire_explicit_agent_scene(ExplicitWindowRetirementReason) noexcept;
     SaccadeResult stop_capture_immediately() noexcept;
     SaccadeResult apply_input_availability(bool available, uint64_t now_ns) noexcept;
     SaccadeResult fail(SaccadeResult, DesktopPipelineStage = DesktopPipelineStage::none) noexcept;
@@ -249,6 +259,8 @@ class DesktopPipeline final {
     application::InferenceRuntime inference_{};
     ScreenCaptureProvider capture_provider_{};
     SceneCaptureSet captures_{};
+    ExplicitWindowCapture explicit_capture_{};
+    ExplicitWindowSession explicit_session_{};
     BridgeSlot bridge_{};
     AccessibilityProvider accessibility_{};
     SurfaceQualifier surface_qualifier_{};
@@ -266,6 +278,10 @@ class DesktopPipeline final {
     application::Debugger debugger_{};
     application::OverlayComposeWorkspace overlay_workspace_{};
     alignas(128) std::array<std::array<uint8_t, overlay_arena_capacity>, 2> overlay_arenas_{};
+    alignas(64) std::array<uint8_t, scene::target_packet_max_bytes> explicit_scene_bytes_{};
+    alignas(64) std::array<uint8_t, scene::target_packet_max_bytes> explicit_semantic_bytes_{};
+    alignas(64) std::array<uint8_t, scene::target_packet_max_bytes> explicit_visual_bytes_{};
+    scene::FusionWorkspace explicit_fusion_workspace_{};
     std::array<OverlayFrameSlot, geometry::display_capacity> overlay_frames_{};
     std::atomic<uint32_t> published_overlay_arena_{UINT32_MAX};
     std::array<overlay::GlyphAtlasStorage, 2> glyph_atlases_{};
@@ -276,14 +292,30 @@ class DesktopPipeline final {
     void* metal_device_ = nullptr;
     uint64_t permission_epoch_ = 1;
     uint64_t next_capture_ns_ = 0;
+    uint64_t next_active_scope_check_ns_ = 0;
     uint64_t next_permission_check_ns_ = 0;
     uint64_t next_keyboard_layout_check_ns_ = 0;
     uint64_t keyboard_layout_token_ = 0;
     uint64_t pending_deadline_ns_ = 0;
     uint64_t next_grid_frame_id_ = 1;
     uint64_t next_window_frame_id_ = 1;
+    uint64_t next_explicit_session_epoch_ = 1;
+    uint64_t next_explicit_frame_id_ = 1;
     uint64_t active_window_id_ = 0;
     uint64_t active_display_id_ = 0;
+    ExplicitWindowIdentity explicit_identity_{};
+    ExplicitWindowActionToken explicit_action_token_{};
+    AccessibilityGenerationKey explicit_accessibility_key_{};
+    SaccadeTicketHandle explicit_accessibility_ticket_ = 0;
+    size_t explicit_scene_size_ = 0;
+    size_t explicit_semantic_size_ = 0;
+    size_t explicit_visual_size_ = 0;
+    SaccadeAgentSourceMode explicit_source_mode_ = 0;
+    uint64_t agent_press_request_id_ = 0;
+    SaccadeTicketHandle agent_press_ticket_ = 0;
+    AccessibilityPressRequest agent_press_request_{};
+    ExplicitWindowActivationState agent_activation_{};
+    uint64_t explicit_runtime_previous_scene_epoch_ = 0;
     application::Command pending_ = application::Command::pointer_move;
     application::TargetSource source_ = application::TargetSource::pixel;
     application::TargetScope scope_ = application::TargetScope::desktop;
@@ -310,6 +342,16 @@ class DesktopPipeline final {
     bool capture_permission_available_ = false;
     bool accessibility_permission_available_ = false;
     bool input_permission_available_ = false;
+    bool explicit_capture_initialized_ = false;
+    bool explicit_capture_validated_ = false;
+    bool explicit_scene_ready_ = false;
+    bool explicit_semantic_ready_ = false;
+    bool explicit_visual_submitted_ = false;
+    bool explicit_visual_ready_ = false;
+    bool explicit_runtime_mode_ = false;
+    bool agent_press_abandoned_ = false;
+    bool agent_action_retirement_pending_ = false;
+    ExplicitWindowRetirementReason agent_action_retirement_reason_ = ExplicitWindowRetirementReason::none;
 };
 
 static_assert(sizeof(DesktopPipelineAdvance) == 136);

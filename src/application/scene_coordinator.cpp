@@ -13,10 +13,9 @@ template <typename T> T output_structure() noexcept {
 }
 
 bool accessibility_valid(const SaccadeAccessibilityProviderDesc& provider) noexcept {
-    return provider.struct_size >= sizeof(provider) && provider.api_version == SACCADE_API_VERSION &&
-           provider.context != nullptr && provider.ops.request != nullptr && provider.ops.poll != nullptr &&
-           provider.ops.wait != nullptr && provider.ops.collect != nullptr && provider.ops.cancel != nullptr &&
-           provider.ops.release != nullptr;
+    return provider.struct_size >= sizeof(provider) && provider.api_version == SACCADE_API_VERSION && provider.context != nullptr &&
+           provider.ops.request != nullptr && provider.ops.poll != nullptr && provider.ops.wait != nullptr &&
+           provider.ops.collect != nullptr && provider.ops.cancel != nullptr && provider.ops.release != nullptr;
 }
 
 bool source_valid(SceneSource source) noexcept {
@@ -27,24 +26,24 @@ bool semantic_source(SceneSource source) noexcept {
     return source == SceneSource::semantic || source == SceneSource::fused;
 }
 
+bool visual_source(SceneSource source) noexcept {
+    return source == SceneSource::pixel || source == SceneSource::fused;
+}
+
 bool filter_valid(const TargetFilterConfig& filter) noexcept {
-    return filter.confidence_q16 != 0 && filter.text_confidence_q16 != 0 && filter.minimum_width_q8 != 0 &&
-           filter.minimum_height_q8 != 0 && filter.order >= TargetOrderPolicy::balanced &&
-           filter.order <= TargetOrderPolicy::controls_first && filter.reserved[0] == 0 && filter.reserved[1] == 0 &&
-           filter.reserved[2] == 0;
+    return filter.confidence_q16 != 0 && filter.text_confidence_q16 != 0 && filter.minimum_width_q8 != 0 && filter.minimum_height_q8 != 0 &&
+           filter.order >= TargetOrderPolicy::balanced && filter.order <= TargetOrderPolicy::controls_first && filter.reserved[0] == 0 &&
+           filter.reserved[1] == 0 && filter.reserved[2] == 0;
 }
 
 bool fusion_valid(const scene::FusionConfig& fusion) noexcept {
-    return fusion.maximum_targets != 0 && fusion.maximum_targets <= SACCADE_TARGET_PACKET_MAX_TARGETS &&
-           fusion.iou_threshold_q16 != 0 && fusion.containment_threshold_q16 != 0 &&
-           fusion.maximum_area_ratio_q8 >= 256 && fusion.reserved == 0;
+    return fusion.maximum_targets != 0 && fusion.maximum_targets <= SACCADE_TARGET_PACKET_MAX_TARGETS && fusion.iou_threshold_q16 != 0 &&
+           fusion.containment_threshold_q16 != 0 && fusion.maximum_area_ratio_q8 >= 256 && fusion.reserved == 0;
 }
 
 bool packet_epochs_match(const scene::PacketView& left, const scene::PacketView& right) noexcept {
-    return left.header->frame_id == right.header->frame_id &&
-           left.header->session_epoch == right.header->session_epoch &&
-           left.header->transform_epoch == right.header->transform_epoch &&
-           left.header->topology_epoch == right.header->topology_epoch;
+    return left.header->frame_id == right.header->frame_id && left.header->session_epoch == right.header->session_epoch &&
+           left.header->transform_epoch == right.header->transform_epoch && left.header->topology_epoch == right.header->topology_epoch;
 }
 
 bool newer_than(uint64_t frame_id, uint64_t transform_epoch, uint64_t topology_epoch, uint64_t published_frame_id,
@@ -74,22 +73,21 @@ uint32_t filter_targets(scene::MutableScenePacket destination, size_t* byte_size
     const uint32_t original_count = header->target_count;
     uint8_t* const original_text = reinterpret_cast<uint8_t*>(targets + original_count);
     const size_t original_text_size =
-        static_cast<size_t>(header->total_size) - (static_cast<size_t>(header->targets_offset) +
-                                                   static_cast<size_t>(original_count) * sizeof(SaccadeTargetRecord));
+        static_cast<size_t>(header->total_size) -
+        (static_cast<size_t>(header->targets_offset) + static_cast<size_t>(original_count) * sizeof(SaccadeTargetRecord));
     uint32_t written = 0;
     for (uint32_t index = 0; index < header->target_count; ++index) {
         const SaccadeTargetRecord& target = targets[index];
         const uint16_t confidence = text_target(target) ? filter.text_confidence_q16 : filter.confidence_q16;
         if (target.confidence_q16 < confidence || target.width_q8 < filter.minimum_width_q8 ||
-            target.height_q8 < filter.minimum_height_q8 ||
-            (scope != nullptr && !point_in_rect(target.safe_x_q8, target.safe_y_q8, *scope)))
+            target.height_q8 < filter.minimum_height_q8 || (scope != nullptr && !point_in_rect(target.safe_x_q8, target.safe_y_q8, *scope)))
             continue;
-        if (written != index) targets[written] = targets[index];
+        if (written != index)
+            targets[written] = targets[index];
         uint32_t priority = 0;
         if (filter.order != TargetOrderPolicy::balanced) {
             const bool text = text_target(targets[written]);
-            priority = filter.order == TargetOrderPolicy::text_first ? static_cast<uint32_t>(!text)
-                                                                     : static_cast<uint32_t>(text);
+            priority = filter.order == TargetOrderPolicy::text_first ? static_cast<uint32_t>(!text) : static_cast<uint32_t>(text);
         }
         targets[written].order = priority * SACCADE_TARGET_PACKET_MAX_TARGETS + written;
         ++written;
@@ -99,14 +97,14 @@ uint32_t filter_targets(scene::MutableScenePacket destination, size_t* byte_size
     uint32_t text_size = 0;
     for (uint32_t index = 0; index < written; ++index) {
         SaccadeTargetTextRef& ref = targets[index].text;
-        if (ref.size == 0) continue;
+        if (ref.size == 0)
+            continue;
         std::memmove(compacted_text + text_size, compacted_text + ref.offset, ref.size);
         ref.offset = static_cast<uint16_t>(text_size);
         text_size += ref.size;
     }
     header->target_count = written;
-    header->total_size =
-        sizeof(SaccadeTargetPacketHeader) + static_cast<uint64_t>(written) * sizeof(SaccadeTargetRecord) + text_size;
+    header->total_size = sizeof(SaccadeTargetPacketHeader) + static_cast<uint64_t>(written) * sizeof(SaccadeTargetRecord) + text_size;
     *byte_size = static_cast<size_t>(header->total_size);
     return written;
 }
@@ -137,15 +135,18 @@ void SceneCoordinator::record_publication(const SaccadeTargetPacketHeader& heade
     stats_.text_truncated_publications += (header.flags & SACCADE_TARGET_PACKET_TEXT_TRUNCATED) != 0 ? 1U : 0U;
 }
 
-SaccadeResult SceneCoordinator::initialize(const SceneCoordinatorConfig& config,
-                                           SceneCoordinatorStorage* storage) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+SaccadeResult SceneCoordinator::initialize(const SceneCoordinatorConfig& config, SceneCoordinatorStorage* storage) noexcept {
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (storage == nullptr || config.neural_scenes == nullptr || config.output_scenes == nullptr ||
-        config.neural_scenes == config.output_scenes || !accessibility_valid(config.accessibility) ||
-        config.first_scene_epoch == 0 || !fusion_valid(config.fusion) || !source_valid(config.source) ||
-        !filter_valid(config.filter) ||
+        config.neural_scenes == config.output_scenes || !accessibility_valid(config.accessibility) || config.first_scene_epoch == 0 ||
+        !fusion_valid(config.fusion) || !source_valid(config.source) || !filter_valid(config.filter) ||
         ((config.semantic_freshness.context == nullptr) != (config.semantic_freshness.current == nullptr))) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
+    }
+    const SaccadeResult tracker_initialized = visual_tracker_.initialize(&storage->visual_tracker, config.visual_tracker);
+    if (tracker_initialized != SACCADE_OK) {
+        return tracker_initialized;
     }
     config_ = config;
     storage_ = storage;
@@ -158,28 +159,40 @@ SaccadeResult SceneCoordinator::initialize(const SceneCoordinatorConfig& config,
 }
 
 SaccadeResult SceneCoordinator::set_filter(TargetFilterConfig filter) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (!filter_valid(filter)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (!filter_valid(filter))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     config_.filter = filter;
     source_dirty_ = true;
     return SACCADE_OK;
 }
 
 SaccadeResult SceneCoordinator::set_fusion(scene::FusionConfig fusion) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (!fusion_valid(fusion)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (!fusion_valid(fusion))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     config_.fusion = fusion;
     source_dirty_ = true;
     return SACCADE_OK;
 }
 
 SaccadeResult SceneCoordinator::set_source(SceneSource source) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (!source_valid(source)) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (source_ == source) return SACCADE_OK;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (!source_valid(source))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (source_ == source)
+        return SACCADE_OK;
     if (semantic_source(source_) && !semantic_source(source)) {
         const SaccadeResult cancelled = cancel_semantic();
-        if (cancelled != SACCADE_OK) return cancelled;
+        if (cancelled != SACCADE_OK)
+            return cancelled;
+    }
+    if (visual_source(source_) != visual_source(source)) {
+        visual_tracker_.reset();
+        latest_visual_tracker_stats_ = {};
     }
     source_ = source;
     status_.source = source;
@@ -188,14 +201,18 @@ SaccadeResult SceneCoordinator::set_source(SceneSource source) noexcept {
 }
 
 SaccadeResult SceneCoordinator::set_scope(const geometry::RectQ8* scope) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (scope != nullptr && !geometry::rect_valid(*scope)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (scope != nullptr && !geometry::rect_valid(*scope))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const bool same = scope_enabled_ == (scope != nullptr) &&
-                      (scope == nullptr || (scope_.x == scope->x && scope_.y == scope->y &&
-                                            scope_.width == scope->width && scope_.height == scope->height));
-    if (same) return SACCADE_OK;
+                      (scope == nullptr ||
+                       (scope_.x == scope->x && scope_.y == scope->y && scope_.width == scope->width && scope_.height == scope->height));
+    if (same)
+        return SACCADE_OK;
     const SaccadeResult cancelled = cancel_semantic();
-    if (cancelled != SACCADE_OK) return cancelled;
+    if (cancelled != SACCADE_OK)
+        return cancelled;
     scope_enabled_ = scope != nullptr;
     scope_ = scope == nullptr ? geometry::RectQ8{} : *scope;
     source_dirty_ = true;
@@ -203,12 +220,15 @@ SaccadeResult SceneCoordinator::set_scope(const geometry::RectQ8* scope) noexcep
 }
 
 SaccadeResult SceneCoordinator::publish_grid(scene::GridSceneConfig config, SceneCoordinatorAdvance* output) noexcept {
-    if (!initialized_ || output == nullptr || source_ != SceneSource::grid) return SACCADE_ERROR_STATE;
+    if (!initialized_ || output == nullptr || source_ != SceneSource::grid)
+        return SACCADE_ERROR_STATE;
     *output = {};
-    if (next_scene_epoch_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    if (next_scene_epoch_ == std::numeric_limits<uint64_t>::max())
+        return SACCADE_ERROR_CAPACITY;
     scene::MutableScenePacket destination{};
     SaccadeResult result = config_.output_scenes->begin_write(&destination);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     config.scene_epoch = next_scene_epoch_;
     size_t byte_size = 0;
     result = scene::build_grid_scene(config, {destination.data, destination.capacity}, &byte_size);
@@ -243,14 +263,17 @@ SaccadeResult SceneCoordinator::publish_grid(scene::GridSceneConfig config, Scen
     return SACCADE_OK;
 }
 
-SaccadeResult SceneCoordinator::publish_windows(scene::WindowSceneConfig config, const SaccadeWindowInfo* windows,
-                                                uint32_t count, SceneCoordinatorAdvance* output) noexcept {
-    if (!initialized_ || output == nullptr || source_ != SceneSource::windows) return SACCADE_ERROR_STATE;
+SaccadeResult SceneCoordinator::publish_windows(scene::WindowSceneConfig config, const SaccadeWindowInfo* windows, uint32_t count,
+                                                SceneCoordinatorAdvance* output) noexcept {
+    if (!initialized_ || output == nullptr || source_ != SceneSource::windows)
+        return SACCADE_ERROR_STATE;
     *output = {};
-    if (next_scene_epoch_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    if (next_scene_epoch_ == std::numeric_limits<uint64_t>::max())
+        return SACCADE_ERROR_CAPACITY;
     scene::MutableScenePacket destination{};
     SaccadeResult result = config_.output_scenes->begin_write(&destination);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     config.scene_epoch = next_scene_epoch_;
     size_t byte_size = 0;
     result = scene::build_window_scene(config, windows, count, {destination.data, destination.capacity}, &byte_size);
@@ -286,8 +309,10 @@ SaccadeResult SceneCoordinator::publish_windows(scene::WindowSceneConfig config,
 }
 
 SaccadeResult SceneCoordinator::request_semantic(const SaccadeAccessibilityQueryDesc& query) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (semantic_ticket_ != 0) return SACCADE_ERROR_BUSY;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (semantic_ticket_ != 0)
+        return SACCADE_ERROR_BUSY;
     SaccadeTicketHandle ticket = 0;
     const SaccadeResult requested = config_.accessibility.ops.request(config_.accessibility.context, &query, &ticket);
     if (requested != SACCADE_OK) {
@@ -305,28 +330,28 @@ SaccadeResult SceneCoordinator::request_semantic(const SaccadeAccessibilityQuery
 }
 
 SaccadeResult SceneCoordinator::cancel_semantic() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
 
     SaccadeResult result = SACCADE_OK;
     if (semantic_ticket_ != 0) {
-        const SaccadeResult cancelled =
-            config_.accessibility.ops.cancel(config_.accessibility.context, semantic_ticket_);
+        const SaccadeResult cancelled = config_.accessibility.ops.cancel(config_.accessibility.context, semantic_ticket_);
         if (cancelled != SACCADE_OK && cancelled != SACCADE_ERROR_STATE && cancelled != SACCADE_ERROR_STALE_HANDLE) {
             result = cancelled;
         }
 
         SaccadeAccessibilityStatus status = output_structure<SaccadeAccessibilityStatus>();
-        const SaccadeResult waited =
-            config_.accessibility.ops.wait(config_.accessibility.context, semantic_ticket_, UINT64_MAX, &status);
-        if (result == SACCADE_OK && waited != SACCADE_OK && waited != SACCADE_ERROR_CANCELLED &&
-            waited != SACCADE_ERROR_STALE_HANDLE) {
+        const SaccadeResult waited = config_.accessibility.ops.wait(config_.accessibility.context, semantic_ticket_, UINT64_MAX, &status);
+        if (result == SACCADE_OK && waited != SACCADE_OK && waited != SACCADE_ERROR_CANCELLED && waited != SACCADE_ERROR_STALE_HANDLE) {
             result = waited;
         }
-        if (status.state == SACCADE_TICKET_CANCELLED) ++stats_.semantic_cancelled;
+        if (status.state == SACCADE_TICKET_CANCELLED)
+            ++stats_.semantic_cancelled;
         if (status.snapshot != 0) {
             semantic_snapshot_ = status.snapshot;
             const SaccadeResult released = release_semantic_snapshot();
-            if (result == SACCADE_OK && released != SACCADE_OK) result = released;
+            if (result == SACCADE_OK && released != SACCADE_OK)
+                result = released;
         }
     }
 
@@ -336,9 +361,11 @@ SaccadeResult SceneCoordinator::cancel_semantic() noexcept {
 }
 
 SaccadeResult SceneCoordinator::release_semantic_snapshot() noexcept {
-    if (semantic_snapshot_ == 0) return SACCADE_OK;
+    if (semantic_snapshot_ == 0)
+        return SACCADE_OK;
     const SaccadeResult released = config_.accessibility.ops.release(config_.accessibility.context, semantic_snapshot_);
-    if (released == SACCADE_OK) semantic_snapshot_ = 0;
+    if (released == SACCADE_OK)
+        semantic_snapshot_ = 0;
     return released;
 }
 
@@ -351,10 +378,10 @@ void SceneCoordinator::clear_semantic() noexcept {
 
 SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
     *changed = false;
-    if (semantic_ticket_ == 0) return SACCADE_OK;
+    if (semantic_ticket_ == 0)
+        return SACCADE_OK;
     SaccadeAccessibilityStatus status = output_structure<SaccadeAccessibilityStatus>();
-    const SaccadeResult polled =
-        config_.accessibility.ops.poll(config_.accessibility.context, semantic_ticket_, &status);
+    const SaccadeResult polled = config_.accessibility.ops.poll(config_.accessibility.context, semantic_ticket_, &status);
     if (polled != SACCADE_OK) {
         ++stats_.failures;
         return polled;
@@ -367,13 +394,12 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
         clear_semantic();
         return SACCADE_OK;
     }
-    const bool status_matches_query =
-        status.ticket == semantic_ticket_ && status.session_epoch == semantic_query_.session_epoch &&
-        status.transform_epoch == semantic_query_.transform_epoch &&
-        status.topology_epoch == semantic_query_.topology_epoch && status.frame_id == semantic_query_.frame_id;
-    const bool query_is_current =
-        config_.semantic_freshness.current == nullptr ||
-        config_.semantic_freshness.current(config_.semantic_freshness.context, semantic_query_);
+    const bool status_matches_query = status.ticket == semantic_ticket_ && status.session_epoch == semantic_query_.session_epoch &&
+                                      status.transform_epoch == semantic_query_.transform_epoch &&
+                                      status.topology_epoch == semantic_query_.topology_epoch &&
+                                      status.frame_id == semantic_query_.frame_id;
+    const bool query_is_current = config_.semantic_freshness.current == nullptr ||
+                                  config_.semantic_freshness.current(config_.semantic_freshness.context, semantic_query_);
     if (status.state == SACCADE_TICKET_COMPLETE && (!status_matches_query || !query_is_current)) {
         ++stats_.semantic_stale;
         if (status.snapshot != 0) {
@@ -388,8 +414,8 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
         clear_semantic();
         return SACCADE_OK;
     }
-    if (status.state != SACCADE_TICKET_COMPLETE || status.result != SACCADE_OK || status.snapshot == 0 ||
-        status.required_bytes == 0 || status.required_bytes > storage_->semantic_packet.size()) {
+    if (status.state != SACCADE_TICKET_COMPLETE || status.result != SACCADE_OK || status.snapshot == 0 || status.required_bytes == 0 ||
+        status.required_bytes > storage_->semantic_packet.size()) {
         ++stats_.semantic_failed;
         if (status.snapshot != 0) {
             semantic_snapshot_ = status.snapshot;
@@ -405,9 +431,9 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
 
     semantic_snapshot_ = status.snapshot;
     size_t byte_size = 0;
-    const SaccadeResult collected = config_.accessibility.ops.collect(
-        config_.accessibility.context, semantic_snapshot_,
-        {storage_->semantic_packet.data(), storage_->semantic_packet.size()}, &byte_size);
+    const SaccadeResult collected =
+        config_.accessibility.ops.collect(config_.accessibility.context, semantic_snapshot_,
+                                          {storage_->semantic_packet.data(), storage_->semantic_packet.size()}, &byte_size);
     if (collected != SACCADE_OK) {
         ++stats_.failures;
         (void)release_semantic_snapshot();
@@ -417,11 +443,9 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
     scene::PacketView packet{};
     const SaccadeResult validated = scene::validate_packet({storage_->semantic_packet.data(), byte_size}, &packet);
     if (validated != SACCADE_OK || packet.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
-        packet.header->frame_id != semantic_query_.frame_id ||
-        packet.header->session_epoch != semantic_query_.session_epoch ||
+        packet.header->frame_id != semantic_query_.frame_id || packet.header->session_epoch != semantic_query_.session_epoch ||
         packet.header->transform_epoch != semantic_query_.transform_epoch ||
-        packet.header->topology_epoch != semantic_query_.topology_epoch ||
-        packet.header->source_id != semantic_query_.window_id) {
+        packet.header->topology_epoch != semantic_query_.topology_epoch || packet.header->source_id != semantic_query_.window_id) {
         ++stats_.semantic_failed;
         (void)release_semantic_snapshot();
         clear_semantic();
@@ -441,14 +465,14 @@ SaccadeResult SceneCoordinator::poll_semantic(bool* changed) noexcept {
     return SACCADE_OK;
 }
 
-SaccadeResult SceneCoordinator::publish(bool neural_changed, bool semantic_changed,
-                                        SceneCoordinatorAdvance* output) noexcept {
+SaccadeResult SceneCoordinator::publish(bool neural_changed, bool semantic_changed, SceneCoordinatorAdvance* output) noexcept {
     const scene::PacketView* primary = nullptr;
     std::array<scene::PacketView, 2> inputs{};
     uint32_t input_count = 0;
     bool primary_changed = false;
 
-    if (source_ == SceneSource::grid || source_ == SceneSource::windows) return SACCADE_OK;
+    if (source_ == SceneSource::grid || source_ == SceneSource::windows)
+        return SACCADE_OK;
     if (source_ == SceneSource::pixel && neural_.header != nullptr) {
         primary = &neural_;
         inputs[input_count++] = neural_;
@@ -464,17 +488,17 @@ SaccadeResult SceneCoordinator::publish(bool neural_changed, bool semantic_chang
         inputs[input_count++] = neural_;
         primary_changed = neural_changed || semantic_changed || source_dirty_;
     }
-    if (primary == nullptr && source_ == SceneSource::fused && semantic_changed && semantic_.header != nullptr &&
-        neural_.header != nullptr)
+    if (primary == nullptr && source_ == SceneSource::fused && semantic_changed && semantic_.header != nullptr && neural_.header != nullptr)
         ++stats_.semantic_stale;
     if (primary == nullptr || !primary_changed) {
         return SACCADE_OK;
     }
 
     const SaccadeTargetPacketHeader& header = *primary->header;
-    if (!newer_than(header.frame_id, header.transform_epoch, header.topology_epoch, last_frame_id_,
-                    last_transform_epoch_, last_topology_epoch_)) {
-        if (semantic_changed) ++stats_.semantic_stale;
+    if (!newer_than(header.frame_id, header.transform_epoch, header.topology_epoch, last_frame_id_, last_transform_epoch_,
+                    last_topology_epoch_)) {
+        if (semantic_changed)
+            ++stats_.semantic_stale;
         return SACCADE_OK;
     }
     if (next_scene_epoch_ == std::numeric_limits<uint64_t>::max()) {
@@ -509,8 +533,18 @@ SaccadeResult SceneCoordinator::publish(bool neural_changed, bool semantic_chang
         ++stats_.failures;
         return fused;
     }
-    fusion_stats.targets_written =
-        filter_targets(destination, &byte_size, config_.filter, scope_enabled_ ? &scope_ : nullptr);
+    fusion_stats.targets_written = filter_targets(destination, &byte_size, config_.filter, scope_enabled_ ? &scope_ : nullptr);
+    latest_visual_tracker_stats_ = {};
+    if (visual_source(source_)) {
+        auto* mutable_header = reinterpret_cast<SaccadeTargetPacketHeader*>(destination.data);
+        auto* mutable_targets = reinterpret_cast<SaccadeTargetRecord*>(destination.data + mutable_header->targets_offset);
+        const SaccadeResult tracked = visual_tracker_.remap(mutable_header, mutable_targets, &latest_visual_tracker_stats_);
+        if (tracked != SACCADE_OK) {
+            (void)config_.output_scenes->abort_write(destination);
+            ++stats_.failures;
+            return tracked;
+        }
+    }
     const SaccadeResult committed = config_.output_scenes->commit_trusted(destination, byte_size);
     if (committed != SACCADE_OK) {
         (void)config_.output_scenes->abort_write(destination);
@@ -562,12 +596,14 @@ SaccadeResult SceneCoordinator::advance(SceneCoordinatorAdvance* output) noexcep
         ++stats_.failures;
     }
     const SaccadeResult published = publish(neural_changed, semantic_changed, output);
-    if (published != SACCADE_OK && result == SACCADE_OK) result = published;
+    if (published != SACCADE_OK && result == SACCADE_OK)
+        result = published;
     return result;
 }
 
 SaccadeResult SceneCoordinator::shutdown() noexcept {
-    if (!initialized_) return SACCADE_OK;
+    if (!initialized_)
+        return SACCADE_OK;
     const SaccadeResult result = cancel_semantic();
     config_ = {};
     storage_ = nullptr;
@@ -577,6 +613,8 @@ SaccadeResult SceneCoordinator::shutdown() noexcept {
     semantic_ticket_ = 0;
     semantic_snapshot_ = 0;
     neural_scene_epoch_ = 0;
+    visual_tracker_.shutdown();
+    latest_visual_tracker_stats_ = {};
     source_ = SceneSource::pixel;
     scope_ = {};
     scope_enabled_ = false;

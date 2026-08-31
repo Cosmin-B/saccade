@@ -19,12 +19,10 @@ bool q8(uint32_t value, int32_t* output) noexcept {
 }
 
 bool frame_matches_display(const SceneCaptureFrame& frame, const geometry::DisplaySurface& display) noexcept {
-    return frame.frame.frame != 0 && frame.frame.frame_id != 0 && frame.frame.source_id != 0 &&
-           frame.frame.transform_epoch != 0 && frame.native.metal_texture != nullptr &&
-           frame.native.iosurface_id != 0 && frame.native.pixel_format == SACCADE_FORMAT_BGRA8 &&
-           frame.native.width == frame.frame.width && frame.native.height == frame.frame.height &&
-           frame.display_id != 0 && frame.display_id == display.display_id && frame.topology_epoch != 0 &&
-           geometry::rect_valid(display.desktop_bounds);
+    return frame.frame.frame != 0 && frame.frame.frame_id != 0 && frame.frame.source_id != 0 && frame.frame.transform_epoch != 0 &&
+           frame.native.metal_texture != nullptr && frame.native.iosurface_id != 0 && frame.native.pixel_format == SACCADE_FORMAT_BGRA8 &&
+           frame.native.width == frame.frame.width && frame.native.height == frame.frame.height && frame.display_id != 0 &&
+           frame.display_id == display.display_id && frame.topology_epoch != 0 && geometry::rect_valid(display.desktop_bounds);
 }
 
 bool same_rect(const geometry::RectQ8& left, const geometry::RectQ8& right) noexcept {
@@ -38,10 +36,10 @@ CoreMlImageBridge::~CoreMlImageBridge() {
 }
 
 SaccadeResult CoreMlImageBridge::initialize(CoreMlImageBridgeConfig config) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (config.runtime == 0 || config.metal_device == nullptr || config.metallib_path == nullptr ||
-        config.metallib_path[0] == '\0' || config.input_width == 0 || config.input_height == 0 ||
-        config.reserved != 0) {
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (config.runtime == 0 || config.metal_device == nullptr || config.metallib_path == nullptr || config.metallib_path[0] == '\0' ||
+        config.input_width == 0 || config.input_height == 0 || config.reserved != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     backend::metal::TensorSpec spec{};
@@ -50,7 +48,8 @@ SaccadeResult CoreMlImageBridge::initialize(CoreMlImageBridgeConfig config) noex
     spec.format = backend::metal::TensorFormat::image_bgra8;
     spec.letterbox_rgb = config.letterbox_rgb;
     const SaccadeResult result = preprocessor_.initialize(config.metal_device, config.metallib_path, config.path, spec);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     config_ = config;
     initialized_ = true;
     return SACCADE_OK;
@@ -62,10 +61,10 @@ SaccadeResult CoreMlImageBridge::begin(SceneCaptureSet* captures, const SceneCap
 }
 
 SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const SceneCaptureFrame* frames,
-                                             const geometry::DisplaySurface* displays, uint32_t display_count,
-                                             geometry::RectQ8 scope, uint64_t source_id) noexcept {
+                                             const geometry::DisplaySurface* displays, uint32_t display_count, geometry::RectQ8 scope,
+                                             uint64_t source_id) noexcept {
     static_assert(backend::metal::atlas_source_capacity == geometry::display_capacity);
-    if (!initialized_ || captures == nullptr || frames == nullptr || displays == nullptr || display_count == 0 ||
+    if (!initialized_ || frames == nullptr || displays == nullptr || display_count == 0 ||
         display_count > geometry::display_capacity || !geometry::rect_valid(scope) || source_id == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -79,6 +78,8 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     uint64_t frame_id = 0;
     uint64_t transform_epoch = 0;
     for (uint32_t index = 0; index < display_count; ++index) {
+        if (captures == nullptr && frames[index].release == nullptr)
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         if (!frame_matches_display(frames[index], displays[index]) ||
             (topology_epoch != 0 && frames[index].topology_epoch != topology_epoch)) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -90,9 +91,10 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
     }
 
     geometry::ScopeAtlasLayout layout{};
-    SaccadeResult result = geometry::make_scope_atlas_layout(scope, config_.input_width, config_.input_height,
-                                                             surfaces.data(), display_count, &layout);
-    if (result != SACCADE_OK) return result;
+    SaccadeResult result =
+        geometry::make_scope_atlas_layout(scope, config_.input_width, config_.input_height, surfaces.data(), display_count, &layout);
+    if (result != SACCADE_OK)
+        return result;
 
     std::array<backend::metal::AtlasSource, backend::metal::atlas_source_capacity> atlas_sources{};
     for (uint32_t index = 0; index < layout.count; ++index) {
@@ -103,23 +105,22 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
             frame.native.width,
             frame.native.height,
             {placement.source.x, placement.source.y, placement.source.width, placement.source.height},
-            {placement.destination.x, placement.destination.y, placement.destination.width,
-             placement.destination.height},
+            {placement.destination.x, placement.destination.y, placement.destination.width, placement.destination.height},
         };
     }
 
-    if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max())
+        return SACCADE_ERROR_CAPACITY;
     const bool preserve_atlas = atlas_matches(scope, topology_epoch);
-    auto capture_stamps =
-        preserve_atlas ? atlas_capture_stamps_ : std::array<AtlasCaptureStamp, geometry::display_capacity>{};
+    auto capture_stamps = preserve_atlas ? atlas_capture_stamps_ : std::array<AtlasCaptureStamp, geometry::display_capacity>{};
     uint32_t capture_stamp_count = preserve_atlas ? atlas_capture_stamp_count_ : 0;
     for (uint32_t index = 0; index < display_count; ++index) {
         uint32_t stamp_index = 0;
-        while (stamp_index < capture_stamp_count &&
-               capture_stamps[stamp_index].display_id != displays[index].display_id)
+        while (stamp_index < capture_stamp_count && capture_stamps[stamp_index].display_id != displays[index].display_id)
             ++stamp_index;
         if (stamp_index == capture_stamp_count) {
-            if (capture_stamp_count == capture_stamps.size()) return SACCADE_ERROR_CAPACITY;
+            if (capture_stamp_count == capture_stamps.size())
+                return SACCADE_ERROR_CAPACITY;
             ++capture_stamp_count;
         }
         capture_stamps[stamp_index] = {displays[index].display_id, frames[index].frame.timestamp_ns};
@@ -129,12 +130,10 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
         atlas_capture_time_ns = std::min(atlas_capture_time_ns, capture_stamps[index].capture_time_ns);
 
     backend::metal::PreprocessSubmission submission{};
-    const backend::metal::AtlasLoad load =
-        preserve_atlas ? backend::metal::AtlasLoad::preserve : backend::metal::AtlasLoad::clear;
-    result =
-        preprocessor_.submit_atlas(atlas_sources.data(), layout.count,
-                                   {layout.content.x, layout.content.y, layout.content.width, layout.content.height},
-                                   load, frame_id, transform_epoch, &submission);
+    const backend::metal::AtlasLoad load = preserve_atlas ? backend::metal::AtlasLoad::preserve : backend::metal::AtlasLoad::clear;
+    result = preprocessor_.submit_atlas(atlas_sources.data(), layout.count,
+                                        {layout.content.x, layout.content.y, layout.content.width, layout.content.height}, load, frame_id,
+                                        transform_epoch, &submission);
     if (result != SACCADE_OK) {
         ++stats_.failures;
         return result;
@@ -162,12 +161,14 @@ SaccadeResult CoreMlImageBridge::begin_scope(SceneCaptureSet* captures, const Sc
 }
 
 SaccadeResult CoreMlImageBridge::begin_cached() noexcept {
-    if (!initialized_ || !atlas_ready_ || atlas_capture_time_ns_ == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || !atlas_ready_ || atlas_capture_time_ns_ == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (preprocessing_ || output_in_use_) {
         ++stats_.busy_submissions;
         return SACCADE_ERROR_BUSY;
     }
-    if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    if (next_output_frame_id_ == std::numeric_limits<uint64_t>::max())
+        return SACCADE_ERROR_CAPACITY;
     frame_id_ = next_output_frame_id_++;
     capture_time_ns_ = atlas_capture_time_ns_;
     replay_pending_ = true;
@@ -178,17 +179,20 @@ SaccadeResult CoreMlImageBridge::begin_cached() noexcept {
 }
 
 bool CoreMlImageBridge::atlas_matches(geometry::RectQ8 scope, uint64_t topology_epoch) const noexcept {
-    return atlas_ready_ && topology_epoch != 0 && topology_epoch == atlas_topology_epoch_ &&
-           same_rect(scope, atlas_scope_);
+    return atlas_ready_ && topology_epoch != 0 && topology_epoch == atlas_topology_epoch_ && same_rect(scope, atlas_scope_);
 }
 
 SaccadeResult CoreMlImageBridge::release_captures() noexcept {
-    if (capture_set_ == nullptr) return SACCADE_OK;
+    if (capture_set_ == nullptr && capture_count_ == 0)
+        return SACCADE_OK;
     for (uint32_t index = 0; index < capture_count_; ++index) {
         SceneCaptureFrame& frame = capture_frames_[index];
-        if (frame.frame.frame == 0) continue;
-        const SaccadeResult result = capture_set_->release(frame);
-        if (result != SACCADE_OK) return result;
+        if (frame.frame.frame == 0)
+            continue;
+        const SaccadeResult result = frame.release != nullptr ? frame.release(frame.release_context, frame)
+                                                              : capture_set_->release(frame);
+        if (result != SACCADE_OK)
+            return result;
         frame = {};
         ++stats_.capture_releases;
     }
@@ -211,7 +215,8 @@ SaccadeResult CoreMlImageBridge::poll(scheduler::NeuralFrame* output, bool* read
             ++stats_.failures;
             return result;
         }
-        if (!complete) return SACCADE_OK;
+        if (!complete)
+            return SACCADE_OK;
     }
 
     backend::metal::ImageView image{};
@@ -295,18 +300,25 @@ void CoreMlImageBridge::retire_callback(void* context, SaccadeFrameHandle frame)
 }
 
 SaccadeResult CoreMlImageBridge::discard() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (output_in_use_) return SACCADE_ERROR_BUSY;
-    if (!preprocessing_) return SACCADE_OK;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (output_in_use_)
+        return SACCADE_ERROR_BUSY;
+    if (!preprocessing_)
+        return SACCADE_OK;
     SaccadeResult result = replay_pending_ ? SACCADE_OK : preprocessor_.wait(submission_, UINT64_MAX);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     scheduler::NeuralFrame frame{};
     bool ready = false;
     result = poll(&frame, &ready);
-    if (result != SACCADE_OK) return result;
-    if (!ready) return SACCADE_ERROR_BACKEND;
+    if (result != SACCADE_OK)
+        return result;
+    if (!ready)
+        return SACCADE_ERROR_BACKEND;
     result = saccade_frame_release(config_.runtime, frame.frame);
-    if (result == SACCADE_OK) retire(frame.frame);
+    if (result == SACCADE_OK)
+        retire(frame.frame);
     return result;
 }
 
@@ -315,12 +327,15 @@ SaccadeResult CoreMlImageBridge::read_memory_stats(SaccadeMemoryStats* output) c
 }
 
 SaccadeResult CoreMlImageBridge::shutdown() noexcept {
-    if (!initialized_) return SACCADE_OK;
-    if (output_in_use_) return SACCADE_ERROR_BUSY;
+    if (!initialized_)
+        return SACCADE_OK;
+    if (output_in_use_)
+        return SACCADE_ERROR_BUSY;
     SaccadeResult result = SACCADE_OK;
     if (preprocessing_) {
         result = replay_pending_ ? SACCADE_OK : preprocessor_.wait(submission_, UINT64_C(1'000'000'000));
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
         const SaccadeResult released = release_captures();
         result = released;
     }

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SACCADE_AGENT_API_VERSION UINT32_C(0x00010001)
+#define SACCADE_AGENT_API_VERSION UINT32_C(0x00010002)
 #define SACCADE_AGENT_MAX_MESSAGE_BYTES UINT32_C(1048576)
 #define SACCADE_AGENT_MAX_TARGETS UINT32_C(10000)
 #define SACCADE_AGENT_MAX_FILTERS UINT32_C(32)
@@ -12,6 +12,7 @@
 #define SACCADE_AGENT_MAX_PAYLOAD_BYTES UINT32_C(65536)
 #define SACCADE_AGENT_MAX_TEXT_BYTES UINT32_C(16384)
 #define SACCADE_AGENT_MAX_SELECTION_ITEMS UINT32_C(256)
+#define SACCADE_AGENT_MAX_ACTION_DURATION_NS UINT64_C(60000000000)
 
 typedef uint32_t SaccadeAgentMessageKind;
 
@@ -50,7 +51,9 @@ enum {
     SACCADE_AGENT_ERROR_CANCELLED = -12,
     SACCADE_AGENT_ERROR_EXECUTOR_LOST = -13,
     SACCADE_AGENT_ERROR_BACKEND = -14,
-    SACCADE_AGENT_ERROR_CAPACITY = -15
+    SACCADE_AGENT_ERROR_CAPACITY = -15,
+    SACCADE_AGENT_ERROR_ACTIVATION_REQUIRED = -16,
+    SACCADE_AGENT_ERROR_OUTCOME_UNCONFIRMED = -17
 };
 
 typedef uint32_t SaccadeAgentCapabilityBits;
@@ -70,30 +73,19 @@ enum {
     SACCADE_AGENT_SCOPE_ACTIVE_WINDOW = 1,
     SACCADE_AGENT_SCOPE_DISPLAY = 2,
     SACCADE_AGENT_SCOPE_DESKTOP = 3,
-    SACCADE_AGENT_SCOPE_RECT = 4
+    SACCADE_AGENT_SCOPE_RECT = 4,
+    SACCADE_AGENT_SCOPE_WINDOW = 5
 };
 
 typedef uint32_t SaccadeAgentSourceMode;
 
-enum {
-    SACCADE_AGENT_SOURCE_PIXEL = 1,
-    SACCADE_AGENT_SOURCE_SEMANTIC = 2,
-    SACCADE_AGENT_SOURCE_GRID = 3,
-    SACCADE_AGENT_SOURCE_FUSED = 4
-};
+enum { SACCADE_AGENT_SOURCE_PIXEL = 1, SACCADE_AGENT_SOURCE_SEMANTIC = 2, SACCADE_AGENT_SOURCE_GRID = 3, SACCADE_AGENT_SOURCE_FUSED = 4 };
 
 typedef uint32_t SaccadeAgentFreshnessPolicy;
 
-enum {
-    SACCADE_AGENT_FRESHNESS_LATEST_VALID = 1,
-    SACCADE_AGENT_FRESHNESS_AFTER_GENERATION = 2,
-    SACCADE_AGENT_FRESHNESS_FORCE_REFRESH = 3
-};
+enum { SACCADE_AGENT_FRESHNESS_LATEST_VALID = 1, SACCADE_AGENT_FRESHNESS_AFTER_GENERATION = 2, SACCADE_AGENT_FRESHNESS_FORCE_REFRESH = 3 };
 
-enum {
-    SACCADE_AGENT_FRESHNESS_REQUIRE_DAMAGE_CHECK = UINT32_C(1) << 0,
-    SACCADE_AGENT_FRESHNESS_REQUIRE_NEURAL_REFRESH = UINT32_C(1) << 1
-};
+enum { SACCADE_AGENT_FRESHNESS_REQUIRE_DAMAGE_CHECK = UINT32_C(1) << 0, SACCADE_AGENT_FRESHNESS_REQUIRE_NEURAL_REFRESH = UINT32_C(1) << 1 };
 
 /* The next four enums are wire copies of the scene target vocabulary in
    include/saccade/saccade_scene.h. Values must stay numerically identical.
@@ -123,7 +115,12 @@ enum {
     SACCADE_AGENT_TARGET_SECURE = UINT32_C(1) << 3,
     SACCADE_AGENT_TARGET_APPROXIMATE = UINT32_C(1) << 4,
     SACCADE_AGENT_TARGET_TEXT_REDACTED = UINT32_C(1) << 5,
-    SACCADE_AGENT_TARGET_TEXT_TRUNCATED = UINT32_C(1) << 6
+    SACCADE_AGENT_TARGET_TEXT_TRUNCATED = UINT32_C(1) << 6,
+    /* Explicit-window action disposition. Exactly one is set for targets in
+       an explicit WINDOW completion. */
+    SACCADE_AGENT_TARGET_BACKGROUND_ACTIONABLE = UINT32_C(1) << 7,
+    SACCADE_AGENT_TARGET_ACTIVATION_REQUIRED = UINT32_C(1) << 8,
+    SACCADE_AGENT_TARGET_BACKGROUND_UNSUPPORTED = UINT32_C(1) << 9
 };
 
 typedef uint16_t SaccadeAgentTargetRole;
@@ -209,7 +206,20 @@ typedef uint32_t SaccadeAgentActionFlags;
 
 enum {
     SACCADE_AGENT_ACTION_EXPLICIT_POINTS = UINT32_C(1) << 0,
-    SACCADE_AGENT_ACTION_CYCLE_BACKWARD = UINT32_C(1) << 1
+    SACCADE_AGENT_ACTION_CYCLE_BACKWARD = UINT32_C(1) << 1,
+    SACCADE_AGENT_ACTION_ALLOW_ACTIVATION = UINT32_C(1) << 2,
+    /* Resolve this action against the exact WINDOW scene named by the full
+       generation/process/window preconditions, never the foreground scene. */
+    SACCADE_AGENT_ACTION_EXPLICIT_WINDOW = UINT32_C(1) << 3
+};
+
+typedef uint32_t SaccadeAgentActionResultFlags;
+
+enum {
+    SACCADE_AGENT_ACTION_RESULT_BACKGROUND_ACCESSIBILITY = UINT32_C(1) << 0,
+    SACCADE_AGENT_ACTION_RESULT_WOULD_ACTIVATE = UINT32_C(1) << 1,
+    SACCADE_AGENT_ACTION_RESULT_WINDOW_ACTIVATED = UINT32_C(1) << 2,
+    SACCADE_AGENT_ACTION_RESULT_CG_EVENT = UINT32_C(1) << 3
 };
 
 typedef uint32_t SaccadeAgentButtonBits;
@@ -290,7 +300,8 @@ typedef struct SaccadeAgentScope {
     SaccadeAgentScopeKind kind;
     /* Source selection is a filter. Fused selects the published fused scene. */
     SaccadeAgentSourceMode source_mode;
-    /* Display and active-window scopes use stable_id. Rect scopes use rect. */
+    /* Display, active-window, and exact-window scopes use stable_id. Rect
+       scopes use rect. Exact-window stable_id is a current public CGWindowID. */
     uint64_t stable_id;
     SaccadeAgentRectQ8 rect;
 } SaccadeAgentScope;
@@ -312,7 +323,8 @@ typedef struct SaccadeAgentGeneration {
     uint64_t frame_id;
     /* Monotonic capture timestamp from the scene. Zero means unavailable. */
     uint64_t capture_time_ns;
-    /* Foreground process that owned the captured scene. */
+    /* Process that owns the captured scene. It need not be foreground for an
+       exact WINDOW observation. */
     uint64_t process_id;
     uint64_t window_id;
     uint64_t display_id;
@@ -441,6 +453,8 @@ typedef struct SaccadeAgentAction {
     uint32_t repeat_count;
     int32_t delta_x_q8;
     int32_t delta_y_q8;
+    /* Move time for pointer motion, drag, and text selection. Lease time for
+       hold and continuous scroll. Zero selects immediate or open-ended input. */
     uint64_t duration_ns;
     uint32_t payload_offset;
     uint32_t payload_size;

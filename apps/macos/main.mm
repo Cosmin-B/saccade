@@ -10,6 +10,7 @@
 #include "platform/macos/global_hotkeys.hpp"
 #include "platform/macos/input_monitor.hpp"
 #include "platform/macos/keyboard.hpp"
+#include "platform/macos/permission_status.hpp"
 
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
@@ -40,7 +41,8 @@ constexpr uint64_t agent_socket_retry_period_ns = UINT64_C(50'000'000);
 
 uint64_t timestamp_ns() noexcept {
     timespec time{};
-    if (clock_gettime(CLOCK_MONOTONIC_RAW, &time) != 0) return 1;
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &time) != 0)
+        return 1;
     return static_cast<uint64_t>(time.tv_sec) * UINT64_C(1'000'000'000) + static_cast<uint64_t>(time.tv_nsec);
 }
 
@@ -50,14 +52,11 @@ NSRect debugger_rect(const saccade::application::DebuggerLayoutRect& rect, CGFlo
 }
 
 NSString* settings_path() {
-    NSArray<NSURL*>* roots = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory
-                                                                    inDomains:NSUserDomainMask];
+    NSArray<NSURL*>* roots = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask];
     NSURL* directory = [roots.firstObject URLByAppendingPathComponent:@"Saccade" isDirectory:YES];
-    if (directory == nil) return nil;
-    if (![[NSFileManager defaultManager] createDirectoryAtURL:directory
-                                  withIntermediateDirectories:YES
-                                                   attributes:nil
-                                                        error:nil])
+    if (directory == nil)
+        return nil;
+    if (![[NSFileManager defaultManager] createDirectoryAtURL:directory withIntermediateDirectories:YES attributes:nil error:nil])
         return nil;
     return [[directory URLByAppendingPathComponent:@"settings.bin"] path];
 }
@@ -65,34 +64,45 @@ NSString* settings_path() {
 bool load_settings(saccade::application::SettingsDocument* output) noexcept {
     NSString* path = settings_path();
     NSData* data = path == nil ? nil : [NSData dataWithContentsOfFile:path];
-    if (data == nil || data.length == 0 || data.length > saccade::application::settings_encoded_capacity) return false;
-    return saccade::application::decode_settings({static_cast<const uint8_t*>(data.bytes), data.length}, output) ==
-           SACCADE_OK;
+    if (data == nil || data.length == 0 || data.length > saccade::application::settings_encoded_capacity)
+        return false;
+    return saccade::application::decode_settings({static_cast<const uint8_t*>(data.bytes), data.length}, output) == SACCADE_OK;
 }
 
 SaccadeResult save_settings(const saccade::application::SettingsDocument& settings) noexcept {
     std::array<uint8_t, saccade::application::settings_encoded_capacity> bytes{};
     size_t size = 0;
     const SaccadeResult encoded = saccade::application::encode_settings(settings, {bytes.data(), bytes.size()}, &size);
-    if (encoded != SACCADE_OK) return encoded;
+    if (encoded != SACCADE_OK)
+        return encoded;
     NSString* path = settings_path();
-    if (path == nil) return SACCADE_ERROR_BACKEND;
+    if (path == nil)
+        return SACCADE_ERROR_BACKEND;
     NSData* data = [NSData dataWithBytes:bytes.data() length:size];
     return [data writeToFile:path options:NSDataWritingAtomic error:nil] ? SACCADE_OK : SACCADE_ERROR_BACKEND;
 }
 
-bool platform_permissions_ready() noexcept {
-    return CGPreflightScreenCaptureAccess() && CGPreflightListenEventAccess() && CGPreflightPostEventAccess() &&
-           AXIsProcessTrusted();
-}
-
-void request_platform_permissions() noexcept {
-    if (!CGPreflightScreenCaptureAccess()) (void)CGRequestScreenCaptureAccess();
-    if (!CGPreflightListenEventAccess()) (void)CGRequestListenEventAccess();
-    if (!CGPreflightPostEventAccess()) (void)CGRequestPostEventAccess();
-    if (!AXIsProcessTrusted()) {
-        NSDictionary* options = @{(__bridge NSString*)kAXTrustedCheckOptionPrompt : @YES};
-        (void)AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+void request_platform_permission(saccade::platform::macos::PermissionCapability capability) noexcept {
+    using saccade::platform::macos::PermissionCapability;
+    switch (capability) {
+    case PermissionCapability::screen_recording:
+        if (!CGPreflightScreenCaptureAccess())
+            (void)CGRequestScreenCaptureAccess();
+        break;
+    case PermissionCapability::accessibility:
+        if (!AXIsProcessTrusted()) {
+            NSDictionary* options = @{(__bridge NSString*)kAXTrustedCheckOptionPrompt : @YES};
+            (void)AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+        }
+        break;
+    case PermissionCapability::input_monitoring:
+        if (!CGPreflightListenEventAccess())
+            (void)CGRequestListenEventAccess();
+        break;
+    case PermissionCapability::post_events:
+        if (!CGPreflightPostEventAccess())
+            (void)CGRequestPostEventAccess();
+        break;
     }
 }
 
@@ -104,6 +114,8 @@ class ApplicationState final {
     void shutdown() noexcept;
     void update_menu() noexcept;
     void tick(uint64_t) noexcept;
+    void refresh_platform_permissions(uint64_t) noexcept;
+    [[nodiscard]] saccade::platform::macos::PermissionPresentation permission_presentation() const noexcept;
     SaccadeResult synchronize_input_monitor(uint64_t) noexcept;
     SaccadeResult initialize_agent_socket(uint64_t) noexcept;
     SaccadeResult initialize_pipeline(uint64_t) noexcept;
@@ -121,6 +133,7 @@ class ApplicationState final {
     std::array<char, 4096> artifact_path_{};
     std::array<char, 4096> model_root_{};
     std::array<char, 4096> metallib_path_{};
+    uint64_t next_platform_permission_check_ns_ = 0;
     uint64_t next_input_monitor_retry_ns_ = 0;
     uint64_t next_agent_socket_retry_ns_ = 0;
     saccade::application::RecoverySchedule pipeline_recovery_{};
@@ -134,9 +147,12 @@ class ApplicationState final {
     bool pipeline_initialized_ = false;
     bool pipeline_cleanup_required_ = false;
     bool agent_socket_initialized_ = false;
+    bool monitor_permissions_ready_ = false;
+    bool platform_permissions_ready_ = false;
     bool permission_attention_ = false;
     bool scene_incomplete_ = false;
     bool restart_requested_ = false;
+    saccade::platform::macos::PermissionSnapshot permission_snapshot_{};
 };
 
 static ApplicationState application;
@@ -154,6 +170,9 @@ static ApplicationState application;
 @property(nonatomic, strong) NSPopUpButton* debugFault;
 @property(nonatomic, strong) NSButton* debugArmFault;
 @property(nonatomic, strong) NSString* debuggerOperation;
+@property(nonatomic, strong) NSArray<NSTextField*>* permissionStatusLabels;
+@property(nonatomic, strong) NSArray<NSButton*>* permissionRequestButtons;
+@property(nonatomic, strong) NSTextField* permissionActionReason;
 @property(nonatomic) uint32_t diagnosticsTicks;
 - (void)rebuildMenu;
 - (void)openSettings:(id)sender;
@@ -166,7 +185,9 @@ static ApplicationState application;
 - (void)replayDebugPlan:(id)sender;
 - (void)clearDebugCapture:(id)sender;
 - (void)armDebugFault:(id)sender;
-- (void)requestPermissions:(id)sender;
+- (void)requestPermissionAccess:(id)sender;
+- (void)openPermissionSettings:(id)sender;
+- (void)refreshPermissionSettings;
 - (void)toggleSuspended:(id)sender;
 - (void)restart:(id)sender;
 - (void)quit:(id)sender;
@@ -198,7 +219,8 @@ static ApplicationState application;
             break;
         }
     }
-    if (selected == nil) return;
+    if (selected == nil)
+        return;
 
     self.selected.state = NSControlStateValueOff;
     selected.state = NSControlStateValueOn;
@@ -235,21 +257,18 @@ static NSInteger binding_key_index(uint32_t usage) noexcept;
     const bool assigned = find_binding(*settings_, command, &index) == SACCADE_OK;
     const HotkeyBinding* binding = assigned ? &settings_->bindings[index] : nullptr;
     NSInteger key_index = binding != nullptr ? binding_key_index(binding->physical_key) : 0;
-    if (key_index < 0) key_index = 0;
+    if (key_index < 0)
+        key_index = 0;
     [self.keyboardSelection selectKeyAtIndex:key_index];
 
-    self.control.state = binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_CONTROL) != 0
-                             ? NSControlStateValueOn
-                             : NSControlStateValueOff;
-    self.alt.state = binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_ALT) != 0
-                         ? NSControlStateValueOn
-                         : NSControlStateValueOff;
-    self.shift.state = binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_SHIFT) != 0
-                           ? NSControlStateValueOn
-                           : NSControlStateValueOff;
-    self.meta.state = binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_META) != 0
-                          ? NSControlStateValueOn
-                          : NSControlStateValueOff;
+    self.control.state =
+        binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_CONTROL) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
+    self.alt.state =
+        binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_ALT) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
+    self.shift.state =
+        binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_SHIFT) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
+    self.meta.state =
+        binding != nullptr && (binding->modifiers & SACCADE_INPUT_MODIFIER_META) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
 
     const bool session_available = command != Command::suspend_toggle;
     self.sessionOnly.enabled = session_available;
@@ -262,15 +281,16 @@ static NSInteger binding_key_index(uint32_t usage) noexcept;
 
 SaccadeResult dispatch_command(void* context, Command command, uint64_t now_ns) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
-    if (!state->pipeline_initialized_) return state->fault_;
+    if (!state->pipeline_initialized_)
+        return state->fault_;
     if (command == Command::type_text) {
         NSString* text = [NSPasteboard.generalPasteboard stringForType:NSPasteboardTypeString];
         NSData* bytes = [text dataUsingEncoding:NSUTF8StringEncoding];
         if (bytes == nil || bytes.length == 0 || bytes.length > saccade::interaction::maximum_action_payload_bytes)
             return SACCADE_ERROR_CAPACITY;
-        const SaccadeResult staged =
-            state->pipeline_.set_text({static_cast<const uint8_t*>(bytes.bytes), bytes.length});
-        if (staged != SACCADE_OK) return staged;
+        const SaccadeResult staged = state->pipeline_.set_text({static_cast<const uint8_t*>(bytes.bytes), bytes.length});
+        if (staged != SACCADE_OK)
+            return staged;
     }
     const SaccadeResult result = state->pipeline_.request(command, now_ns);
     if (result != SACCADE_OK) {
@@ -283,7 +303,8 @@ SaccadeResult dispatch_command(void* context, Command command, uint64_t now_ns) 
 SaccadeResult set_suspended(void* context, bool value) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
     const SaccadeResult result = state->hotkeys_.set_suspended(value);
-    if (result == SACCADE_OK) state->update_menu();
+    if (result == SACCADE_OK)
+        state->update_menu();
     return result;
 }
 
@@ -291,16 +312,20 @@ SaccadeResult apply_settings(void* context, const saccade::application::Settings
     auto* state = static_cast<ApplicationState*>(context);
     if (state->pipeline_initialized_) {
         const SaccadeResult applied = state->pipeline_.apply_settings(settings, timestamp_ns());
-        if (applied != SACCADE_OK) return applied;
+        if (applied != SACCADE_OK)
+            return applied;
     }
     const SaccadeResult replaced = state->hotkeys_.replace(settings.bindings.data(), settings.binding_count);
     if (replaced != SACCADE_OK && state->pipeline_initialized_)
         (void)state->pipeline_.apply_settings(state->settings_.current(), timestamp_ns());
-    if (replaced != SACCADE_OK || !state->settings_initialized_) return replaced;
+    if (replaced != SACCADE_OK || !state->settings_initialized_)
+        return replaced;
     const SaccadeResult saved = save_settings(settings);
-    if (saved == SACCADE_OK) return SACCADE_OK;
+    if (saved == SACCADE_OK)
+        return SACCADE_OK;
     (void)state->hotkeys_.replace(state->settings_.current().bindings.data(), state->settings_.current().binding_count);
-    if (state->pipeline_initialized_) (void)state->pipeline_.apply_settings(state->settings_.current(), timestamp_ns());
+    if (state->pipeline_initialized_)
+        (void)state->pipeline_.apply_settings(state->settings_.current(), timestamp_ns());
     return saved;
 }
 
@@ -311,18 +336,21 @@ SaccadeResult neutralize_input(void* context) noexcept {
 
 void observe_input(void* context, uint64_t now_ns) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
-    if (state->pipeline_initialized_) (void)state->pipeline_.observe_physical_input(now_ns);
+    if (state->pipeline_initialized_)
+        (void)state->pipeline_.observe_physical_input(now_ns);
 }
 
 void observe_command_input(void* context, uint64_t) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
-    if (state->pipeline_initialized_) (void)state->pipeline_.neutralize_synthetic_input();
+    if (state->pipeline_initialized_)
+        (void)state->pipeline_.neutralize_synthetic_input();
 }
 
 void observe_monitored_input(void* context, const saccade::platform::macos::PhysicalInputEvent& event) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
     if (event.kind == saccade::platform::macos::PhysicalInputKind::modifier) {
-        if (state->pipeline_initialized_) (void)state->pipeline_.neutralize_synthetic_input();
+        if (state->pipeline_initialized_)
+            (void)state->pipeline_.neutralize_synthetic_input();
     } else if (state->host_initialized_) {
         state->host_.observe_physical_input(event.timestamp_ns);
     }
@@ -330,23 +358,29 @@ void observe_monitored_input(void* context, const saccade::platform::macos::Phys
 
 bool route_key(void* context, const saccade::application::KeyEvent& event) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
-    if (state->pipeline_initialized_ && state->pipeline_.route_key(event)) return true;
+    if (state->pipeline_initialized_ && state->pipeline_.route_key(event))
+        return true;
     return state->hotkeys_initialized_ &&
            state->hotkeys_.dispatch_physical(event.physical_key, event.modifiers, event.timestamp_ns) == SACCADE_OK;
 }
 
-SaccadeResult process_agent(void* context, SaccadeSpanU8 request, SaccadeAgentCapabilityBits client_capabilities,
-                            uint64_t now_ns, SaccadeMutableSpanU8 output, size_t* output_size) noexcept {
+bool logical_input_active(void* context) noexcept {
     auto* state = static_cast<ApplicationState*>(context);
-    return state->pipeline_initialized_
-               ? state->pipeline_.process_agent(request, client_capabilities, now_ns, output, output_size)
-               : SACCADE_ERROR_STATE;
+    return state != nullptr && state->pipeline_initialized_ && state->pipeline_.active();
+}
+
+SaccadeResult process_agent(void* context, SaccadeSpanU8 request, SaccadeAgentCapabilityBits client_capabilities, uint64_t now_ns,
+                            SaccadeMutableSpanU8 output, size_t* output_size) noexcept {
+    auto* state = static_cast<ApplicationState*>(context);
+    return state->pipeline_initialized_ ? state->pipeline_.process_agent(request, client_capabilities, now_ns, output, output_size)
+                                        : SACCADE_ERROR_STATE;
 }
 
 bool append_component(std::array<char, 4096>* path, const char* root, const char* leaf) noexcept {
     const size_t root_size = std::strlen(root);
     const size_t leaf_size = std::strlen(leaf);
-    if (root_size + leaf_size + 2U > path->size()) return false;
+    if (root_size + leaf_size + 2U > path->size())
+        return false;
     std::memcpy(path->data(), root, root_size);
     path->at(root_size) = '/';
     std::memcpy(path->data() + root_size + 1U, leaf, leaf_size + 1U);
@@ -362,7 +396,8 @@ SaccadeResult open_settings(void* context) noexcept {
 SaccadeResult launch_replacement() noexcept {
     std::array<char, 4096> executable{};
     uint32_t size = static_cast<uint32_t>(executable.size());
-    if (_NSGetExecutablePath(executable.data(), &size) != 0) return SACCADE_ERROR_CAPACITY;
+    if (_NSGetExecutablePath(executable.data(), &size) != 0)
+        return SACCADE_ERROR_CAPACITY;
     char* arguments[] = {executable.data(), nullptr};
     pid_t child = 0;
     const int spawned = posix_spawn(&child, executable.data(), nullptr, nullptr, arguments, environ);
@@ -382,15 +417,14 @@ SaccadeResult quit_application(void*) noexcept {
 }
 
 SaccadeResult ApplicationState::initialize_agent_socket(uint64_t now_ns) noexcept {
-    if (!pipeline_initialized_ || agent_socket_initialized_ || now_ns == 0) return SACCADE_ERROR_STATE;
+    if (!pipeline_initialized_ || agent_socket_initialized_ || now_ns == 0)
+        return SACCADE_ERROR_STATE;
 
-    next_agent_socket_retry_ns_ =
-        now_ns > UINT64_MAX - agent_socket_retry_period_ns ? UINT64_MAX : now_ns + agent_socket_retry_period_ns;
-    constexpr SaccadeAgentCapabilityBits capabilities =
-        SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
-        SACCADE_AGENT_CAPABILITY_WINDOW;
-    const SaccadeResult result = agent_socket_.initialize(
-        {this, process_agent, neutralize_input, nullptr, capabilities}, &agent_socket_storage_);
+    next_agent_socket_retry_ns_ = now_ns > UINT64_MAX - agent_socket_retry_period_ns ? UINT64_MAX : now_ns + agent_socket_retry_period_ns;
+    constexpr SaccadeAgentCapabilityBits capabilities = SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER |
+                                                        SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_WINDOW;
+    const SaccadeResult result =
+        agent_socket_.initialize({this, process_agent, neutralize_input, nullptr, capabilities}, &agent_socket_storage_);
     if (result == SACCADE_OK) {
         agent_socket_initialized_ = true;
         next_agent_socket_retry_ns_ = 0;
@@ -399,22 +433,25 @@ SaccadeResult ApplicationState::initialize_agent_socket(uint64_t now_ns) noexcep
 }
 
 SaccadeResult ApplicationState::initialize_pipeline(uint64_t now_ns) noexcept {
-    if (now_ns == 0 || verifier_initialized_ || pipeline_initialized_ || pipeline_cleanup_required_ ||
-        agent_socket_initialized_)
+    if (now_ns == 0 || verifier_initialized_ || pipeline_initialized_ || pipeline_cleanup_required_ || agent_socket_initialized_)
         return SACCADE_ERROR_STATE;
 
     SaccadeResult result = verifier_.initialize(saccade::apps::model_trust::public_key);
-    if (result == SACCADE_OK) verifier_initialized_ = true;
+    if (result == SACCADE_OK)
+        verifier_initialized_ = true;
     if (result == SACCADE_OK) {
-        result = pipeline_.initialize({artifact_path_.data(), model_root_.data(), metallib_path_.data(),
-                                       &settings_.current(), verifier_.descriptor(), this, nullptr, now_ns, true});
-        if (result == SACCADE_OK) pipeline_initialized_ = true;
+        result = pipeline_.initialize({artifact_path_.data(), model_root_.data(), metallib_path_.data(), &settings_.current(),
+                                       verifier_.descriptor(), this, nullptr, now_ns, true});
+        if (result == SACCADE_OK)
+            pipeline_initialized_ = true;
     }
     if (result == SACCADE_OK) {
         const SaccadeResult agent_result = initialize_agent_socket(now_ns);
-        if (agent_result != SACCADE_ERROR_ALREADY_EXISTS) result = agent_result;
+        if (agent_result != SACCADE_ERROR_ALREADY_EXISTS)
+            result = agent_result;
     }
-    if (result == SACCADE_OK) return SACCADE_OK;
+    if (result == SACCADE_OK)
+        return SACCADE_OK;
 
     SaccadeResult cleanup = SACCADE_OK;
     if (agent_socket_initialized_) {
@@ -430,7 +467,8 @@ SaccadeResult ApplicationState::initialize_pipeline(uint64_t now_ns) noexcept {
         pipeline_cleanup_required_ = false;
     else {
         pipeline_cleanup_required_ = true;
-        if (cleanup == SACCADE_OK) cleanup = pipeline_stopped;
+        if (cleanup == SACCADE_OK)
+            cleanup = pipeline_stopped;
     }
     if (verifier_initialized_) {
         const SaccadeResult stopped = verifier_.shutdown();
@@ -486,20 +524,22 @@ void ApplicationState::begin_pipeline_recovery(SaccadeResult failure, uint64_t n
 
 SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcept {
     delegate_ = delegate;
-    const saccade::application::DesktopHostCallbacks callbacks{
-        this,          dispatch_command, set_suspended,       neutralize_input,
-        observe_input, open_settings,    restart_application, quit_application};
+    const saccade::application::DesktopHostCallbacks callbacks{this,          dispatch_command, set_suspended,       neutralize_input,
+                                                               observe_input, open_settings,    restart_application, quit_application};
     SaccadeResult result = host_.initialize(callbacks);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     host_initialized_ = true;
-    result = hotkeys_.initialize({&host_, saccade::application::dispatch_desktop_command,
-                                  saccade::application::observe_desktop_input, route_key, observe_command_input});
-    if (result != SACCADE_OK) return result;
+    result = hotkeys_.initialize({&host_, saccade::application::dispatch_desktop_command, saccade::application::observe_desktop_input,
+                                  route_key, observe_command_input});
+    if (result != SACCADE_OK)
+        return result;
     hotkeys_initialized_ = true;
     saccade::application::SettingsDocument initial = saccade::application::default_settings();
     (void)load_settings(&initial);
     result = settings_.initialize(initial, {this, apply_settings});
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     settings_initialized_ = true;
     if (!saccade::apps::model_trust::configured) {
         fault_ = SACCADE_ERROR_NOT_FOUND;
@@ -508,8 +548,7 @@ SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcep
     NSString* resources = NSBundle.mainBundle.resourcePath;
     const char* root = resources.fileSystemRepresentation;
     if (root == nullptr || !append_component(&artifact_path_, root, "saccade.model") ||
-        !append_component(&metallib_path_, root, "saccade_overlay.metallib") ||
-        std::strlen(root) + 1U > model_root_.size()) {
+        !append_component(&metallib_path_, root, "saccade_overlay.metallib") || std::strlen(root) + 1U > model_root_.size()) {
         fault_ = SACCADE_ERROR_CAPACITY;
         return SACCADE_OK;
     }
@@ -520,43 +559,76 @@ SaccadeResult ApplicationState::initialize(SaccadeAppDelegate* delegate) noexcep
         fault_ = result;
         os_log_error(OS_LOG_DEFAULT, "Pipeline initialization failed: result=%{public}d stage=%{public}u", result,
                      static_cast<uint32_t>(pipeline_.last_stage()));
-        if (result == SACCADE_ERROR_BACKEND) pipeline_recovery_.start(now_ns);
-        if (result == SACCADE_ERROR_STATE && pipeline_cleanup_required_) (void)restart_application(this);
+        if (result == SACCADE_ERROR_BACKEND || result == SACCADE_ERROR_NOT_FOUND) {
+            pipeline_recovery_.start(now_ns);
+        }
+        if (result == SACCADE_ERROR_STATE && pipeline_cleanup_required_)
+            (void)restart_application(this);
         return SACCADE_OK;
     }
 
     result = synchronize_input_monitor(now_ns);
-    permission_attention_ = result == SACCADE_ERROR_PERMISSION || !platform_permissions_ready();
-    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION) fault_ = result;
+    permission_attention_ = result == SACCADE_ERROR_PERMISSION || !platform_permissions_ready_;
+    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION)
+        fault_ = result;
     return SACCADE_OK;
 }
 
+void ApplicationState::refresh_platform_permissions(uint64_t now_ns) noexcept {
+    if (now_ns < next_platform_permission_check_ns_)
+        return;
+
+    next_platform_permission_check_ns_ =
+        now_ns > UINT64_MAX - permission_retry_period_ns ? UINT64_MAX : now_ns + permission_retry_period_ns;
+    permission_snapshot_.screen_recording = CGPreflightScreenCaptureAccess();
+    permission_snapshot_.accessibility = AXIsProcessTrusted();
+    permission_snapshot_.listen_events = CGPreflightListenEventAccess();
+    permission_snapshot_.post_events = CGPreflightPostEventAccess();
+    permission_snapshot_.input_monitor_running = input_monitor_initialized_;
+    monitor_permissions_ready_ = permission_snapshot_.listen_events && permission_snapshot_.accessibility;
+    platform_permissions_ready_ = permission_snapshot_.screen_recording && permission_snapshot_.accessibility &&
+                                  permission_snapshot_.listen_events && permission_snapshot_.post_events &&
+                                  permission_snapshot_.input_monitor_running;
+}
+
+saccade::platform::macos::PermissionPresentation ApplicationState::permission_presentation() const noexcept {
+    auto snapshot = permission_snapshot_;
+    snapshot.input_monitor_running = input_monitor_initialized_;
+    return saccade::platform::macos::present_permissions(snapshot);
+}
+
 SaccadeResult ApplicationState::synchronize_input_monitor(uint64_t now_ns) noexcept {
-    if (!pipeline_initialized_ || now_ns == 0) return SACCADE_ERROR_STATE;
-    const bool monitor_permitted = CGPreflightListenEventAccess() && AXIsProcessTrusted();
-    if (!monitor_permitted) {
+    if (!pipeline_initialized_ || now_ns == 0)
+        return SACCADE_ERROR_STATE;
+    refresh_platform_permissions(now_ns);
+    if (!monitor_permissions_ready_) {
         if (input_monitor_initialized_) {
             const SaccadeResult result = input_monitor_.shutdown();
-            if (result != SACCADE_OK) return result;
+            if (result != SACCADE_OK)
+                return result;
             input_monitor_initialized_ = false;
+            permission_snapshot_.input_monitor_running = false;
         }
-        next_input_monitor_retry_ns_ =
-            now_ns > UINT64_MAX - permission_retry_period_ns ? UINT64_MAX : now_ns + permission_retry_period_ns;
+        next_input_monitor_retry_ns_ = now_ns > UINT64_MAX - permission_retry_period_ns ? UINT64_MAX : now_ns + permission_retry_period_ns;
         return SACCADE_ERROR_PERMISSION;
     }
     if (!input_monitor_initialized_ && now_ns >= next_input_monitor_retry_ns_) {
-        next_input_monitor_retry_ns_ =
-            now_ns > UINT64_MAX - permission_retry_period_ns ? UINT64_MAX : now_ns + permission_retry_period_ns;
-        const SaccadeResult result = input_monitor_.initialize({this, observe_monitored_input, route_key});
-        if (result != SACCADE_OK) return result;
+        next_input_monitor_retry_ns_ = now_ns > UINT64_MAX - permission_retry_period_ns ? UINT64_MAX : now_ns + permission_retry_period_ns;
+        const SaccadeResult result = input_monitor_.initialize({this, observe_monitored_input, route_key, logical_input_active});
+        if (result != SACCADE_OK)
+            return result;
         input_monitor_initialized_ = true;
+        permission_snapshot_.input_monitor_running = true;
     }
-    return input_monitor_initialized_ && platform_permissions_ready() ? SACCADE_OK : SACCADE_ERROR_PERMISSION;
+    platform_permissions_ready_ = permission_snapshot_.screen_recording && permission_snapshot_.accessibility &&
+                                  permission_snapshot_.listen_events && permission_snapshot_.post_events && input_monitor_initialized_;
+    return platform_permissions_ready_ ? SACCADE_OK : SACCADE_ERROR_PERMISSION;
 }
 
 void ApplicationState::tick(uint64_t now_ns) noexcept {
     if (!pipeline_initialized_) {
-        if (!pipeline_recovery_.due(now_ns)) return;
+        if (!pipeline_recovery_.due(now_ns))
+            return;
         const SaccadeResult recovered = initialize_pipeline(now_ns);
         if (recovered == SACCADE_OK) {
             pipeline_recovery_.complete();
@@ -573,16 +645,16 @@ void ApplicationState::tick(uint64_t now_ns) noexcept {
         return;
     }
     const SaccadeResult monitor = synchronize_input_monitor(now_ns);
-    const bool permission_attention = monitor == SACCADE_ERROR_PERMISSION || !platform_permissions_ready();
-    if (monitor != SACCADE_OK && monitor != SACCADE_ERROR_PERMISSION) fault_ = monitor;
+    const bool permission_attention = monitor == SACCADE_ERROR_PERMISSION || !platform_permissions_ready_;
+    if (monitor != SACCADE_OK && monitor != SACCADE_ERROR_PERMISSION)
+        fault_ = monitor;
     if (permission_attention_ != permission_attention) {
         permission_attention_ = permission_attention;
         update_menu();
     }
     saccade::platform::macos::DesktopPipelineAdvance output{};
     const SaccadeResult result = pipeline_.advance(now_ns, &output);
-    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION && result != SACCADE_ERROR_NOT_FOUND &&
-        result != SACCADE_ERROR_BUSY) {
+    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION && result != SACCADE_ERROR_NOT_FOUND && result != SACCADE_ERROR_BUSY) {
         if (result == SACCADE_ERROR_BACKEND)
             begin_pipeline_recovery(result, now_ns);
         else {
@@ -618,6 +690,7 @@ void ApplicationState::shutdown() noexcept {
     if (input_monitor_initialized_) {
         (void)input_monitor_.shutdown();
         input_monitor_initialized_ = false;
+        permission_snapshot_.input_monitor_running = false;
     }
     pipeline_recovery_.complete();
     (void)shutdown_pipeline();
@@ -648,6 +721,49 @@ static NSTextField* settings_label(NSString* text) {
     return label;
 }
 
+static NSString* permission_text(const char* text) {
+    NSString* value = text == nullptr ? nil : [NSString stringWithUTF8String:text];
+    return value != nil ? value : @"Unavailable";
+}
+
+static NSTextField* permission_copy(NSString* text) {
+    NSTextField* label = [NSTextField wrappingLabelWithString:text];
+    label.textColor = NSColor.secondaryLabelColor;
+    label.maximumNumberOfLines = 0;
+    label.preferredMaxLayoutWidth = 360;
+    return label;
+}
+
+static NSView* permission_detail(const saccade::platform::macos::PermissionRow& row, id target, NSTextField** status_output,
+                                 NSButton** request_output, NSTextField** reason_output,
+                                 saccade::platform::macos::PointerActionBlockReason pointer_block) {
+    NSTextField* status = [NSTextField labelWithString:permission_text(row.status)];
+    status.font = [NSFont systemFontOfSize:NSFont.systemFontSize weight:NSFontWeightSemibold];
+    status.textColor =
+        row.state == saccade::platform::macos::PermissionState::allowed ? NSColor.systemGreenColor : NSColor.systemOrangeColor;
+    NSString* purpose = [NSString stringWithFormat:@"%@ %@", permission_text(row.purpose), permission_text(row.privacy)];
+    NSTextField* explanation = permission_copy(purpose);
+    NSButton* request = [NSButton buttonWithTitle:@"Request Access" target:target action:@selector(requestPermissionAccess:)];
+    request.tag = static_cast<NSInteger>(row.capability);
+    request.enabled = row.state == saccade::platform::macos::PermissionState::access_required;
+    NSButton* settings = [NSButton buttonWithTitle:@"Open System Settings" target:target action:@selector(openPermissionSettings:)];
+    settings.tag = static_cast<NSInteger>(row.capability);
+    NSStackView* actions = [NSStackView stackViewWithViews:@[ request, settings ]];
+    actions.spacing = 8;
+    NSStackView* detail = [NSStackView stackViewWithViews:@[ status, explanation, actions ]];
+    detail.orientation = NSUserInterfaceLayoutOrientationVertical;
+    detail.alignment = NSLayoutAttributeLeading;
+    detail.spacing = 4;
+    if (row.capability == saccade::platform::macos::PermissionCapability::post_events) {
+        NSTextField* reason = permission_copy(permission_text(saccade::platform::macos::pointer_block_explanation(pointer_block)));
+        [detail addArrangedSubview:reason];
+        *reason_output = reason;
+    }
+    *status_output = status;
+    *request_output = request;
+    return detail;
+}
+
 static NSPopUpButton* settings_popup(NSArray<NSString*>* items, NSInteger selected) {
     NSPopUpButton* popup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(0, 0, 230, 26) pullsDown:NO];
     [popup addItemsWithTitles:items];
@@ -662,8 +778,7 @@ static NSTextField* settings_number(NSInteger value) {
 }
 
 static NSTextField* settings_unsigned(uint64_t value, bool hexadecimal = false) {
-    NSString* text =
-        hexadecimal ? [NSString stringWithFormat:@"0x%llx", value] : [NSString stringWithFormat:@"%llu", value];
+    NSString* text = hexadecimal ? [NSString stringWithFormat:@"0x%llx", value] : [NSString stringWithFormat:@"%llu", value];
     NSTextField* field = [NSTextField textFieldWithString:text];
     field.alignment = NSTextAlignmentRight;
     return field;
@@ -671,51 +786,54 @@ static NSTextField* settings_unsigned(uint64_t value, bool hexadecimal = false) 
 
 static bool settings_u64(NSTextField* field, uint64_t maximum, uint64_t* output) noexcept {
     const char* text = field.stringValue.UTF8String;
-    if (text == nullptr || *text == '\0') return false;
+    if (text == nullptr || *text == '\0')
+        return false;
     errno = 0;
     char* end = nullptr;
     const unsigned long long value = std::strtoull(text, &end, 0);
-    if (errno != 0 || end == text || *end != '\0' || value > maximum) return false;
+    if (errno != 0 || end == text || *end != '\0' || value > maximum)
+        return false;
     *output = static_cast<uint64_t>(value);
     return true;
 }
 
 static bool settings_i32(NSTextField* field, int32_t* output) noexcept {
     const char* text = field.stringValue.UTF8String;
-    if (text == nullptr || *text == '\0') return false;
+    if (text == nullptr || *text == '\0')
+        return false;
     errno = 0;
     char* end = nullptr;
     const long long value = std::strtoll(text, &end, 0);
-    if (errno != 0 || end == text || *end != '\0' || value < INT32_MIN || value > INT32_MAX) return false;
+    if (errno != 0 || end == text || *end != '\0' || value < INT32_MIN || value > INT32_MAX)
+        return false;
     *output = static_cast<int32_t>(value);
     return true;
 }
 
 template <size_t Size> bool settings_utf8(NSString* text, std::array<char, Size>* output) noexcept {
     NSData* bytes = [text dataUsingEncoding:NSUTF8StringEncoding];
-    if (bytes == nil || bytes.length == 0 || bytes.length >= output->size()) return false;
+    if (bytes == nil || bytes.length == 0 || bytes.length >= output->size())
+        return false;
     output->fill(0);
     std::memcpy(output->data(), bytes.bytes, bytes.length);
     return true;
 }
 
 static bool settings_alphabet(NSString* text, saccade::application::HintSettings* output) noexcept {
-    if (text.length < 2 || text.length > output->alphabet.size()) return false;
+    if (text.length < 2 || text.length > output->alphabet.size())
+        return false;
     std::array<uint16_t, saccade::interaction::maximum_hint_alphabet> symbols{};
     [text getCharacters:symbols.data() range:NSMakeRange(0, text.length)];
-    return saccade::application::set_hint_alphabet(output, symbols.data(), static_cast<uint32_t>(text.length)) ==
-           SACCADE_OK;
+    return saccade::application::set_hint_alphabet(output, symbols.data(), static_cast<uint32_t>(text.length)) == SACCADE_OK;
 }
 
-static NSView* settings_scroll_view(NSGridView* grid) {
-    grid.rowSpacing = 8;
-    grid.columnSpacing = 12;
-    const NSSize fitting = grid.fittingSize;
-    grid.frame = NSMakeRect(0, 0, std::max<CGFloat>(fitting.width, 570), fitting.height);
+static NSView* settings_scroll_view(NSView* document) {
+    const NSSize fitting = document.fittingSize;
+    document.frame = NSMakeRect(0, 0, std::max<CGFloat>(fitting.width, 570), fitting.height);
     NSScrollView* scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, 610, 500)];
     scroll.hasVerticalScroller = YES;
     scroll.drawsBackground = NO;
-    scroll.documentView = grid;
+    scroll.documentView = document;
     return scroll;
 }
 
@@ -743,13 +861,13 @@ static NSString* binding_summary(const saccade::application::SettingsDocument& s
 static NSInteger binding_key_index(uint32_t usage) noexcept {
     const auto& keys = saccade::application::binding_keys();
     for (size_t index = 0; index < keys.size(); ++index) {
-        if (keys[index].usage == usage) return static_cast<NSInteger>(index);
+        if (keys[index].usage == usage)
+            return static_cast<NSInteger>(index);
     }
     return -1;
 }
 
-static NSView* binding_keyboard(const saccade::application::SettingsDocument& settings,
-                                SaccadeKeyboardSelection* selection) {
+static NSView* binding_keyboard(const saccade::application::SettingsDocument& settings, SaccadeKeyboardSelection* selection) {
     constexpr int32_t keyboard_width = 575;
     constexpr int32_t keyboard_height = 210;
     saccade::application::BindingKeyboardLayout layout{};
@@ -762,7 +880,8 @@ static NSView* binding_keyboard(const saccade::application::SettingsDocument& se
     for (uint32_t index = 0; index < layout.key_count; ++index) {
         const saccade::application::BindingKeyRect& rect = layout.keys[index];
         const NSInteger key_index = binding_key_index(rect.usage);
-        if (key_index < 0) continue;
+        if (key_index < 0)
+            continue;
         const auto& key = saccade::application::binding_keys()[static_cast<size_t>(key_index)];
         NSString* title = [NSString stringWithUTF8String:key.name];
         NSButton* button = [NSButton buttonWithTitle:title target:selection action:@selector(chooseKey:)];
@@ -773,9 +892,9 @@ static NSView* binding_keyboard(const saccade::application::SettingsDocument& se
         button.font = [NSFont systemFontOfSize:10];
         [button setButtonType:NSButtonTypePushOnPushOff];
         for (uint32_t binding_index = 0; binding_index < settings.binding_count; ++binding_index) {
-            if (settings.bindings[binding_index].physical_key != rect.usage) continue;
-            button.toolTip = [NSString
-                stringWithUTF8String:saccade::application::command_name(settings.bindings[binding_index].command)];
+            if (settings.bindings[binding_index].physical_key != rect.usage)
+                continue;
+            button.toolTip = [NSString stringWithUTF8String:saccade::application::command_name(settings.bindings[binding_index].command)];
             break;
         }
         if (key_index == selection.popup.indexOfSelectedItem) {
@@ -834,30 +953,38 @@ static SaccadeResult run_binding_editor() {
         [editor addButtonWithTitle:@"Remove"];
         [editor addButtonWithTitle:@"Done"];
         const NSModalResponse response = [editor runModal];
-        if (response == NSAlertThirdButtonReturn) return application.settings_.commit();
+        if (response == NSAlertThirdButtonReturn)
+            return application.settings_.commit();
         SettingsDocument staged = application.settings_.staged();
         const Command selected_command = static_cast<Command>(command.indexOfSelectedItem + 1);
         SaccadeResult result = SACCADE_OK;
         BindingConflict conflict{};
         if (response == NSAlertFirstButtonReturn) {
             uint32_t modifiers = 0;
-            if (control.state == NSControlStateValueOn) modifiers |= SACCADE_INPUT_MODIFIER_CONTROL;
-            if (alt.state == NSControlStateValueOn) modifiers |= SACCADE_INPUT_MODIFIER_ALT;
-            if (shift.state == NSControlStateValueOn) modifiers |= SACCADE_INPUT_MODIFIER_SHIFT;
-            if (meta.state == NSControlStateValueOn) modifiers |= SACCADE_INPUT_MODIFIER_META;
+            if (control.state == NSControlStateValueOn)
+                modifiers |= SACCADE_INPUT_MODIFIER_CONTROL;
+            if (alt.state == NSControlStateValueOn)
+                modifiers |= SACCADE_INPUT_MODIFIER_ALT;
+            if (shift.state == NSControlStateValueOn)
+                modifiers |= SACCADE_INPUT_MODIFIER_SHIFT;
+            if (meta.state == NSControlStateValueOn)
+                modifiers |= SACCADE_INPUT_MODIFIER_META;
             uint32_t flags = selected_command == Command::suspend_toggle ? hotkey_always_active : 0;
-            if (sessionOnly.state == NSControlStateValueOn) flags |= hotkey_session_only;
+            if (sessionOnly.state == NSControlStateValueOn)
+                flags |= hotkey_session_only;
             const uint32_t physical_key = binding_keys()[static_cast<size_t>(key.indexOfSelectedItem)].usage;
             uint16_t logical_symbol = saccade::platform::macos::logical_symbol_from_hid_usage(physical_key);
-            if (logical_symbol == 0) logical_symbol = default_logical_symbol(physical_key);
-            result = set_binding(
-                &staged, {selected_command, physical_key, modifiers, static_cast<uint16_t>(flags), logical_symbol},
-                &conflict);
+            if (logical_symbol == 0)
+                logical_symbol = default_logical_symbol(physical_key);
+            result =
+                set_binding(&staged, {selected_command, physical_key, modifiers, static_cast<uint16_t>(flags), logical_symbol}, &conflict);
         } else {
             result = remove_binding(&staged, selected_command);
         }
-        if (result == SACCADE_OK) result = application.settings_.stage(staged);
-        if (result == SACCADE_OK || result == SACCADE_ERROR_NOT_FOUND) continue;
+        if (result == SACCADE_OK)
+            result = application.settings_.stage(staged);
+        if (result == SACCADE_OK || result == SACCADE_ERROR_NOT_FOUND)
+            continue;
         NSAlert* failure = [[NSAlert alloc] init];
         failure.messageText = result == SACCADE_ERROR_ALREADY_EXISTS
                                   ? [NSString stringWithFormat:@"Key is assigned to %s", command_name(conflict.command)]
@@ -877,7 +1004,8 @@ static SaccadeResult run_binding_editor() {
     self.statusItem.button.image = status_icon;
     self.statusItem.button.toolTip = @"Saccade";
     const SaccadeResult started = application.initialize(self);
-    if (started != SACCADE_OK) application.fault_ = started;
+    if (started != SACCADE_OK)
+        application.fault_ = started;
     self.runtimeTimer = [NSTimer scheduledTimerWithTimeInterval:(1.0 / 120.0)
                                                          target:self
                                                        selector:@selector(tickRuntime:)
@@ -914,6 +1042,11 @@ static SaccadeResult run_binding_editor() {
     [self rebuildMenu];
 }
 
+- (void)applicationDidBecomeActive:(NSNotification*)notification {
+    (void)notification;
+    [self refreshPermissionSettings];
+}
+
 - (void)applicationWillTerminate:(NSNotification*)notification {
     (void)notification;
     [self.runtimeTimer invalidate];
@@ -922,7 +1055,8 @@ static SaccadeResult run_binding_editor() {
     [NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self];
     [NSDistributedNotificationCenter.defaultCenter removeObserver:self];
     application.shutdown();
-    if (application.restart_requested_) (void)launch_replacement();
+    if (application.restart_requested_)
+        (void)launch_replacement();
 }
 
 - (void)rebuildMenu {
@@ -936,7 +1070,7 @@ static SaccadeResult run_binding_editor() {
         if (application.permission_attention_) {
             self.faultItem = [menu addItemWithTitle:@"Permissions required" action:nil keyEquivalent:@""];
             self.faultItem.enabled = NO;
-            [menu addItemWithTitle:@"Grant permissions..." action:@selector(requestPermissions:) keyEquivalent:@""];
+            [menu addItemWithTitle:@"Review permissions..." action:@selector(openSettings:) keyEquivalent:@""];
         }
         if (application.fault_ != SACCADE_OK) {
             self.faultItem = [menu addItemWithTitle:@"Targeting runtime is not connected" action:nil keyEquivalent:@""];
@@ -960,36 +1094,88 @@ static SaccadeResult run_binding_editor() {
                                          : @"Saccade - attention required";
 }
 
-- (void)requestPermissions:(id)sender {
-    (void)sender;
-    request_platform_permissions();
+- (void)requestPermissionAccess:(id)sender {
+    if (![sender isKindOfClass:NSButton.class])
+        return;
+    const NSInteger tag = static_cast<NSButton*>(sender).tag;
+    if (tag < static_cast<NSInteger>(saccade::platform::macos::PermissionCapability::screen_recording) ||
+        tag > static_cast<NSInteger>(saccade::platform::macos::PermissionCapability::post_events))
+        return;
+    request_platform_permission(static_cast<saccade::platform::macos::PermissionCapability>(tag));
+    [self refreshPermissionSettings];
+    __weak SaccadeAppDelegate* weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, static_cast<int64_t>(NSEC_PER_SEC)), dispatch_get_main_queue(),
+                   ^{ [weakSelf refreshPermissionSettings]; });
+}
+
+- (void)openPermissionSettings:(id)sender {
+    if (![sender isKindOfClass:NSButton.class])
+        return;
+    const NSInteger tag = static_cast<NSButton*>(sender).tag;
+    if (tag < static_cast<NSInteger>(saccade::platform::macos::PermissionCapability::screen_recording) ||
+        tag > static_cast<NSInteger>(saccade::platform::macos::PermissionCapability::post_events))
+        return;
+    const auto capability = static_cast<saccade::platform::macos::PermissionCapability>(tag);
+    const char* value = saccade::platform::macos::system_settings_url(saccade::platform::macos::permission_settings_pane(capability));
+    NSString* string = value == nullptr ? nil : [NSString stringWithUTF8String:value];
+    NSURL* url = string == nil ? nil : [NSURL URLWithString:string];
+    if (url != nil)
+        [NSWorkspace.sharedWorkspace openURL:url];
+}
+
+- (void)refreshPermissionSettings {
+    application.next_platform_permission_check_ns_ = 0;
     application.next_input_monitor_retry_ns_ = 0;
-    const SaccadeResult result = application.synchronize_input_monitor(timestamp_ns());
-    application.permission_attention_ = result == SACCADE_ERROR_PERMISSION || !platform_permissions_ready();
-    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION) application.fault_ = result;
-    [self rebuildMenu];
+    SaccadeResult result = SACCADE_OK;
+    const uint64_t now_ns = timestamp_ns();
+    if (application.pipeline_initialized_) {
+        const SaccadeResult pipeline_result = application.pipeline_.refresh_permissions(now_ns);
+        const SaccadeResult monitor_result = application.synchronize_input_monitor(now_ns);
+        result = pipeline_result != SACCADE_OK ? pipeline_result : monitor_result;
+    } else {
+        application.refresh_platform_permissions(now_ns);
+    }
+    application.permission_attention_ = result == SACCADE_ERROR_PERMISSION || !application.platform_permissions_ready_;
+    if (result != SACCADE_OK && result != SACCADE_ERROR_PERMISSION)
+        application.fault_ = result;
+    const auto presentation = application.permission_presentation();
+    const NSUInteger row_count = std::min<NSUInteger>(self.permissionStatusLabels.count, presentation.rows.size());
+    for (NSUInteger index = 0; index < row_count; ++index) {
+        const auto& row = presentation.rows[index];
+        NSTextField* status = self.permissionStatusLabels[index];
+        status.stringValue = permission_text(row.status);
+        status.textColor =
+            row.state == saccade::platform::macos::PermissionState::allowed ? NSColor.systemGreenColor : NSColor.systemOrangeColor;
+        if (index < self.permissionRequestButtons.count)
+            self.permissionRequestButtons[index].enabled = row.state == saccade::platform::macos::PermissionState::access_required;
+    }
+    if (self.permissionActionReason != nil)
+        self.permissionActionReason.stringValue =
+            permission_text(saccade::platform::macos::pointer_block_explanation(presentation.pointer_block));
+    if (self.statusItem != nil)
+        [self rebuildMenu];
 }
 
 - (void)openSettings:(id)sender {
     (void)sender;
-    if (application.settings_.editing()) (void)application.settings_.cancel();
-    if (application.settings_.begin_edit() != SACCADE_OK) return;
+    [self refreshPermissionSettings];
+    if (application.settings_.editing())
+        (void)application.settings_.cancel();
+    if (application.settings_.begin_edit() != SACCADE_OK)
+        return;
     const saccade::application::SettingsDocument& settings = application.settings_.staged();
 
-    NSTextField* alphabet =
-        [NSTextField textFieldWithString:[NSString stringWithCharacters:settings.hints.alphabet.data()
-                                                                 length:settings.hints.alphabet_count]];
+    NSTextField* alphabet = [NSTextField textFieldWithString:[NSString stringWithCharacters:settings.hints.alphabet.data()
+                                                                                     length:settings.hints.alphabet_count]];
     NSString* languageValue = [NSString stringWithUTF8String:settings.hints.language.data()];
     NSTextField* language = [NSTextField textFieldWithString:languageValue != nil ? languageValue : @""];
-    NSPopUpButton* hintPriority = settings_popup(@[ @"Scene order", @"Pointer", @"Scope center", @"Randomized" ],
-                                                 static_cast<NSInteger>(settings.hints.priority));
-    NSPopUpButton* hintPlacement = settings_popup(@[ @"Automatic", @"Above", @"Below", @"Left", @"Right" ],
-                                                  static_cast<NSInteger>(settings.hints.placement));
-    NSPopUpButton* hintSorting =
-        settings_popup(@[ @"Sorted", @"Randomized" ], static_cast<NSInteger>(settings.hints.sorting));
+    NSPopUpButton* hintPriority =
+        settings_popup(@[ @"Scene order", @"Pointer", @"Scope center", @"Randomized" ], static_cast<NSInteger>(settings.hints.priority));
+    NSPopUpButton* hintPlacement =
+        settings_popup(@[ @"Automatic", @"Above", @"Below", @"Left", @"Right" ], static_cast<NSInteger>(settings.hints.placement));
+    NSPopUpButton* hintSorting = settings_popup(@[ @"Sorted", @"Randomized" ], static_cast<NSInteger>(settings.hints.sorting));
 
-    NSPopUpButton* source =
-        settings_popup(@[ @"Pixel", @"Semantic", @"Grid", @"Fused" ], static_cast<NSInteger>(settings.source));
+    NSPopUpButton* source = settings_popup(@[ @"Pixel", @"Semantic", @"Grid", @"Fused" ], static_cast<NSInteger>(settings.source));
     NSTextField* confidence = settings_number(static_cast<NSInteger>(settings.detector.confidence_q16));
     NSTextField* textConfidence = settings_number(static_cast<NSInteger>(settings.detector.text_sensitivity_q16));
     NSTextField* duplicateIou = settings_number(static_cast<NSInteger>(settings.detector.duplicate_iou_q16));
@@ -1002,17 +1188,16 @@ static SaccadeResult run_binding_editor() {
     NSTextField* marginX = settings_number(settings.grid.margin_x_q8);
     NSTextField* marginY = settings_number(settings.grid.margin_y_q8);
 
-    NSPopUpButton* scope =
-        settings_popup(@[ @"Desktop", @"Active window", @"Monitor" ], static_cast<NSInteger>(settings.scope));
+    NSPopUpButton* scope = settings_popup(@[ @"Desktop", @"Active window", @"Monitor" ], static_cast<NSInteger>(settings.scope));
     NSTextField* monitor = settings_unsigned(settings.monitor_stable_id, true);
 
-    NSPopUpButton* finalPointer = settings_popup(@[ @"Target", @"Original position", @"Anchor" ],
-                                                 static_cast<NSInteger>(settings.pointer.final_position));
+    NSPopUpButton* finalPointer =
+        settings_popup(@[ @"Target", @"Original position", @"Anchor" ], static_cast<NSInteger>(settings.pointer.final_position));
     NSTextField* movement = settings_number(settings.pointer.movement_duration_ms);
     NSTextField* anchorX = settings_number(settings.pointer.anchor_x_q8);
     NSTextField* anchorY = settings_number(settings.pointer.anchor_y_q8);
-    NSPopUpButton* initialMode = settings_popup(@[ @"Single", @"Dual", @"Multi", @"Path" ],
-                                                static_cast<NSInteger>(settings.actions.initial_mode) - 1);
+    NSPopUpButton* initialMode =
+        settings_popup(@[ @"Single", @"Dual", @"Multi", @"Path" ], static_cast<NSInteger>(settings.actions.initial_mode) - 1);
     NSTextField* timeout = settings_number(settings.actions.timeout_ms);
     NSTextField* hold = settings_number(settings.actions.hold_duration_ms);
     NSTextField* drag = settings_number(settings.actions.drag_duration_ms);
@@ -1030,10 +1215,10 @@ static SaccadeResult run_binding_editor() {
 
     NSString* fontFamilyValue = [NSString stringWithUTF8String:settings.appearance.font_family.data()];
     NSTextField* fontFamily = [NSTextField textFieldWithString:fontFamilyValue != nil ? fontFamilyValue : @""];
-    NSPopUpButton* theme = settings_popup(@[ @"System", @"High contrast", @"Light", @"Dark", @"Custom" ],
-                                          static_cast<NSInteger>(settings.appearance.theme));
-    NSPopUpButton* placement = settings_popup(@[ @"Automatic", @"Above", @"Below", @"Left", @"Right" ],
-                                              static_cast<NSInteger>(settings.appearance.placement));
+    NSPopUpButton* theme =
+        settings_popup(@[ @"System", @"High contrast", @"Light", @"Dark", @"Custom" ], static_cast<NSInteger>(settings.appearance.theme));
+    NSPopUpButton* placement =
+        settings_popup(@[ @"Automatic", @"Above", @"Below", @"Left", @"Right" ], static_cast<NSInteger>(settings.appearance.placement));
     NSTextField* fontSize = settings_number(settings.appearance.font_size_q8);
     NSTextField* fontWeight = settings_number(settings.appearance.font_weight);
     NSTextField* labelColor = settings_unsigned(settings.appearance.label_rgba, true);
@@ -1043,18 +1228,15 @@ static SaccadeResult run_binding_editor() {
     NSTextField* outlineWidth = settings_number(settings.appearance.outline_width_q8);
     NSTextField* glowRadius = settings_number(settings.appearance.glow_radius_q8);
     NSButton* animate = [NSButton checkboxWithTitle:@"Animate overlay" target:nil action:nil];
-    animate.state = (settings.flags & saccade::application::settings_animate_overlay) != 0 ? NSControlStateValueOn
-                                                                                           : NSControlStateValueOff;
+    animate.state = (settings.flags & saccade::application::settings_animate_overlay) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
     NSButton* reduced = [NSButton checkboxWithTitle:@"Reduced motion" target:nil action:nil];
-    reduced.state = (settings.flags & saccade::application::settings_reduced_motion) != 0 ? NSControlStateValueOn
-                                                                                          : NSControlStateValueOff;
+    reduced.state = (settings.flags & saccade::application::settings_reduced_motion) != 0 ? NSControlStateValueOn : NSControlStateValueOff;
 
-    NSPopUpButton* compute =
-        settings_popup(@[ @"All compute units", @"CPU only", @"CPU + GPU", @"CPU + Neural Engine", @"Named device" ],
-                       static_cast<NSInteger>(settings.compute.policy));
+    NSPopUpButton* compute = settings_popup(@[ @"All compute units", @"CPU only", @"CPU + GPU", @"CPU + Neural Engine", @"Named device" ],
+                                            static_cast<NSInteger>(settings.compute.policy));
     NSTextField* device = settings_unsigned(settings.compute.device_stable_id, true);
-    NSPopUpButton* resetPage = settings_popup(
-        @[ @"Bindings", @"Hints", @"Detector", @"Scope", @"Pointer and actions", @"Appearance", @"Compute" ], 1);
+    NSPopUpButton* resetPage =
+        settings_popup(@[ @"Bindings", @"Hints", @"Detector", @"Scope", @"Pointer and actions", @"Appearance", @"Compute" ], 1);
 
     NSGridView* grid = [NSGridView gridViewWithViews:@[
         @[ settings_label(@"Hint alphabet"), alphabet ],
@@ -1086,10 +1268,7 @@ static SaccadeResult run_binding_editor() {
         @[ settings_label(@"Continuous scroll lease (ms, 0 = 250)"), scrollDuration ],
         @[ settings_label(@"Vertical scroll (Q8)"), scrollVertical ],
         @[ settings_label(@"Horizontal scroll (Q8)"), scrollHorizontal ],
-        @[
-            settings_label(@"Click modifiers"),
-            [NSStackView stackViewWithViews:@[ clickControl, clickAlt, clickShift, clickMeta ]]
-        ],
+        @[ settings_label(@"Click modifiers"), [NSStackView stackViewWithViews:@[ clickControl, clickAlt, clickShift, clickMeta ]] ],
         @[ settings_label(@"Font family"), fontFamily ],
         @[ settings_label(@"Theme"), theme ],
         @[ settings_label(@"Label placement"), placement ],
@@ -1106,54 +1285,99 @@ static SaccadeResult run_binding_editor() {
         @[ settings_label(@"Device stable ID"), device ],
         @[ settings_label(@"Reset page"), resetPage ]
     ]];
+    grid.rowSpacing = 8;
+    grid.columnSpacing = 12;
+
+    const auto permissions = application.permission_presentation();
+    NSMutableArray<NSArray<NSView*>*>* permissionRows = [NSMutableArray arrayWithCapacity:permissions.rows.size()];
+    NSMutableArray<NSTextField*>* statusLabels = [NSMutableArray arrayWithCapacity:permissions.rows.size()];
+    NSMutableArray<NSButton*>* requestButtons = [NSMutableArray arrayWithCapacity:permissions.rows.size()];
+    self.permissionActionReason = nil;
+    for (const auto& row : permissions.rows) {
+        NSTextField* status = nil;
+        NSButton* request = nil;
+        NSTextField* reason = nil;
+        NSView* detail = permission_detail(row, self, &status, &request, &reason, permissions.pointer_block);
+        [permissionRows addObject:@[ settings_label(permission_text(row.title)), detail ]];
+        [statusLabels addObject:status];
+        [requestButtons addObject:request];
+        if (reason != nil)
+            self.permissionActionReason = reason;
+    }
+    self.permissionStatusLabels = statusLabels;
+    self.permissionRequestButtons = requestButtons;
+    NSGridView* permissionGrid = [NSGridView gridViewWithViews:permissionRows];
+    permissionGrid.rowSpacing = 10;
+    permissionGrid.columnSpacing = 12;
+    NSBox* permissionBox = [[NSBox alloc] initWithFrame:NSZeroRect];
+    permissionBox.title = @"Privacy & Input Safety";
+    permissionBox.contentViewMargins = NSMakeSize(12, 12);
+    permissionBox.contentView = permissionGrid;
+    NSStackView* settingsDocument = [NSStackView stackViewWithViews:@[ permissionBox, grid ]];
+    settingsDocument.orientation = NSUserInterfaceLayoutOrientationVertical;
+    settingsDocument.alignment = NSLayoutAttributeLeading;
+    settingsDocument.spacing = 16;
 
     auto collect = [&]() noexcept -> SaccadeResult {
         using namespace saccade::application;
         SettingsDocument staged = settings;
         uint64_t value = 0;
-        if (!settings_alphabet(alphabet.stringValue, &staged.hints) ||
-            !settings_utf8(language.stringValue, &staged.hints.language) ||
+        if (!settings_alphabet(alphabet.stringValue, &staged.hints) || !settings_utf8(language.stringValue, &staged.hints.language) ||
             !settings_utf8(fontFamily.stringValue, &staged.appearance.font_family))
             return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.hints.priority = static_cast<saccade::interaction::HintPriority>(hintPriority.indexOfSelectedItem);
         staged.hints.placement = static_cast<HintPlacement>(hintPlacement.indexOfSelectedItem);
         staged.hints.sorting = static_cast<HintSorting>(hintSorting.indexOfSelectedItem);
         staged.source = static_cast<TargetSource>(source.indexOfSelectedItem);
-        if (!settings_u64(confidence, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(confidence, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.detector.confidence_q16 = static_cast<uint16_t>(value);
-        if (!settings_u64(textConfidence, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(textConfidence, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.detector.text_sensitivity_q16 = static_cast<uint16_t>(value);
-        if (!settings_u64(duplicateIou, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(duplicateIou, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.detector.duplicate_iou_q16 = static_cast<uint16_t>(value);
-        if (!settings_u64(minimumWidth, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(minimumWidth, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.detector.minimum_width_q8 = static_cast<uint16_t>(value);
-        if (!settings_u64(minimumHeight, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(minimumHeight, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.detector.minimum_height_q8 = static_cast<uint16_t>(value);
         staged.detector.merge_policy = static_cast<MergePolicy>(mergePolicy.indexOfSelectedItem);
-        if (!settings_u64(rows, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(rows, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.grid.rows = static_cast<uint16_t>(value);
-        if (!settings_u64(columns, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(columns, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.grid.columns = static_cast<uint16_t>(value);
-        if (!settings_u64(marginX, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(marginX, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.grid.margin_x_q8 = static_cast<uint16_t>(value);
-        if (!settings_u64(marginY, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(marginY, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.grid.margin_y_q8 = static_cast<uint16_t>(value);
         staged.scope = static_cast<TargetScope>(scope.indexOfSelectedItem);
-        if (!settings_u64(monitor, UINT64_MAX, &staged.monitor_stable_id)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(monitor, UINT64_MAX, &staged.monitor_stable_id))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.pointer.final_position = static_cast<FinalPointerPosition>(finalPointer.indexOfSelectedItem);
-        if (!settings_u64(movement, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(movement, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.pointer.movement_duration_ms = static_cast<uint32_t>(value);
         if (!settings_i32(anchorX, &staged.pointer.anchor_x_q8) || !settings_i32(anchorY, &staged.pointer.anchor_y_q8))
             return SACCADE_ERROR_INVALID_ARGUMENT;
-        staged.actions.initial_mode =
-            static_cast<saccade::interaction::SelectionMode>(initialMode.indexOfSelectedItem + 1);
-        if (!settings_u64(timeout, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        staged.actions.initial_mode = static_cast<saccade::interaction::SelectionMode>(initialMode.indexOfSelectedItem + 1);
+        if (!settings_u64(timeout, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.actions.timeout_ms = static_cast<uint32_t>(value);
-        if (!settings_u64(hold, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(hold, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.actions.hold_duration_ms = static_cast<uint32_t>(value);
-        if (!settings_u64(drag, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(drag, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.actions.drag_duration_ms = static_cast<uint32_t>(value);
-        if (!settings_u64(scrollDuration, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(scrollDuration, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.actions.scroll_duration_ms = static_cast<uint32_t>(value);
         if (!settings_i32(scrollVertical, &staged.actions.scroll_vertical_q8) ||
             !settings_i32(scrollHorizontal, &staged.actions.scroll_horizontal_q8))
@@ -1161,43 +1385,57 @@ static SaccadeResult run_binding_editor() {
         staged.actions.click_modifiers = 0;
         if (clickControl.state == NSControlStateValueOn)
             staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_CONTROL;
-        if (clickAlt.state == NSControlStateValueOn) staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_ALT;
-        if (clickShift.state == NSControlStateValueOn) staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_SHIFT;
-        if (clickMeta.state == NSControlStateValueOn) staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_META;
+        if (clickAlt.state == NSControlStateValueOn)
+            staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_ALT;
+        if (clickShift.state == NSControlStateValueOn)
+            staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_SHIFT;
+        if (clickMeta.state == NSControlStateValueOn)
+            staged.actions.click_modifiers |= SACCADE_INPUT_MODIFIER_META;
         staged.appearance.theme = static_cast<Theme>(theme.indexOfSelectedItem);
         staged.appearance.placement = static_cast<HintPlacement>(placement.indexOfSelectedItem);
-        if (!settings_u64(fontSize, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(fontSize, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.font_size_q8 = static_cast<uint32_t>(value);
-        if (!settings_u64(fontWeight, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(fontWeight, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.font_weight = static_cast<uint32_t>(value);
-        if (!settings_u64(labelColor, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(labelColor, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.label_rgba = static_cast<uint32_t>(value);
-        if (!settings_u64(backgroundColor, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(backgroundColor, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.background_rgba = static_cast<uint32_t>(value);
-        if (!settings_u64(outlineColor, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(outlineColor, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.outline_rgba = static_cast<uint32_t>(value);
-        if (!settings_u64(glowColor, UINT32_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(glowColor, UINT32_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.glow_rgba = static_cast<uint32_t>(value);
-        if (!settings_u64(outlineWidth, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(outlineWidth, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.outline_width_q8 = static_cast<uint16_t>(value);
-        if (!settings_u64(glowRadius, UINT16_MAX, &value)) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!settings_u64(glowRadius, UINT16_MAX, &value))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         staged.appearance.glow_radius_q8 = static_cast<uint16_t>(value);
         staged.flags = 0;
-        if (animate.state == NSControlStateValueOn) staged.flags |= settings_animate_overlay;
-        if (reduced.state == NSControlStateValueOn) staged.flags |= settings_reduced_motion;
+        if (animate.state == NSControlStateValueOn)
+            staged.flags |= settings_animate_overlay;
+        if (reduced.state == NSControlStateValueOn)
+            staged.flags |= settings_reduced_motion;
         staged.compute.policy = static_cast<ComputePolicy>(compute.indexOfSelectedItem);
-        if (!settings_u64(device, UINT64_MAX, &staged.compute.device_stable_id)) return SACCADE_ERROR_INVALID_ARGUMENT;
-        if (staged.compute.policy != ComputePolicy::named_device) staged.compute.device_stable_id = 0;
+        if (!settings_u64(device, UINT64_MAX, &staged.compute.device_stable_id))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (staged.compute.policy != ComputePolicy::named_device)
+            staged.compute.device_stable_id = 0;
         return application.settings_.stage(staged);
     };
 
     NSAlert* alert = [[NSAlert alloc] init];
     alert.messageText = @"Saccade settings";
     const auto stats = application.pipeline_.stats();
-    alert.informativeText =
-        [NSString stringWithFormat:@"Frames %@  Targets %@  Overlay %@  Failures %@", @(stats.frames_offered),
-                                   @(stats.activations), @(stats.overlay_publications), @(stats.failures)];
-    alert.accessoryView = settings_scroll_view(grid);
+    alert.informativeText = [NSString stringWithFormat:@"Frames %@  Targets %@  Overlay %@  Failures %@", @(stats.frames_offered),
+                                                       @(stats.activations), @(stats.overlay_publications), @(stats.failures)];
+    alert.accessoryView = settings_scroll_view(settingsDocument);
     [alert addButtonWithTitle:@"Apply"];
     [alert addButtonWithTitle:@"Cancel"];
     [alert addButtonWithTitle:@"Reset Page"];
@@ -1207,6 +1445,9 @@ static SaccadeResult run_binding_editor() {
     [alert addButtonWithTitle:@"Bindings..."];
     [NSApp activateIgnoringOtherApps:YES];
     const NSModalResponse response = [alert runModal];
+    self.permissionStatusLabels = nil;
+    self.permissionRequestButtons = nil;
+    self.permissionActionReason = nil;
     if (response == NSAlertSecondButtonReturn) {
         (void)application.settings_.cancel();
         return;
@@ -1218,13 +1459,14 @@ static SaccadeResult run_binding_editor() {
         if ([panel runModal] == NSModalResponseOK) {
             NSData* data = [NSData dataWithContentsOfURL:panel.URL];
             const SaccadeResult imported =
-                data == nil
-                    ? SACCADE_ERROR_NOT_FOUND
-                    : application.settings_.import_document({static_cast<const uint8_t*>(data.bytes), data.length});
+                data == nil ? SACCADE_ERROR_NOT_FOUND
+                            : application.settings_.import_document({static_cast<const uint8_t*>(data.bytes), data.length});
             const SaccadeResult committed = imported == SACCADE_OK ? application.settings_.commit() : imported;
-            if (committed == SACCADE_OK) return;
+            if (committed == SACCADE_OK)
+                return;
         }
-        if (application.settings_.editing()) (void)application.settings_.cancel();
+        if (application.settings_.editing())
+            (void)application.settings_.cancel();
     } else if (response == NSAlertFirstButtonReturn + 5) {
         std::array<uint8_t, saccade::application::settings_encoded_capacity> bytes{};
         size_t size = 0;
@@ -1240,25 +1482,30 @@ static SaccadeResult run_binding_editor() {
         }
         (void)application.settings_.cancel();
     } else if (response == NSAlertFirstButtonReturn + 6) {
-        if (run_binding_editor() == SACCADE_OK) return;
-        if (application.settings_.editing()) (void)application.settings_.cancel();
+        if (run_binding_editor() == SACCADE_OK)
+            return;
+        if (application.settings_.editing())
+            (void)application.settings_.cancel();
     } else if (response == NSAlertFirstButtonReturn + 3) {
         const SaccadeResult reset = application.settings_.reset_all();
         const SaccadeResult committed = reset == SACCADE_OK ? application.settings_.commit() : reset;
-        if (committed == SACCADE_OK) return;
+        if (committed == SACCADE_OK)
+            return;
         (void)application.settings_.cancel();
     } else if (response == NSAlertThirdButtonReturn) {
         SaccadeResult result = collect();
         if (result == SACCADE_OK)
-            result = application.settings_.reset_page(
-                static_cast<saccade::application::SettingsPage>(resetPage.indexOfSelectedItem));
-        if (result == SACCADE_OK) result = application.settings_.commit();
-        if (result == SACCADE_OK) return;
+            result = application.settings_.reset_page(static_cast<saccade::application::SettingsPage>(resetPage.indexOfSelectedItem));
+        if (result == SACCADE_OK)
+            result = application.settings_.commit();
+        if (result == SACCADE_OK)
+            return;
         (void)application.settings_.cancel();
     } else {
         const SaccadeResult stagedResult = collect();
         const SaccadeResult committed = stagedResult == SACCADE_OK ? application.settings_.commit() : stagedResult;
-        if (committed == SACCADE_OK) return;
+        if (committed == SACCADE_OK)
+            return;
         (void)application.settings_.cancel();
     }
     NSAlert* failure = [[NSAlert alloc] init];
@@ -1280,19 +1527,18 @@ static SaccadeResult run_binding_editor() {
         [NSApp activateIgnoringOtherApps:YES];
         return;
     }
-    self.diagnosticsPanel = [[NSPanel alloc]
-        initWithContentRect:NSMakeRect(0, 0, 860, 560)
-                  styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
-                    backing:NSBackingStoreBuffered
-                      defer:NO];
+    self.diagnosticsPanel =
+        [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 860, 560)
+                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
+                                     backing:NSBackingStoreBuffered
+                                       defer:NO];
     self.diagnosticsPanel.title = @"Saccade Diagnostics";
     self.diagnosticsPanel.releasedWhenClosed = NO;
     self.diagnosticsPanel.contentMinSize =
         NSMakeSize(saccade::application::debugger_minimum_width, saccade::application::debugger_minimum_height);
     self.diagnosticsPanel.delegate = self;
     self.diagnosticsView = [NSSegmentedControl segmentedControlWithLabels:@[
-        @"Overview", @"Displays", @"Runtime", @"Overlay / GPU", @"Memory", @"Trace", @"Frames / Transforms",
-        @"Scene / Fusion"
+        @"Overview", @"Displays", @"Runtime", @"Overlay / GPU", @"Memory", @"Trace", @"Frames / Transforms", @"Scene / Fusion"
     ]
                                                              trackingMode:NSSegmentSwitchTrackingSelectOne
                                                                    target:self
@@ -1332,11 +1578,12 @@ static SaccadeResult run_binding_editor() {
 }
 
 - (void)layoutDiagnostics {
-    if (self.diagnosticsPanel == nil) return;
+    if (self.diagnosticsPanel == nil)
+        return;
     const NSRect bounds = self.diagnosticsPanel.contentView.bounds;
     saccade::application::DebuggerLayout layout{};
-    if (saccade::application::make_debugger_layout(static_cast<int32_t>(NSWidth(bounds)),
-                                                   static_cast<int32_t>(NSHeight(bounds)), &layout) != SACCADE_OK)
+    if (saccade::application::make_debugger_layout(static_cast<int32_t>(NSWidth(bounds)), static_cast<int32_t>(NSHeight(bounds)),
+                                                   &layout) != SACCADE_OK)
         return;
     self.diagnosticsView.frame = debugger_rect(layout.views, NSHeight(bounds));
     self.diagnosticsScroll.frame = debugger_rect(layout.content, NSHeight(bounds));
@@ -1351,7 +1598,8 @@ static SaccadeResult run_binding_editor() {
 }
 
 - (void)windowDidResize:(NSNotification*)notification {
-    if (notification.object == self.diagnosticsPanel) [self layoutDiagnostics];
+    if (notification.object == self.diagnosticsPanel)
+        [self layoutDiagnostics];
 }
 
 - (void)changeDiagnosticsView:(id)sender {
@@ -1370,9 +1618,8 @@ static SaccadeResult run_binding_editor() {
     (void)sender;
     saccade::application::DebuggerPlanView plan{};
     const SaccadeResult result = application.pipeline_.debug_dry_run(timestamp_ns(), &plan);
-    self.debuggerOperation =
-        [NSString stringWithFormat:@"Dry run: %d  bytes %zu  commands %u", result, plan.bytes.size,
-                                   plan.plan.header == nullptr ? 0 : plan.plan.header->command_count];
+    self.debuggerOperation = [NSString stringWithFormat:@"Dry run: %d  bytes %zu  commands %u", result, plan.bytes.size,
+                                                        plan.plan.header == nullptr ? 0 : plan.plan.header->command_count];
     [self refreshDiagnostics];
 }
 
@@ -1380,9 +1627,8 @@ static SaccadeResult run_binding_editor() {
     (void)sender;
     saccade::application::DebuggerPlanView plan{};
     const SaccadeResult result = application.pipeline_.debug_replay(&plan);
-    self.debuggerOperation =
-        [NSString stringWithFormat:@"Replay: %d  bytes %zu  commands %u", result, plan.bytes.size,
-                                   plan.plan.header == nullptr ? 0 : plan.plan.header->command_count];
+    self.debuggerOperation = [NSString stringWithFormat:@"Replay: %d  bytes %zu  commands %u", result, plan.bytes.size,
+                                                        plan.plan.header == nullptr ? 0 : plan.plan.header->command_count];
     [self refreshDiagnostics];
 }
 
@@ -1397,8 +1643,7 @@ static SaccadeResult run_binding_editor() {
     (void)sender;
     const auto point = static_cast<saccade::application::DebugFaultPoint>(self.debugFault.indexOfSelectedItem);
     const SaccadeResult result = application.pipeline_.debug_arm_fault(point, 1, SACCADE_ERROR_BACKEND);
-    self.debuggerOperation =
-        [NSString stringWithFormat:@"Arm fault %ld: %d", self.debugFault.indexOfSelectedItem, result];
+    self.debuggerOperation = [NSString stringWithFormat:@"Arm fault %ld: %d", self.debugFault.indexOfSelectedItem, result];
     [self refreshDiagnostics];
 }
 
@@ -1407,65 +1652,52 @@ static SaccadeResult run_binding_editor() {
     const SaccadeResult result =
         application.pipeline_initialized_ ? application.pipeline_.read_diagnostics(&diagnostics) : SACCADE_ERROR_STATE;
     if (result != SACCADE_OK) {
-        self.diagnosticsText.string = [NSString
-            stringWithFormat:@"Runtime unavailable\nResult %d\nStage %u\nRecovery %s\nAttempt %u\nNext %llu ns",
-                             application.fault_, static_cast<uint32_t>(application.pipeline_.last_stage()),
-                             application.pipeline_recovery_.pending() ? "pending" : "inactive",
-                             application.pipeline_recovery_.attempt(),
-                             application.pipeline_recovery_.next_attempt_ns()];
+        self.diagnosticsText.string =
+            [NSString stringWithFormat:@"Runtime unavailable\nResult %d\nStage %u\nRecovery %s\nAttempt %u\nNext %llu ns",
+                                       application.fault_, static_cast<uint32_t>(application.pipeline_.last_stage()),
+                                       application.pipeline_recovery_.pending() ? "pending" : "inactive",
+                                       application.pipeline_recovery_.attempt(), application.pipeline_recovery_.next_attempt_ns()];
         return;
     }
     NSMutableString* text = [NSMutableString string];
-    if (self.debuggerOperation != nil) [text appendFormat:@"%@\n\n", self.debuggerOperation];
+    if (self.debuggerOperation != nil)
+        [text appendFormat:@"%@\n\n", self.debuggerOperation];
     const auto view = static_cast<saccade::application::DebuggerView>(self.diagnosticsView.selectedSegment);
     if (view == saccade::application::DebuggerView::overview) {
-        [text
-            appendFormat:@"Permissions  capture %s  accessibility %s  input %s\n"
-                          "Surface  disposition %u  reasons 0x%x  epoch %llu\n"
-                          "Displays %u  topology %llu  source %u  scope %u  compute %u\n"
-                          "Model %016llx  provider %016llx  device %016llx  precision 0x%x\n"
-                          "Scene %llu  targets %u  flags 0x%x  partial %s\n"
-                          "Failures pipeline %llu  runtime %llu  neural %llu  scene %llu\n",
-                         (diagnostics.permissions & saccade::platform::macos::diagnostic_capture_permission) != 0
-                             ? "yes"
-                             : "no",
-                         (diagnostics.permissions & saccade::platform::macos::diagnostic_accessibility_permission) != 0
-                             ? "yes"
-                             : "no",
-                         (diagnostics.permissions & saccade::platform::macos::diagnostic_input_permission) != 0 ? "yes"
-                                                                                                                : "no",
-                         static_cast<uint32_t>(diagnostics.surface), diagnostics.surface_reason_bits,
-                         diagnostics.surface_epoch, diagnostics.display_count, diagnostics.topology_epoch,
-                         static_cast<uint32_t>(diagnostics.source), static_cast<uint32_t>(diagnostics.scope),
-                         static_cast<uint32_t>(diagnostics.compute), diagnostics.model.model_stable_id,
-                         diagnostics.model.provider_stable_id, diagnostics.model.device_stable_id,
-                         diagnostics.model.precision_bits, diagnostics.runtime.scene_status.scene_epoch,
-                         diagnostics.runtime.scene_status.target_count, diagnostics.runtime.scene_status.packet_flags,
-                         (diagnostics.runtime.scene_status.packet_flags & SACCADE_TARGET_PACKET_INCOMPLETE) != 0 ? "yes"
-                                                                                                                 : "no",
-                         diagnostics.pipeline.failures, diagnostics.runtime.runtime.failures,
-                         diagnostics.runtime.neural.failures, diagnostics.runtime.scene.failures];
+        [text appendFormat:@"Permissions  capture %s  accessibility %s  input %s\n"
+                            "Surface  disposition %u  reasons 0x%x  epoch %llu\n"
+                            "Displays %u  topology %llu  source %u  scope %u  compute %u\n"
+                            "Model %016llx  provider %016llx  device %016llx  precision 0x%x\n"
+                            "Scene %llu  targets %u  flags 0x%x  partial %s\n"
+                            "Failures pipeline %llu  runtime %llu  neural %llu  scene %llu\n",
+                           (diagnostics.permissions & saccade::platform::macos::diagnostic_capture_permission) != 0 ? "yes" : "no",
+                           (diagnostics.permissions & saccade::platform::macos::diagnostic_accessibility_permission) != 0 ? "yes" : "no",
+                           (diagnostics.permissions & saccade::platform::macos::diagnostic_input_permission) != 0 ? "yes" : "no",
+                           static_cast<uint32_t>(diagnostics.surface), diagnostics.surface_reason_bits, diagnostics.surface_epoch,
+                           diagnostics.display_count, diagnostics.topology_epoch, static_cast<uint32_t>(diagnostics.source),
+                           static_cast<uint32_t>(diagnostics.scope), static_cast<uint32_t>(diagnostics.compute),
+                           diagnostics.model.model_stable_id, diagnostics.model.provider_stable_id, diagnostics.model.device_stable_id,
+                           diagnostics.model.precision_bits, diagnostics.runtime.scene_status.scene_epoch,
+                           diagnostics.runtime.scene_status.target_count, diagnostics.runtime.scene_status.packet_flags,
+                           (diagnostics.runtime.scene_status.packet_flags & SACCADE_TARGET_PACKET_INCOMPLETE) != 0 ? "yes" : "no",
+                           diagnostics.pipeline.failures, diagnostics.runtime.runtime.failures, diagnostics.runtime.neural.failures,
+                           diagnostics.runtime.scene.failures];
     } else if (view == saccade::application::DebuggerView::displays) {
         for (uint32_t index = 0; index < diagnostics.display_count; ++index) {
             const auto& display = diagnostics.displays[index].display;
             [text appendFormat:@"Display %u  id %016llx  %ux%u @ %u Hz  rotation %u  flags 0x%x\n"
                                 "  desktop (%d,%d) %dx%d  work (%d,%d) %dx%d\n",
-                               index, display.display_id, display.backing_width, display.backing_height,
-                               display.maximum_fps, static_cast<uint32_t>(display.rotation), display.flags,
-                               display.desktop_bounds.x, display.desktop_bounds.y, display.desktop_bounds.width,
-                               display.desktop_bounds.height, display.work_bounds.x, display.work_bounds.y,
+                               index, display.display_id, display.backing_width, display.backing_height, display.maximum_fps,
+                               static_cast<uint32_t>(display.rotation), display.flags, display.desktop_bounds.x, display.desktop_bounds.y,
+                               display.desktop_bounds.width, display.desktop_bounds.height, display.work_bounds.x, display.work_bounds.y,
                                display.work_bounds.width, display.work_bounds.height];
         }
     } else if (view == saccade::application::DebuggerView::runtime) {
         const auto& runtime = diagnostics.runtime;
         const uint64_t average_batch_ns =
-            runtime.neural.batches_published == 0
-                ? 0
-                : runtime.neural.batch_latency_total_ns / runtime.neural.batches_published;
+            runtime.neural.batches_published == 0 ? 0 : runtime.neural.batch_latency_total_ns / runtime.neural.batches_published;
         const uint64_t average_full_scope_ns =
-            runtime.neural.batches_published == 0
-                ? 0
-                : runtime.neural.full_scope_latency_total_ns / runtime.neural.batches_published;
+            runtime.neural.batches_published == 0 ? 0 : runtime.neural.full_scope_latency_total_ns / runtime.neural.batches_published;
         [text appendFormat:@"Frames offered %llu  replaced %llu  stale %llu\n"
                             "Batches started %llu  published %llu  sources completed %llu  failed %llu\n"
                             "Batch latency avg %llu ns  max %llu ns  missed %llu\n"
@@ -1474,52 +1706,44 @@ static SaccadeResult run_binding_editor() {
                             "Semantic partial %llu  partial publications %llu  text truncations %llu\n"
                             "Commands %llu  symbols %llu  overlay compositions %llu\n",
                            runtime.neural.frames_offered, runtime.neural.frames_replaced, runtime.neural.frames_stale,
-                           runtime.neural.batches_started, runtime.neural.batches_published,
-                           runtime.neural.sources_completed, runtime.neural.sources_failed, average_batch_ns,
-                           runtime.neural.batch_latency_max_ns, runtime.neural.batch_deadlines_missed,
-                           average_full_scope_ns, runtime.neural.full_scope_latency_max_ns,
-                           runtime.neural.full_scope_deadlines_missed, runtime.scene.advances,
-                           runtime.scene.neural_updates, runtime.scene.fused_publications,
-                           runtime.scene.targets_published, runtime.scene.semantic_incomplete,
-                           runtime.scene.incomplete_publications, runtime.scene.text_truncated_publications,
-                           runtime.runtime.commands, runtime.runtime.symbols, runtime.runtime.overlay_compositions];
+                           runtime.neural.batches_started, runtime.neural.batches_published, runtime.neural.sources_completed,
+                           runtime.neural.sources_failed, average_batch_ns, runtime.neural.batch_latency_max_ns,
+                           runtime.neural.batch_deadlines_missed, average_full_scope_ns, runtime.neural.full_scope_latency_max_ns,
+                           runtime.neural.full_scope_deadlines_missed, runtime.scene.advances, runtime.scene.neural_updates,
+                           runtime.scene.fused_publications, runtime.scene.targets_published, runtime.scene.semantic_incomplete,
+                           runtime.scene.incomplete_publications, runtime.scene.text_truncated_publications, runtime.runtime.commands,
+                           runtime.runtime.symbols, runtime.runtime.overlay_compositions];
     } else if (view == saccade::application::DebuggerView::overlay_gpu) {
         for (uint32_t index = 0; index < diagnostics.display_count; ++index) {
             const auto& display = diagnostics.displays[index];
             [text appendFormat:@"Display %016llx  ticks %llu  rendered %llu  busy %llu  deadlines %llu\n"
                                 "  GPU path %u  slots %u  target cap %u  instance cap %u\n"
                                 "  submissions %llu  busy %llu  static %llu  active %llu  draw calls %llu\n",
-                               display.display.display_id, display.overlay.display_ticks,
-                               display.overlay.rendered_frames, display.overlay.busy_frames,
-                               display.overlay.deadline_misses, static_cast<uint32_t>(display.gpu.path),
-                               display.gpu.slot_count, display.gpu.target_capacity, display.gpu.instance_capacity,
-                               display.gpu.submissions, display.gpu.busy_submissions, display.gpu.static_dispatches,
-                               display.gpu.active_dispatches, display.gpu.draw_calls];
+                               display.display.display_id, display.overlay.display_ticks, display.overlay.rendered_frames,
+                               display.overlay.busy_frames, display.overlay.deadline_misses, static_cast<uint32_t>(display.gpu.path),
+                               display.gpu.slot_count, display.gpu.target_capacity, display.gpu.instance_capacity, display.gpu.submissions,
+                               display.gpu.busy_submissions, display.gpu.static_dispatches, display.gpu.active_dispatches,
+                               display.gpu.draw_calls];
         }
     } else if (view == saccade::application::DebuggerView::memory) {
-        const uint64_t inference =
-            diagnostics.inference_memory.device_owned + diagnostics.inference_memory.device_imported;
+        const uint64_t inference = diagnostics.inference_memory.device_owned + diagnostics.inference_memory.device_imported;
         [text appendFormat:@"Inference device %llu  host %llu  framework %llu  high water %llu\n"
                             "Preprocess high water %llu  capture high water %llu  overlay known %llu\n",
-                           inference, diagnostics.inference_memory.host_committed,
-                           diagnostics.inference_memory.framework_opaque, diagnostics.inference_memory.high_water_bytes,
-                           diagnostics.preprocess_memory.high_water_bytes, diagnostics.capture_memory.high_water_bytes,
-                           diagnostics.overlay.known_memory_bytes];
+                           inference, diagnostics.inference_memory.host_committed, diagnostics.inference_memory.framework_opaque,
+                           diagnostics.inference_memory.high_water_bytes, diagnostics.preprocess_memory.high_water_bytes,
+                           diagnostics.capture_memory.high_water_bytes, diagnostics.overlay.known_memory_bytes];
         for (uint32_t index = 0; index < diagnostics.display_count; ++index)
             [text appendFormat:@"Display %016llx  surface %llu  drawable %llu  total %llu\n",
-                               diagnostics.displays[index].display.display_id,
-                               diagnostics.displays[index].memory.surface_host_bytes,
+                               diagnostics.displays[index].display.display_id, diagnostics.displays[index].memory.surface_host_bytes,
                                diagnostics.displays[index].memory.drawable_bytes_estimate,
                                diagnostics.displays[index].memory.total_known_and_estimated];
     } else if (view == saccade::application::DebuggerView::trace) {
         const auto& trace = diagnostics.runtime.trace;
-        [text appendFormat:@"Events %u  overwritten %llu  next %llu\n\n", trace.count, trace.overwritten,
-                           trace.next_sequence];
+        [text appendFormat:@"Events %u  overwritten %llu  next %llu\n\n", trace.count, trace.overwritten, trace.next_sequence];
         for (uint32_t index = 0; index < trace.count; ++index) {
             const auto& event = trace.events[index];
-            [text appendFormat:@"#%llu  time %llu  code %u  result %d  flags 0x%x  argument %llu\n", event.sequence,
-                               event.timestamp_ns, static_cast<uint32_t>(event.code), event.result, event.flags,
-                               event.argument];
+            [text appendFormat:@"#%llu  time %llu  code %u  result %d  flags 0x%x  argument %llu\n", event.sequence, event.timestamp_ns,
+                               static_cast<uint32_t>(event.code), event.result, event.flags, event.argument];
         }
     } else if (view == saccade::application::DebuggerView::frames_transforms) {
         const auto& frames = diagnostics.debugger_frames_transforms;
@@ -1527,9 +1751,8 @@ static SaccadeResult run_binding_editor() {
                             "Transform %llu  topology %llu  source %llu  targets %u\n"
                             "Bytes %llu  captured %llu ns  transforms %u\n\n",
                            frames.frame.scene.scene_epoch, frames.frame.scene.frame_id, frames.frame.scene.model_epoch,
-                           frames.frame.scene.session_epoch, frames.frame.scene.transform_epoch,
-                           frames.frame.scene.topology_epoch, frames.frame.scene.source_id,
-                           frames.frame.scene.target_count, frames.frame.byte_size, frames.frame.timestamp_ns,
+                           frames.frame.scene.session_epoch, frames.frame.scene.transform_epoch, frames.frame.scene.topology_epoch,
+                           frames.frame.scene.source_id, frames.frame.scene.target_count, frames.frame.byte_size, frames.frame.timestamp_ns,
                            frames.transform_count];
         for (uint32_t index = 0; index < frames.transform_count; ++index) {
             const auto& record = frames.transforms[index];
@@ -1537,13 +1760,10 @@ static SaccadeResult run_binding_editor() {
             [text appendFormat:@"Transform %u  source %016llx  display %016llx  epoch %llu\n"
                                 "  space %u -> %u  rotation %u  flags 0x%x\n"
                                 "  source (%d,%d) %dx%d  destination (%d,%d) %dx%d\n",
-                               index, record.source_id, record.display_id, transform.epoch,
-                               static_cast<uint32_t>(transform.source_space),
-                               static_cast<uint32_t>(transform.destination_space),
-                               static_cast<uint32_t>(transform.rotation), transform.flags, transform.source.x,
-                               transform.source.y, transform.source.width, transform.source.height,
-                               transform.destination.x, transform.destination.y, transform.destination.width,
-                               transform.destination.height];
+                               index, record.source_id, record.display_id, transform.epoch, static_cast<uint32_t>(transform.source_space),
+                               static_cast<uint32_t>(transform.destination_space), static_cast<uint32_t>(transform.rotation),
+                               transform.flags, transform.source.x, transform.source.y, transform.source.width, transform.source.height,
+                               transform.destination.x, transform.destination.y, transform.destination.width, transform.destination.height];
         }
     } else {
         const auto& scene = diagnostics.debugger_scene_fusion;
@@ -1555,21 +1775,19 @@ static SaccadeResult run_binding_editor() {
                             "Sources neural %u  accessibility %u  pixel %u  grid %u  fused %u\n"
                             "State actionable %u  disabled %u  occluded %u  secure %u  approximate %u\n"
                             "Text bytes %u  redacted %u  truncated %u  capabilities 0x%x\n\n",
-                           scene.scene.scene_epoch, scene.scene.frame_id, targets.target_count, scene.sample_count,
-                           scene.samples_omitted, scene.fusion_input_count, fusion.candidates_read,
-                           fusion.targets_written, fusion.capacity_drops, fusion.bucket_visits, fusion.overlap_tests,
-                           fusion.duplicates_merged, fusion.safety_merges, targets.neural, targets.accessibility,
-                           targets.pixel, targets.grid, targets.fused, targets.actionable, targets.disabled,
-                           targets.occluded, targets.secure, targets.approximate, targets.text_bytes,
-                           targets.text_redacted, targets.text_truncated, targets.capability_bits];
+                           scene.scene.scene_epoch, scene.scene.frame_id, targets.target_count, scene.sample_count, scene.samples_omitted,
+                           scene.fusion_input_count, fusion.candidates_read, fusion.targets_written, fusion.capacity_drops,
+                           fusion.bucket_visits, fusion.overlap_tests, fusion.duplicates_merged, fusion.safety_merges, targets.neural,
+                           targets.accessibility, targets.pixel, targets.grid, targets.fused, targets.actionable, targets.disabled,
+                           targets.occluded, targets.secure, targets.approximate, targets.text_bytes, targets.text_redacted,
+                           targets.text_truncated, targets.capability_bits];
         for (uint32_t index = 0; index < scene.sample_count; ++index) {
             const auto& target = scene.samples[index];
             [text appendFormat:@"#%u  id %016llx  role %u  source 0x%x  confidence %u  flags 0x%x\n"
                                 "  bounds (%d,%d) %dx%d  safe (%d,%d)  window %016llx  order %u\n",
-                               index, target.target_id, target.role, target.source_bits, target.confidence_q16,
-                               target.flags, target.bounds.x, target.bounds.y, target.bounds.width,
-                               target.bounds.height, target.safe_point.x, target.safe_point.y, target.window_id,
-                               target.order];
+                               index, target.target_id, target.role, target.source_bits, target.confidence_q16, target.flags,
+                               target.bounds.x, target.bounds.y, target.bounds.width, target.bounds.height, target.safe_point.x,
+                               target.safe_point.y, target.window_id, target.order];
         }
     }
     self.diagnosticsText.string = text;
@@ -1596,7 +1814,8 @@ static SaccadeResult run_binding_editor() {
 
 - (void)refreshTopology:(NSNotification*)notification {
     (void)notification;
-    if (!application.pipeline_initialized_) return;
+    if (!application.pipeline_initialized_)
+        return;
     const SaccadeResult result = application.pipeline_.refresh_topology();
     if (result != SACCADE_OK) {
         if (result == SACCADE_ERROR_BACKEND)
@@ -1610,15 +1829,18 @@ static SaccadeResult run_binding_editor() {
 
 - (void)inputUnavailable:(NSNotification*)notification {
     (void)notification;
-    if (!application.pipeline_initialized_) return;
+    if (!application.pipeline_initialized_)
+        return;
     const uint64_t now_ns = timestamp_ns();
     const SaccadeResult result = application.pipeline_.set_input_available(false, now_ns);
-    if (result == SACCADE_ERROR_BACKEND) application.begin_pipeline_recovery(result, now_ns);
+    if (result == SACCADE_ERROR_BACKEND)
+        application.begin_pipeline_recovery(result, now_ns);
 }
 
 - (void)inputAvailable:(NSNotification*)notification {
     (void)notification;
-    if (!application.pipeline_initialized_) return;
+    if (!application.pipeline_initialized_)
+        return;
     const uint64_t now_ns = timestamp_ns();
     SaccadeResult result = application.pipeline_.refresh_permissions(now_ns);
     if (result == SACCADE_ERROR_BACKEND) {

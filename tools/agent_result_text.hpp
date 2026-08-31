@@ -39,6 +39,10 @@ constexpr const char* agent_result_text(SaccadeAgentResult result) noexcept {
         return "backend failure";
     case SACCADE_AGENT_ERROR_CAPACITY:
         return "capacity exhausted";
+    case SACCADE_AGENT_ERROR_ACTIVATION_REQUIRED:
+        return "explicit window activation required";
+    case SACCADE_AGENT_ERROR_OUTCOME_UNCONFIRMED:
+        return "action outcome unconfirmed";
     default:
         return "unknown result";
     }

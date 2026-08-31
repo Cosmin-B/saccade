@@ -45,6 +45,17 @@ target_link_libraries(saccade_agent_service PRIVATE
     saccade_build_settings)
 add_test(NAME agent.service COMMAND saccade_agent_service)
 
+add_executable(saccade_agent_background_action_policy
+    agent/background_action_policy.cpp)
+target_include_directories(saccade_agent_background_action_policy PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_agent_background_action_policy PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME agent.background_action_policy
+    COMMAND saccade_agent_background_action_policy)
+
 add_executable(saccade_protocol_fuzz security/protocol_fuzz.cpp)
 target_include_directories(saccade_protocol_fuzz PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
@@ -415,6 +426,17 @@ target_link_libraries(saccade_scene_store PRIVATE
     Threads::Threads)
 add_test(NAME scene.store COMMAND saccade_scene_store)
 
+add_executable(saccade_scene_visual_target_tracker
+    scene/visual_target_tracker.cpp)
+target_include_directories(saccade_scene_visual_target_tracker PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_scene_visual_target_tracker PRIVATE
+    saccade_core
+    saccade_build_settings)
+add_test(NAME scene.visual_target_tracker
+    COMMAND saccade_scene_visual_target_tracker)
+
 add_executable(saccade_scene_fusion scene/fusion.cpp)
 target_include_directories(saccade_scene_fusion PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
@@ -499,6 +521,29 @@ add_test(NAME scheduler.desktop_neural_coordinator
     COMMAND saccade_scheduler_desktop_neural_coordinator)
 
 if(TARGET saccade_platform_macos)
+    add_executable(saccade_platform_macos_explicit_window_session
+        platform/macos/explicit_window_session.cpp)
+    target_include_directories(saccade_platform_macos_explicit_window_session PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/include")
+    target_link_libraries(saccade_platform_macos_explicit_window_session PRIVATE
+        saccade_platform_macos
+        saccade_build_settings)
+    add_test(NAME platform.macos.explicit_window_session
+        COMMAND saccade_platform_macos_explicit_window_session)
+
+    add_executable(saccade_platform_macos_permission_status
+        platform/macos/permission_status.cpp)
+    target_include_directories(saccade_platform_macos_permission_status PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(saccade_platform_macos_permission_status PRIVATE
+        saccade_platform_macos
+        saccade_build_settings)
+    add_test(NAME platform.macos.permission_status
+        COMMAND saccade_platform_macos_permission_status)
+
     add_executable(saccade_platform_macos_surface_qualifier
         platform/macos/surface_qualifier.mm)
     target_include_directories(saccade_platform_macos_surface_qualifier PRIVATE
@@ -942,6 +987,31 @@ if(TARGET saccade_platform_windows)
 endif()
 
 if(TARGET saccade_backend_metal)
+    add_executable(saccade_platform_macos_explicit_window_capture
+        platform/macos/explicit_window_capture.cpp)
+    target_include_directories(saccade_platform_macos_explicit_window_capture PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(saccade_platform_macos_explicit_window_capture PRIVATE
+        saccade_platform_macos_capture
+        saccade_build_settings)
+    add_test(NAME platform.macos.explicit_window_capture
+        COMMAND saccade_platform_macos_explicit_window_capture)
+
+    add_executable(saccade_platform_macos_screen_capture_lifecycle
+        platform/macos/screen_capture_lifecycle.mm)
+    target_include_directories(saccade_platform_macos_screen_capture_lifecycle PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/include")
+    target_link_libraries(saccade_platform_macos_screen_capture_lifecycle PRIVATE
+        saccade_platform_macos_capture
+        saccade_build_settings)
+    target_compile_options(saccade_platform_macos_screen_capture_lifecycle PRIVATE
+        -fobjc-arc)
+    add_test(NAME platform.macos.screen_capture_lifecycle
+        COMMAND saccade_platform_macos_screen_capture_lifecycle)
+
     add_executable(saccade_kernels_metal_target_postprocess
         kernels/metal_target_postprocess.mm)
     target_include_directories(saccade_kernels_metal_target_postprocess PRIVATE

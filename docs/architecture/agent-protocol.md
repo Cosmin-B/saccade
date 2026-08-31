@@ -18,8 +18,8 @@ CLI or local adapter
   -> capability handshake
   -> observe, query, or bounded action batch
   -> immutable target generation
-  -> shared ActionPlanner validation
-  -> native input executor
+  -> background Accessibility action, or explicit activation policy
+  -> shared ActionPlanner validation when coordinate input is permitted
   -> typed completion and final physical-input state
 ```
 
@@ -56,7 +56,7 @@ MCP represents every 64-bit generation, target, window, display, process, permis
 physical-sequence value as a decimal JSON string. Inputs also accept exactly representable
 JSON integers for small values. This avoids silent rounding in JSON decoders that use
 IEEE-754 numbers beyond 53 bits. Observe and query can restrict results to the active
-window, a stable display, the desktop, or a desktop-Q8 rectangle. They can select pixel,
+window, one exact public macOS window, a stable display, the desktop, or a desktop-Q8 rectangle. They can select pixel,
 semantic, grid, or fused sources. Returned targets include a compact observation index,
 stable IDs, role, capabilities, flags, source bits, confidence, ordering, bounds, safe
 point, and available text. An unspecified active-window request resolves to the current
@@ -64,11 +64,12 @@ native window identity and its desktop-Q8 bounds. Every successful observation a
 returns the process, window, and display identities plus scene, frame, capture-time,
 transform, topology, and permission epochs used to construct it. Action calls expose
 dry-run and matching generation, process, window, display, transform, permission, and
-physical-state preconditions.
+physical-state preconditions. An exact-window action must opt into that scope and can
+separately opt into foreground activation; neither behavior is inferred.
 
-At the MCP boundary, `processId` is the current foreground process and `windowId` is its
-current native window. Keeping both lets an action reject a same-application window switch
-that process focus alone cannot detect.
+At the MCP boundary, `processId` owns the returned scene and `windowId` is its exact native
+window. In active-window observations that process is foreground. Exact-window observations
+retain the selected background owner while reporting a distinct scene kind internally.
 
 ## Observation fields
 
@@ -79,9 +80,11 @@ freshness deadline. Zero means that the capture timestamp was unavailable. The a
 this value into `SaccadeAgentGeneration.capture_time_ns`. `scene_epoch` identifies the
 immutable publication. `frame_id` identifies the capture used to build it.
 
-`SaccadeAgentScopeKind` is the exact set `ACTIVE_WINDOW`, `DISPLAY`, `DESKTOP`, and `RECT`.
+`SaccadeAgentScopeKind` is the exact set `ACTIVE_WINDOW`, `WINDOW`, `DISPLAY`, `DESKTOP`, and `RECT`.
 An active-window scope with `stable_id == 0` resolves to the current native window and its
-desktop-Q8 bounds. A display scope matches `stable_id`. A rectangle scope intersects target
+desktop-Q8 bounds. A `WINDOW` scope requires a nonzero current public `CGWindowID`. It pins
+the owner PID, window ID, bounds, visibility, capture source, and session without activating
+the application. A display scope matches `stable_id`. A rectangle scope intersects target
 bounds. Desktop scope includes the desktop scene. `source_mode` accepts `PIXEL`, `SEMANTIC`,
 `GRID`, and `FUSED`. Pixel matches neural or pixel source bits, semantic matches accessibility
 source bits, grid matches grid source bits, and fused accepts the published scene records.
@@ -89,8 +92,10 @@ source bits, grid matches grid source bits, and fused accepts the published scen
 `SaccadeAgentFreshnessPolicy` has the exact values `LATEST_VALID`, `AFTER_GENERATION`, and
 `FORCE_REFRESH`. The current service supports the first two with zero freshness flags.
 `FORCE_REFRESH`, `REQUIRE_DAMAGE_CHECK`, and `REQUIRE_NEURAL_REFRESH` are rejected as
-unsupported. `AFTER_GENERATION` returns a generation strictly greater than
-`after_generation`, or a typed timeout when the deadline expires.
+unsupported. `AFTER_GENERATION` retains one read while asking the scene owner for a
+generation strictly greater than `after_generation`. Its absolute deadline is derived once
+from `timeout_ns`; later owner ticks cannot extend it. The read returns the newer generation,
+a typed timeout at that deadline, or cancellation when the connection or input owner stops it.
 
 Target records and returned text use offsets inside the completion packet. `targets_offset`
 points to the first target record, `target_stride` gives the record spacing, and each target's
@@ -115,11 +120,10 @@ framing.
 Observe serializes the latest valid scene directly into caller storage. Query filters by
 stable ID, role, source, capability, geometry, confidence, text, and implemented relations.
 Both requests may wait for a generation strictly newer than a supplied generation. The
-owner-thread service evaluates that predicate once and returns a typed timeout while the
-generation is unchanged. A fixed-storage client can resubmit the read-only request across
-later owner ticks until its monotonic deadline. Observe and query completions retain the
-scene's incomplete-source flag, so an agent can distinguish a complete target set from a
-bounded or interrupted semantic traversal.
+owner-thread service keeps one bounded pending read while the local channel holds the same
+request bytes. A different request is refused until the pending read finishes or is
+cancelled. Observe and query completions retain the scene's incomplete-source flag, so an
+agent can distinguish a complete target set from a bounded or interrupted semantic traversal.
 Target text lives in the scene packet's bounded trailing UTF-8 lane. Observe and query
 completions append only text belonging to returned targets and expose absolute byte offsets
 from each target record. Exact, prefix, and substring matching are case-sensitive UTF-8
@@ -132,14 +136,25 @@ actions, allowing a hold followed by release while rejecting intervening scene, 
 window, or permission changes. Abort, window cycle, and physical-state query use explicit
 owner-thread callbacks and do not fabricate input plans.
 
+On macOS, an exact-window target reports one of three dispositions. A current Accessibility
+target that supports `AXPress` is background-actionable and executes on the bounded
+Accessibility worker without activation or `CGEvent`. A visual-only click is
+activation-required. It is refused unless the action explicitly allows activation; when
+allowed, Saccade activates the exact PID/window, waits for a new foreground scene, resolves
+the same target again inside that window, and only then builds a `CGEvent` plan. Other
+actions are unsupported in background mode. Disabled, non-actionable, and secure targets
+are refused before activation or `AXPress`. A changed PID, window, bounds, visibility,
+generation, transform, permission epoch, or target identity emits no input. Accessibility
+`cannot complete` is outcome-unconfirmed and is never retried automatically.
+
 An action batch may request next-generation verification. Input is dispatched exactly once.
-The service first checks for a generation published synchronously by the action. If
-none exists yet, the completion records that every action finished and that verification
-is pending. The client then sends bounded read-only observations until a later generation
-arrives or the original action deadline expires. It patches that generation into the
-original completion without replaying the action. Verification requires the connection to
-have explicitly negotiated observation in addition to the action capability. A transport
-loss during this phase fails verification and never retries input.
+The service first checks for a generation published synchronously by the action. If none
+exists yet, one fixed slot retains the completed action results while scene acquisition asks
+for a generation newer than the action generation. Later owner ticks resume only that read;
+they do not rebuild the plan or call an action backend again. The final completion includes
+the newer generation or a typed timeout at the original deadline. Verification requires the
+connection to have explicitly negotiated observation in addition to the action capability.
+A disconnect or physical-input override cancels the pending read and never retries input.
 
 The v0.1 action set is pointer move and hover, click, semantic invoke, hold and release,
 drag and drop, vertical or horizontal scroll, physical key and modifier chord, text entry,

@@ -1,4 +1,5 @@
 set(SACCADE_CORE_SOURCES
+    agent/background_action_policy.cpp
     agent/service.cpp
     application/binding_editor.cpp
     application/desktop_host.cpp
@@ -39,6 +40,7 @@ set(SACCADE_CORE_SOURCES
     scene/grid.cpp
     scene/store.cpp
     scene/temporal.cpp
+    scene/visual_target_tracker.cpp
     scene/windows.cpp
     scheduler/dual_rate_scheduler.cpp
     scheduler/desktop_neural_coordinator.cpp

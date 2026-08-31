@@ -35,17 +35,19 @@ bool embedded_helper(CFDictionaryRef own_info, CFDictionaryRef peer_info) noexce
     std::array<char, PATH_MAX> own_path{};
     std::array<char, PATH_MAX> peer_path{};
     if (!CFURLGetFileSystemRepresentation(own_url, true, reinterpret_cast<UInt8*>(own_path.data()), own_path.size()) ||
-        !CFURLGetFileSystemRepresentation(peer_url, true, reinterpret_cast<UInt8*>(peer_path.data()),
-                                          peer_path.size())) {
+        !CFURLGetFileSystemRepresentation(peer_url, true, reinterpret_cast<UInt8*>(peer_path.data()), peer_path.size())) {
         return false;
     }
-    if (std::strcmp(own_path.data(), peer_path.data()) == 0) return true;
+    if (std::strcmp(own_path.data(), peer_path.data()) == 0)
+        return true;
 
     constexpr char contents_marker[] = ".app/Contents/";
     const char* contents = std::strstr(own_path.data(), contents_marker);
-    if (contents == nullptr) return false;
+    if (contents == nullptr)
+        return false;
     const size_t root_size = static_cast<size_t>(contents - own_path.data()) + sizeof(contents_marker) - 1U;
-    if (std::strncmp(own_path.data(), peer_path.data(), root_size) != 0) return false;
+    if (std::strncmp(own_path.data(), peer_path.data(), root_size) != 0)
+        return false;
 
     const char* relative = peer_path.data() + root_size;
     return std::strcmp(relative, "Helpers/saccade") == 0 || std::strcmp(relative, "Helpers/saccade-mcp") == 0;
@@ -57,39 +59,47 @@ bool same_signing_team(pid_t pid) noexcept {
     CFDictionaryRef own_info = nullptr;
     CFDictionaryRef peer_info = nullptr;
     NSDictionary* attributes = @{(__bridge NSString*)kSecGuestAttributePid : @(pid)};
-    bool allowed = SecCodeCopySelf(kSecCSDefaultFlags, &own_code) == errSecSuccess &&
-                   SecCodeCopyGuestWithAttributes(nullptr, (__bridge CFDictionaryRef)attributes, kSecCSDefaultFlags,
-                                                  &peer_code) == errSecSuccess &&
-                   SecCodeCheckValidity(peer_code, kSecCSStrictValidate, nullptr) == errSecSuccess &&
-                   SecCodeCopySigningInformation(own_code, kSecCSSigningInformation, &own_info) == errSecSuccess &&
-                   SecCodeCopySigningInformation(peer_code, kSecCSSigningInformation, &peer_info) == errSecSuccess;
+    bool allowed =
+        SecCodeCopySelf(kSecCSDefaultFlags, &own_code) == errSecSuccess &&
+        SecCodeCopyGuestWithAttributes(nullptr, (__bridge CFDictionaryRef)attributes, kSecCSDefaultFlags, &peer_code) == errSecSuccess &&
+        SecCodeCheckValidity(peer_code, kSecCSStrictValidate, nullptr) == errSecSuccess &&
+        SecCodeCopySigningInformation(own_code, kSecCSSigningInformation, &own_info) == errSecSuccess &&
+        SecCodeCopySigningInformation(peer_code, kSecCSSigningInformation, &peer_info) == errSecSuccess;
     if (allowed) {
         const auto own_team = static_cast<CFStringRef>(CFDictionaryGetValue(own_info, kSecCodeInfoTeamIdentifier));
         const auto peer_team = static_cast<CFStringRef>(CFDictionaryGetValue(peer_info, kSecCodeInfoTeamIdentifier));
         allowed = own_team != nullptr && peer_team != nullptr && CFEqual(own_team, peer_team);
-        if (!allowed && own_team == nullptr && peer_team == nullptr) allowed = embedded_helper(own_info, peer_info);
+        if (!allowed && own_team == nullptr && peer_team == nullptr)
+            allowed = embedded_helper(own_info, peer_info);
     }
-    if (peer_info != nullptr) CFRelease(peer_info);
-    if (own_info != nullptr) CFRelease(own_info);
-    if (peer_code != nullptr) CFRelease(peer_code);
-    if (own_code != nullptr) CFRelease(own_code);
+    if (peer_info != nullptr)
+        CFRelease(peer_info);
+    if (own_info != nullptr)
+        CFRelease(own_info);
+    if (peer_code != nullptr)
+        CFRelease(peer_code);
+    if (own_code != nullptr)
+        CFRelease(own_code);
     return allowed;
 }
 
 } // namespace
 
 AgentSocket::~AgentSocket() {
-    if (initialized_) (void)shutdown();
+    if (initialized_)
+        (void)shutdown();
 }
 
 SaccadeResult AgentSocket::initialize(AgentSocketConfig config, AgentSocketStorage* storage) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (config.context == nullptr || config.request == nullptr || config.disconnect == nullptr ||
-        config.allowed_capability_bits == 0 || storage == nullptr)
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (config.context == nullptr || config.request == nullptr || config.disconnect == nullptr || config.allowed_capability_bits == 0 ||
+        storage == nullptr)
         return SACCADE_ERROR_INVALID_ARGUMENT;
     if (config.endpoint != nullptr) {
         const size_t size = std::strlen(config.endpoint);
-        if (size == 0 || size >= endpoint_.size()) return SACCADE_ERROR_CAPACITY;
+        if (size == 0 || size >= endpoint_.size())
+            return SACCADE_ERROR_CAPACITY;
         std::memcpy(endpoint_.data(), config.endpoint, size + 1U);
     } else {
         std::array<char, endpoint_capacity_> root{};
@@ -99,16 +109,17 @@ SaccadeResult AgentSocket::initialize(AgentSocketConfig config, AgentSocketStora
             return SACCADE_ERROR_CAPACITY;
         const size_t prefix_size = std::strlen(root.data());
         std::memcpy(endpoint_.data(), root.data(), prefix_size);
-        if (prefix_size != 0 && endpoint_[prefix_size - 1U] != '/') endpoint_[prefix_size] = '/';
+        if (prefix_size != 0 && endpoint_[prefix_size - 1U] != '/')
+            endpoint_[prefix_size] = '/';
         const size_t leaf_offset = prefix_size + (prefix_size != 0 && endpoint_[prefix_size - 1U] != '/' ? 1U : 0U);
         std::memcpy(endpoint_.data() + leaf_offset, leaf, sizeof(leaf));
     }
 
     listener_ = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (listener_ < 0) return SACCADE_ERROR_BACKEND;
+    if (listener_ < 0)
+        return SACCADE_ERROR_BACKEND;
     int no_sigpipe = 1;
-    if (setsockopt(listener_, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe)) != 0 ||
-        !set_nonblocking(listener_)) {
+    if (setsockopt(listener_, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe)) != 0 || !set_nonblocking(listener_)) {
         close(listener_);
         listener_ = -1;
         return SACCADE_ERROR_BACKEND;
@@ -118,9 +129,9 @@ SaccadeResult AgentSocket::initialize(AgentSocketConfig config, AgentSocketStora
     std::memcpy(address.sun_path, endpoint_.data(), std::strlen(endpoint_.data()) + 1U);
     if (access(endpoint_.data(), F_OK) == 0) {
         const int probe = socket(AF_UNIX, SOCK_STREAM, 0);
-        const bool active =
-            probe >= 0 && connect(probe, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0;
-        if (probe >= 0) close(probe);
+        const bool active = probe >= 0 && connect(probe, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0;
+        if (probe >= 0)
+            close(probe);
         if (active) {
             close(listener_);
             listener_ = -1;
@@ -158,7 +169,8 @@ SaccadeResult AgentSocket::initialize(AgentSocketConfig config, AgentSocketStora
 bool AgentSocket::peer_allowed(int client) noexcept {
     uid_t uid = 0;
     gid_t gid = 0;
-    if (getpeereid(client, &uid, &gid) != 0 || uid != geteuid()) return false;
+    if (getpeereid(client, &uid, &gid) != 0 || uid != geteuid())
+        return false;
     pid_t pid = 0;
     socklen_t pid_size = sizeof(pid);
     return getsockopt(client, SOL_LOCAL, LOCAL_PEERPID, &pid, &pid_size) == 0 && pid > 0 && same_signing_team(pid);
@@ -166,7 +178,8 @@ bool AgentSocket::peer_allowed(int client) noexcept {
 
 SaccadeResult AgentSocket::accept_client() noexcept {
     const int client = accept(listener_, nullptr, nullptr);
-    if (client < 0) return would_block() ? SACCADE_OK : SACCADE_ERROR_BACKEND;
+    if (client < 0)
+        return would_block() ? SACCADE_OK : SACCADE_ERROR_BACKEND;
     int no_sigpipe = 1;
     if (!peer_allowed(client) || setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &no_sigpipe, sizeof(no_sigpipe)) != 0 ||
         !set_nonblocking(client)) {
@@ -188,10 +201,13 @@ SaccadeResult AgentSocket::accept_client() noexcept {
 SaccadeResult AgentSocket::read_size() noexcept {
     auto* bytes = reinterpret_cast<uint8_t*>(&request_size_);
     const ssize_t read = recv(client_, bytes + frame_offset_, sizeof(request_size_) - frame_offset_, 0);
-    if (read == 0) return disconnect();
-    if (read < 0) return would_block() ? SACCADE_OK : disconnect();
+    if (read == 0)
+        return disconnect();
+    if (read < 0)
+        return would_block() ? SACCADE_OK : disconnect();
     frame_offset_ += static_cast<size_t>(read);
-    if (frame_offset_ != sizeof(request_size_)) return SACCADE_OK;
+    if (frame_offset_ != sizeof(request_size_))
+        return SACCADE_OK;
     if (request_size_ < sizeof(SaccadeAgentMessageHeader) || request_size_ > storage_->request.size()) {
         ++stats_.rejected_messages;
         return disconnect();
@@ -204,18 +220,23 @@ SaccadeResult AgentSocket::read_size() noexcept {
 
 SaccadeResult AgentSocket::read_message(uint64_t now_ns) noexcept {
     const ssize_t read = recv(client_, storage_->request.data() + message_offset_, request_size_ - message_offset_, 0);
-    if (read == 0) return disconnect();
-    if (read < 0) return would_block() ? SACCADE_OK : disconnect();
+    if (read == 0)
+        return disconnect();
+    if (read < 0)
+        return would_block() ? SACCADE_OK : disconnect();
     message_offset_ += static_cast<size_t>(read);
-    if (message_offset_ != request_size_) return SACCADE_OK;
+    if (message_offset_ != request_size_)
+        return SACCADE_OK;
     stats_.bytes_read += request_size_ + sizeof(request_size_);
     ++stats_.requests;
+    state_ = State::processing;
     return process(now_ns);
 }
 
 SaccadeResult AgentSocket::hello(size_t* output_size) noexcept {
     SaccadeAgentHelloRequest request{};
-    if (request_size_ == sizeof(request)) std::memcpy(&request, storage_->request.data(), sizeof(request));
+    if (request_size_ == sizeof(request))
+        std::memcpy(&request, storage_->request.data(), sizeof(request));
     SaccadeAgentHelloCompletion completion{};
     completion.header.struct_size = static_cast<uint32_t>(sizeof(completion));
     completion.header.api_version = SACCADE_AGENT_API_VERSION;
@@ -223,8 +244,7 @@ SaccadeResult AgentSocket::hello(size_t* output_size) noexcept {
     completion.request_id = request.request_id;
     const bool valid = request_size_ == sizeof(request) && request.header.struct_size == sizeof(request) &&
                        request.header.api_version == SACCADE_AGENT_API_VERSION &&
-                       request.header.message_kind == SACCADE_AGENT_MESSAGE_HELLO_REQUEST &&
-                       request.requested_capability_bits != 0;
+                       request.header.message_kind == SACCADE_AGENT_MESSAGE_HELLO_REQUEST && request.requested_capability_bits != 0;
     if (!valid) {
         completion.result = SACCADE_AGENT_ERROR_INVALID_MESSAGE;
         completion.platform_error = SACCADE_ERROR_INVALID_ARGUMENT;
@@ -250,11 +270,14 @@ SaccadeResult AgentSocket::hello(size_t* output_size) noexcept {
 
 SaccadeResult AgentSocket::process(uint64_t now_ns) noexcept {
     size_t output_size = 0;
-    const SaccadeResult result =
-        authenticated_
-            ? config_.request(config_.context, {storage_->request.data(), request_size_}, client_capability_bits_,
-                              now_ns, {storage_->response.data(), storage_->response.size()}, &output_size)
-            : hello(&output_size);
+    const SaccadeResult result = authenticated_
+                                     ? config_.request(config_.context, {storage_->request.data(), request_size_}, client_capability_bits_,
+                                                       now_ns, {storage_->response.data(), storage_->response.size()}, &output_size)
+                                     : hello(&output_size);
+    if (result == SACCADE_ERROR_BUSY && authenticated_ && output_size == 0) {
+        state_ = State::processing;
+        return SACCADE_OK;
+    }
     if (result != SACCADE_OK || output_size == 0 || output_size > storage_->response.size()) {
         ++stats_.rejected_messages;
         return disconnect();
@@ -266,22 +289,35 @@ SaccadeResult AgentSocket::process(uint64_t now_ns) noexcept {
     return SACCADE_OK;
 }
 
+SaccadeResult AgentSocket::process_pending(uint64_t now_ns) noexcept {
+    uint8_t ignored = 0;
+    const ssize_t available = recv(client_, &ignored, sizeof(ignored), MSG_PEEK | MSG_DONTWAIT);
+    if (available == 0)
+        return disconnect();
+    if (available < 0 && !would_block())
+        return disconnect();
+    return process(now_ns);
+}
+
 SaccadeResult AgentSocket::write_size() noexcept {
     const auto* bytes = reinterpret_cast<const uint8_t*>(&response_size_);
     const ssize_t written = send(client_, bytes + frame_offset_, sizeof(response_size_) - frame_offset_, 0);
-    if (written < 0) return would_block() ? SACCADE_OK : disconnect();
+    if (written < 0)
+        return would_block() ? SACCADE_OK : disconnect();
     frame_offset_ += static_cast<size_t>(written);
-    if (frame_offset_ != sizeof(response_size_)) return SACCADE_OK;
+    if (frame_offset_ != sizeof(response_size_))
+        return SACCADE_OK;
     state_ = State::writing_message;
     return SACCADE_OK;
 }
 
 SaccadeResult AgentSocket::write_message() noexcept {
-    const ssize_t written =
-        send(client_, storage_->response.data() + message_offset_, response_size_ - message_offset_, 0);
-    if (written < 0) return would_block() ? SACCADE_OK : disconnect();
+    const ssize_t written = send(client_, storage_->response.data() + message_offset_, response_size_ - message_offset_, 0);
+    if (written < 0)
+        return would_block() ? SACCADE_OK : disconnect();
     message_offset_ += static_cast<size_t>(written);
-    if (message_offset_ != response_size_) return SACCADE_OK;
+    if (message_offset_ != response_size_)
+        return SACCADE_OK;
     stats_.bytes_written += response_size_ + sizeof(response_size_);
     ++stats_.responses;
     request_size_ = 0;
@@ -310,7 +346,8 @@ SaccadeResult AgentSocket::disconnect() noexcept {
 }
 
 void AgentSocket::unlink_owned_endpoint() noexcept {
-    if (endpoint_inode_ == 0) return;
+    if (endpoint_inode_ == 0)
+        return;
 
     struct stat endpoint_status{};
     if (lstat(endpoint_.data(), &endpoint_status) == 0 && S_ISSOCK(endpoint_status.st_mode) &&
@@ -323,7 +360,8 @@ void AgentSocket::unlink_owned_endpoint() noexcept {
 }
 
 SaccadeResult AgentSocket::advance(uint64_t now_ns) noexcept {
-    if (!initialized_ || now_ns == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || now_ns == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     SaccadeResult result = SACCADE_OK;
     switch (state_) {
     case State::accepting:
@@ -335,6 +373,9 @@ SaccadeResult AgentSocket::advance(uint64_t now_ns) noexcept {
     case State::reading_message:
         result = read_message(now_ns);
         break;
+    case State::processing:
+        result = process_pending(now_ns);
+        break;
     case State::writing_size:
         result = write_size();
         break;
@@ -342,12 +383,14 @@ SaccadeResult AgentSocket::advance(uint64_t now_ns) noexcept {
         result = write_message();
         break;
     }
-    if (result != SACCADE_OK) ++stats_.failures;
+    if (result != SACCADE_OK)
+        ++stats_.failures;
     return result;
 }
 
 SaccadeResult AgentSocket::shutdown() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     const SaccadeResult neutralized = disconnect();
     close(listener_);
     listener_ = -1;

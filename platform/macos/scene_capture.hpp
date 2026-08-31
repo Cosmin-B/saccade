@@ -10,6 +10,9 @@
 
 namespace saccade::platform::macos {
 
+struct SceneCaptureFrame;
+using SceneCaptureReleaseFn = SaccadeResult (*)(void*, const SceneCaptureFrame&) noexcept;
+
 struct SceneCaptureFrame {
     SaccadeCapturedFrame frame{};
     NativeCapturedFrame native{};
@@ -17,6 +20,8 @@ struct SceneCaptureFrame {
     uint64_t topology_epoch = 0;
     uint32_t slot = 0;
     uint32_t generation = 0;
+    void* release_context = nullptr;
+    SceneCaptureReleaseFn release = nullptr;
 };
 
 struct SceneCaptureStats {
@@ -80,7 +85,7 @@ class SceneCaptureSet final {
     bool running_ = false;
 };
 
-static_assert(sizeof(SceneCaptureFrame) == 168);
+static_assert(sizeof(SceneCaptureFrame) == 184);
 static_assert(sizeof(SceneCaptureStats) == 72);
 
 } // namespace saccade::platform::macos
