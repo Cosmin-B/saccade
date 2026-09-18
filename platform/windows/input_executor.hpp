@@ -22,8 +22,7 @@ struct VirtualDesktop {
 
 using SubmitInputFn = uint32_t (*)(void*, const INPUT*, uint32_t) noexcept;
 using ActivateWindowFn = SaccadeResult (*)(void*, uint64_t) noexcept;
-using PreflightInputFn = SaccadeResult (*)(void*, const input::PlanView&, uint32_t command_index,
-                                           uint64_t now_ns) noexcept;
+using PreflightInputFn = SaccadeResult (*)(void*, const input::PlanView&, uint32_t command_index, uint64_t now_ns) noexcept;
 
 struct InputSink {
     void* context = nullptr;
@@ -57,8 +56,7 @@ class InputExecutor final {
   public:
     SaccadeResult initialize(const VirtualDesktop&, const InputSink&, uint64_t permission_epoch, int32_t pointer_x_q8,
                              int32_t pointer_y_q8) noexcept;
-    SaccadeResult execute(SaccadeSpanU8, uint32_t available_permissions, uint64_t now_ns,
-                          InputExecutionResult*) noexcept;
+    SaccadeResult execute(SaccadeSpanU8, uint32_t available_permissions, uint64_t now_ns, InputExecutionResult*) noexcept;
     SaccadeResult advance(uint64_t now_ns, InputExecutionResult*) noexcept;
     SaccadeResult release_all() noexcept;
     SaccadeResult update_desktop(const VirtualDesktop&) noexcept;
@@ -70,8 +68,8 @@ class InputExecutor final {
 
     [[nodiscard]] bool synthetic_input_active() const noexcept {
         const SaccadePhysicalInputState state = physical_.state();
-        return state.buttons != 0 || state.modifiers != 0 || state.active_lease_id != 0 ||
-               timed_kind_ != TimedKind::none || pending_release_count_ != 0;
+        return state.buttons != 0 || state.modifiers != 0 || state.active_lease_id != 0 || timed_kind_ != TimedKind::none ||
+               pending_release_count_ != 0;
     }
 
     [[nodiscard]] InputExecutorStats stats() const noexcept { return stats_; }

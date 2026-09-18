@@ -22,9 +22,8 @@ namespace {
 constexpr size_t maximum_case_bytes = 4096;
 constexpr uint32_t random_case_count = 200000;
 constexpr uint64_t random_seed = UINT64_C(0x9E3779B97F4A7C15);
-constexpr SaccadeAgentCapabilityBits agent_capabilities =
-    SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER | SACCADE_AGENT_CAPABILITY_KEYBOARD |
-    SACCADE_AGENT_CAPABILITY_WINDOW;
+constexpr SaccadeAgentCapabilityBits agent_capabilities = SACCADE_AGENT_CAPABILITY_OBSERVE | SACCADE_AGENT_CAPABILITY_POINTER |
+                                                          SACCADE_AGENT_CAPABILITY_KEYBOARD | SACCADE_AGENT_CAPABILITY_WINDOW;
 
 enum class Boundary : uint8_t { scene, overlay, input, artifact, settings, agent_observe, agent_query, agent_action };
 
@@ -232,8 +231,7 @@ void make_artifact(Case* value) noexcept {
 bool make_settings(Case* value) noexcept {
     value->boundary = Boundary::settings;
     const saccade::application::SettingsDocument settings = saccade::application::default_settings();
-    return saccade::application::encode_settings(settings, {value->bytes.data(), value->bytes.size()}, &value->size) ==
-           SACCADE_OK;
+    return saccade::application::encode_settings(settings, {value->bytes.data(), value->bytes.size()}, &value->size) == SACCADE_OK;
 }
 
 void make_agent_observe(Case* value) noexcept {
@@ -290,21 +288,21 @@ void make_agent_action(Case* value) noexcept {
 }
 
 bool contains(SaccadeSpanU8 bytes, const void* pointer, size_t size) noexcept {
-    if (pointer == nullptr) return size == 0;
+    if (pointer == nullptr)
+        return size == 0;
     const uintptr_t begin = reinterpret_cast<uintptr_t>(bytes.data);
     const uintptr_t current = reinterpret_cast<uintptr_t>(pointer);
-    if (bytes.size > std::numeric_limits<uintptr_t>::max() - begin) return false;
+    if (bytes.size > std::numeric_limits<uintptr_t>::max() - begin)
+        return false;
     const uintptr_t end = begin + bytes.size;
     return current >= begin && current <= end && size <= end - current;
 }
 
-SaccadeResult acquire_scene(void* context, saccade::scene::PacketView* output) noexcept {
-    *output = static_cast<AgentFixture*>(context)->scene;
-    return SACCADE_OK;
-}
-
-SaccadeResult read_state(void* context, saccade::application::InteractionState* output) noexcept {
-    *output = static_cast<AgentFixture*>(context)->state;
+SaccadeResult acquire_scene(void* context, const SaccadeAgentScope&, const SaccadeAgentFreshness&, saccade::scene::PacketView* scene,
+                            saccade::application::InteractionState* output) noexcept {
+    const auto* fixture = static_cast<AgentFixture*>(context);
+    *scene = fixture->scene;
+    *output = fixture->state;
     return SACCADE_OK;
 }
 
@@ -484,8 +482,7 @@ TestResult exercise(SaccadeSpanU8 bytes, saccade::agent::Service* service, sacca
     if (saccade::application::decode_settings(bytes, &settings) == SACCADE_OK) {
         size_t encoded_size = 0;
         if (saccade::application::validate_settings(settings) != SACCADE_OK ||
-            saccade::application::encode_settings(settings, {output->data(), output->size()}, &encoded_size) !=
-                SACCADE_OK ||
+            saccade::application::encode_settings(settings, {output->data(), output->size()}, &encoded_size) != SACCADE_OK ||
             encoded_size > output->size()) {
             return TestResult::settings_roundtrip_failed;
         }
@@ -495,46 +492,40 @@ TestResult exercise(SaccadeSpanU8 bytes, saccade::agent::Service* service, sacca
 
     size_t output_size = 0;
     (void)service->process(bytes, agent_capabilities, 1, {output->data(), output->size()}, &output_size);
-    if (output_size > output->size()) return TestResult::agent_output_out_of_bounds;
+    if (output_size > output->size())
+        return TestResult::agent_output_out_of_bounds;
     return TestResult::success;
 }
 
-TestResult verify_seed(const Case& value, saccade::agent::Service* service,
-                       std::array<uint8_t, maximum_case_bytes>* output) noexcept {
+TestResult verify_seed(const Case& value, saccade::agent::Service* service, std::array<uint8_t, maximum_case_bytes>* output) noexcept {
     const SaccadeSpanU8 bytes{value.bytes.data(), value.size};
     switch (value.boundary) {
     case Boundary::scene: {
         saccade::scene::PacketView view{};
-        return saccade::scene::validate_packet(bytes, &view) == SACCADE_OK ? TestResult::success
-                                                                           : TestResult::scene_seed_rejected;
+        return saccade::scene::validate_packet(bytes, &view) == SACCADE_OK ? TestResult::success : TestResult::scene_seed_rejected;
     }
     case Boundary::overlay: {
         saccade::overlay::PacketView view{};
-        return saccade::overlay::validate_packet(bytes, &view) == SACCADE_OK ? TestResult::success
-                                                                             : TestResult::overlay_seed_rejected;
+        return saccade::overlay::validate_packet(bytes, &view) == SACCADE_OK ? TestResult::success : TestResult::overlay_seed_rejected;
     }
     case Boundary::input: {
         saccade::input::PlanView view{};
-        return saccade::input::validate_plan(bytes, &view) == SACCADE_OK ? TestResult::success
-                                                                         : TestResult::input_seed_rejected;
+        return saccade::input::validate_plan(bytes, &view) == SACCADE_OK ? TestResult::success : TestResult::input_seed_rejected;
     }
     case Boundary::artifact: {
         saccade::model::ArtifactView view{};
-        return saccade::model::parse_artifact(bytes, &view) == SACCADE_OK ? TestResult::success
-                                                                          : TestResult::artifact_seed_rejected;
+        return saccade::model::parse_artifact(bytes, &view) == SACCADE_OK ? TestResult::success : TestResult::artifact_seed_rejected;
     }
     case Boundary::settings: {
         saccade::application::SettingsDocument settings{};
-        return saccade::application::decode_settings(bytes, &settings) == SACCADE_OK
-                   ? TestResult::success
-                   : TestResult::settings_seed_rejected;
+        return saccade::application::decode_settings(bytes, &settings) == SACCADE_OK ? TestResult::success
+                                                                                     : TestResult::settings_seed_rejected;
     }
     case Boundary::agent_observe:
     case Boundary::agent_query:
     case Boundary::agent_action: {
         size_t output_size = 0;
-        return service->process(bytes, agent_capabilities, 1, {output->data(), output->size()}, &output_size) ==
-                       SACCADE_OK
+        return service->process(bytes, agent_capabilities, 1, {output->data(), output->size()}, &output_size) == SACCADE_OK
                    ? TestResult::success
                    : TestResult::agent_seed_rejected;
     }
@@ -543,11 +534,11 @@ TestResult verify_seed(const Case& value, saccade::agent::Service* service,
 }
 
 TestResult fuzz_seed(const Case& seed, saccade::agent::Service* service, saccade::backend::ProviderRegistry* registry,
-                     std::array<uint8_t, maximum_case_bytes>* working,
-                     std::array<uint8_t, maximum_case_bytes>* output) noexcept {
+                     std::array<uint8_t, maximum_case_bytes>* working, std::array<uint8_t, maximum_case_bytes>* output) noexcept {
     for (size_t size = 0; size <= seed.size; ++size) {
         const TestResult result = exercise({seed.bytes.data(), size}, service, registry, output);
-        if (result != TestResult::success) return result;
+        if (result != TestResult::success)
+            return result;
     }
 
     for (size_t byte = 0; byte < seed.size; ++byte) {
@@ -555,15 +546,15 @@ TestResult fuzz_seed(const Case& seed, saccade::agent::Service* service, saccade
             std::memcpy(working->data(), seed.bytes.data(), seed.size);
             (*working)[byte] ^= static_cast<uint8_t>(UINT8_C(1) << bit);
             const TestResult result = exercise({working->data(), seed.size}, service, registry, output);
-            if (result != TestResult::success) return result;
+            if (result != TestResult::success)
+                return result;
         }
     }
     return TestResult::success;
 }
 
-TestResult fuzz_random(const std::array<Case, 8>& seeds, saccade::agent::Service* service,
-                       saccade::backend::ProviderRegistry* registry, std::array<uint8_t, maximum_case_bytes>* working,
-                       std::array<uint8_t, maximum_case_bytes>* output) noexcept {
+TestResult fuzz_random(const std::array<Case, 8>& seeds, saccade::agent::Service* service, saccade::backend::ProviderRegistry* registry,
+                       std::array<uint8_t, maximum_case_bytes>* working, std::array<uint8_t, maximum_case_bytes>* output) noexcept {
     Random random(random_seed);
     for (uint32_t iteration = 0; iteration < random_case_count; ++iteration) {
         const Case& seed = seeds[random.bounded(seeds.size())];
@@ -584,11 +575,13 @@ TestResult fuzz_random(const std::array<Case, 8>& seeds, saccade::agent::Service
             for (size_t mutation = 0; mutation < mutations && size != 0; ++mutation) {
                 (*working)[random.bounded(size)] = static_cast<uint8_t>(random.next());
             }
-            if ((random.next() & 3U) == 0) size = random.bounded(size + 1U);
+            if ((random.next() & 3U) == 0)
+                size = random.bounded(size + 1U);
         }
 
         const TestResult result = exercise({working->data(), size}, service, registry, output);
-        if (result != TestResult::success) return result;
+        if (result != TestResult::success)
+            return result;
     }
     return TestResult::success;
 }
@@ -605,7 +598,8 @@ int main() {
     make_overlay(&seeds[1]);
     make_input_plan(&seeds[2]);
     make_artifact(&seeds[3]);
-    if (!make_settings(&seeds[4])) return result(TestResult::fixture_invalid);
+    if (!make_settings(&seeds[4]))
+        return result(TestResult::fixture_invalid);
     make_agent_observe(&seeds[5]);
     make_agent_query(&seeds[6]);
     make_agent_action(&seeds[7]);
@@ -619,15 +613,17 @@ int main() {
     fixture.state.topology_epoch = fixture.scene.header->topology_epoch;
     fixture.state.permission_epoch = 1;
     fixture.state.focus_id = 2;
+    fixture.state.process_id = 2;
+    fixture.state.foreground_process_id = 2;
     fixture.state.window_id = 2;
     fixture.state.display_id = 3;
-    fixture.state.permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD |
-                                SACCADE_INPUT_PERMISSION_TEXT | SACCADE_INPUT_PERMISSION_WINDOW;
+    fixture.state.permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD | SACCADE_INPUT_PERMISSION_TEXT |
+                                SACCADE_INPUT_PERMISSION_WINDOW;
     fixture.physical.permission_epoch = fixture.state.permission_epoch;
 
     saccade::agent::Service service;
-    if (service.initialize({&fixture, acquire_scene, read_state, execute_plan, read_physical_state, abort_input,
-                            cycle_window, agent_capabilities}) != SACCADE_OK) {
+    if (service.initialize({&fixture, acquire_scene, execute_plan, read_physical_state, abort_input, cycle_window, agent_capabilities}) !=
+        SACCADE_OK) {
         return result(TestResult::service_initialization_failed);
     }
 
@@ -639,10 +635,12 @@ int main() {
         if (fuzz_result == TestResult::success) {
             fuzz_result = fuzz_seed(seed, &service, &registry, &working, &output);
         }
-        if (fuzz_result != TestResult::success) return result(fuzz_result);
+        if (fuzz_result != TestResult::success)
+            return result(fuzz_result);
     }
 
     const TestResult fuzz_result = fuzz_random(seeds, &service, &registry, &working, &output);
-    if (fuzz_result != TestResult::success) return result(fuzz_result);
+    if (fuzz_result != TestResult::success)
+        return result(fuzz_result);
     return service.shutdown() == SACCADE_OK ? result(TestResult::success) : result(TestResult::service_shutdown_failed);
 }

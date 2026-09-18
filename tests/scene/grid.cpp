@@ -6,14 +6,7 @@
 
 namespace {
 
-enum class TestResult : int {
-    success = 0,
-    build_failed,
-    packet_invalid,
-    geometry_invalid,
-    capacity_contract_invalid,
-    admission_invalid
-};
+enum class TestResult : int { success = 0, build_failed, packet_invalid, geometry_invalid, capacity_contract_invalid, admission_invalid };
 
 constexpr size_t packet_capacity = sizeof(SaccadeTargetPacketHeader) + 12U * sizeof(SaccadeTargetRecord);
 
@@ -35,29 +28,25 @@ int main() {
     config.margin_x_q8 = 8 * 256;
     config.margin_y_q8 = 10 * 256;
     size_t byte_size = 0;
-    if (saccade::scene::build_grid_scene(config, {bytes.data(), bytes.size()}, &byte_size) != SACCADE_OK ||
-        byte_size != bytes.size())
+    if (saccade::scene::build_grid_scene(config, {bytes.data(), bytes.size()}, &byte_size) != SACCADE_OK || byte_size != bytes.size())
         return static_cast<int>(TestResult::build_failed);
     saccade::scene::PacketView packet{};
-    if (saccade::scene::validate_packet({bytes.data(), byte_size}, &packet) != SACCADE_OK ||
-        packet.header->target_count != 12 || packet.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8)
+    if (saccade::scene::validate_packet({bytes.data(), byte_size}, &packet) != SACCADE_OK || packet.header->target_count != 12 ||
+        packet.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8)
         return static_cast<int>(TestResult::packet_invalid);
     const SaccadeTargetRecord& first = packet.targets[0];
     const SaccadeTargetRecord& last = packet.targets[11];
     if (first.x_q8 != config.scope.x + config.margin_x_q8 || first.y_q8 != config.scope.y + config.margin_y_q8 ||
-        first.target_id == last.target_id || first.order != 0 || last.order != 11 ||
-        first.source_bits != SACCADE_TARGET_SOURCE_GRID || (first.flags & SACCADE_TARGET_ACTIONABLE) == 0 ||
-        last.safe_x_q8 < last.x_q8 || last.safe_y_q8 < last.y_q8 || last.safe_x_q8 >= last.x_q8 + last.width_q8 ||
-        last.safe_y_q8 >= last.y_q8 + last.height_q8)
+        first.target_id == last.target_id || first.order != 0 || last.order != 11 || first.source_bits != SACCADE_TARGET_SOURCE_GRID ||
+        (first.flags & SACCADE_TARGET_ACTIONABLE) == 0 || last.safe_x_q8 < last.x_q8 || last.safe_y_q8 < last.y_q8 ||
+        last.safe_x_q8 >= last.x_q8 + last.width_q8 || last.safe_y_q8 >= last.y_q8 + last.height_q8)
         return static_cast<int>(TestResult::geometry_invalid);
     size_t required = 0;
-    if (saccade::scene::build_grid_scene(config, {}, &required) != SACCADE_ERROR_CAPACITY ||
-        required != packet_capacity)
+    if (saccade::scene::build_grid_scene(config, {}, &required) != SACCADE_ERROR_CAPACITY || required != packet_capacity)
         return static_cast<int>(TestResult::capacity_contract_invalid);
     config.rows = 101;
     config.columns = 100;
-    if (saccade::scene::build_grid_scene(config, {bytes.data(), bytes.size()}, &required) !=
-        SACCADE_ERROR_INVALID_ARGUMENT)
+    if (saccade::scene::build_grid_scene(config, {bytes.data(), bytes.size()}, &required) != SACCADE_ERROR_INVALID_ARGUMENT)
         return static_cast<int>(TestResult::admission_invalid);
     return static_cast<int>(TestResult::success);
 }

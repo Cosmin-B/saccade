@@ -106,19 +106,22 @@ int exit_code(ExitCode value) noexcept {
 }
 
 bool parse_duration(const char* text, uint32_t* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const char* end = text;
     while (*end != '\0')
         ++end;
     uint32_t value = 0;
     const auto parsed = std::from_chars(text, end, value);
-    if (parsed.ec != std::errc{} || parsed.ptr != end || value == 0 || value > maximum_duration_seconds) return false;
+    if (parsed.ec != std::errc{} || parsed.ptr != end || value == 0 || value > maximum_duration_seconds)
+        return false;
     *output = value;
     return true;
 }
 
 bool parse_mode(const char* text, BenchmarkMode* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const std::string_view value{text};
     if (value == "live") {
         *output = BenchmarkMode::live;
@@ -137,13 +140,14 @@ std::string_view mode_name(BenchmarkMode mode) noexcept {
 
 uint64_t monotonic_ns() noexcept {
     static LARGE_INTEGER frequency{};
-    if (frequency.QuadPart == 0 && QueryPerformanceFrequency(&frequency) == 0) return 0;
+    if (frequency.QuadPart == 0 && QueryPerformanceFrequency(&frequency) == 0)
+        return 0;
     LARGE_INTEGER counter{};
-    if (QueryPerformanceCounter(&counter) == 0) return 0;
+    if (QueryPerformanceCounter(&counter) == 0)
+        return 0;
     const uint64_t whole = static_cast<uint64_t>(counter.QuadPart / frequency.QuadPart);
     const uint64_t remainder = static_cast<uint64_t>(counter.QuadPart % frequency.QuadPart);
-    return whole * UINT64_C(1'000'000'000) +
-           remainder * UINT64_C(1'000'000'000) / static_cast<uint64_t>(frequency.QuadPart);
+    return whole * UINT64_C(1'000'000'000) + remainder * UINT64_C(1'000'000'000) / static_cast<uint64_t>(frequency.QuadPart);
 }
 
 SaccadeResult trust_benchmark_artifact(void*, const ArtifactView&) noexcept {
@@ -151,21 +155,22 @@ SaccadeResult trust_benchmark_artifact(void*, const ArtifactView&) noexcept {
 }
 
 uint64_t percentile(std::array<uint64_t, maximum_samples>* samples, uint32_t count, uint32_t numerator) noexcept {
-    if (count == 0) return 0;
+    if (count == 0)
+        return 0;
     std::sort(samples->begin(), samples->begin() + count);
     const uint32_t index = std::min(count - 1U, ((count - 1U) * numerator + 50U) / 100U);
     return samples->at(index);
 }
 
-void record_sample(Samples* samples, const DesktopNeuralAdvance& advance, bool profile_stages,
-                   const DirectMlInferenceProvider& provider, DirectMlPipelineStats* previous) noexcept {
-    if (!advance.scene_published || samples->count >= maximum_samples) return;
+void record_sample(Samples* samples, const DesktopNeuralAdvance& advance, bool profile_stages, const DirectMlInferenceProvider& provider,
+                   DirectMlPipelineStats* previous) noexcept {
+    if (!advance.scene_published || samples->count >= maximum_samples)
+        return;
     const uint32_t index = samples->count;
     samples->batch[index] = advance.batch_latency_ns;
     samples->full_scope[index] = advance.full_scope_latency_ns;
-    samples->capture_age[index] = advance.full_scope_latency_ns >= advance.batch_latency_ns
-                                      ? advance.full_scope_latency_ns - advance.batch_latency_ns
-                                      : 0;
+    samples->capture_age[index] =
+        advance.full_scope_latency_ns >= advance.batch_latency_ns ? advance.full_scope_latency_ns - advance.batch_latency_ns : 0;
     if (profile_stages) {
         const DirectMlPipelineStats current = provider.pipeline_stats();
         samples->import[index] = current.import_ns - previous->import_ns;
@@ -203,21 +208,22 @@ bool append_metric(StackStringBuilder<2048>* text, std::string_view name, uint64
 }
 
 bool q8(uint32_t value, int32_t* output) noexcept {
-    if (value > (static_cast<uint32_t>(INT32_MAX) >> 8U)) return false;
+    if (value > (static_cast<uint32_t>(INT32_MAX) >> 8U))
+        return false;
     *output = static_cast<int32_t>(value << 8U);
     return true;
 }
 
 SaccadeResult release_replay_frames(SceneCaptureSet*, ReplayFrames*) noexcept;
 
-SaccadeResult acquire_replay_frames(const DisplaySnapshot& displays, SceneCaptureSet* captures,
-                                    ReplayFrames* output) noexcept {
+SaccadeResult acquire_replay_frames(const DisplaySnapshot& displays, SceneCaptureSet* captures, ReplayFrames* output) noexcept {
     const uint64_t deadline_ns = monotonic_ns() + capture_start_timeout_ns;
     for (uint32_t index = 0; index < displays.count; ++index) {
         SaccadeResult result = SACCADE_ERROR_BUSY;
         while (result == SACCADE_ERROR_BUSY && monotonic_ns() < deadline_ns) {
             result = captures->acquire(displays.displays[index].display_id, &output->frames[index]);
-            if (result == SACCADE_ERROR_BUSY) Sleep(1);
+            if (result == SACCADE_ERROR_BUSY)
+                Sleep(1);
         }
         if (result != SACCADE_OK) {
             (void)release_replay_frames(captures, output);
@@ -233,14 +239,15 @@ SaccadeResult release_replay_frames(SceneCaptureSet* captures, ReplayFrames* rep
     while (replay->count != 0) {
         --replay->count;
         const SaccadeResult released = captures->release(replay->frames[replay->count]);
-        if (released != SACCADE_OK && result == SACCADE_OK) result = released;
+        if (released != SACCADE_OK && result == SACCADE_OK)
+            result = released;
     }
     return result;
 }
 
-SaccadeResult import_replay_frame(const SceneCaptureFrame& capture, const DisplaySurface& display,
-                                  uint64_t scene_transform_epoch, uint64_t frame_id, uint64_t capture_time_ns,
-                                  SaccadeRuntimeHandle runtime, DesktopNeuralFrame* output) noexcept {
+SaccadeResult import_replay_frame(const SceneCaptureFrame& capture, const DisplaySurface& display, uint64_t scene_transform_epoch,
+                                  uint64_t frame_id, uint64_t capture_time_ns, SaccadeRuntimeHandle runtime,
+                                  DesktopNeuralFrame* output) noexcept {
     TransformDesc transform{};
     if (!q8(capture.frame.width, &transform.source.width) || !q8(capture.frame.height, &transform.source.height)) {
         return SACCADE_ERROR_CAPACITY;
@@ -251,7 +258,8 @@ SaccadeResult import_replay_frame(const SceneCaptureFrame& capture, const Displa
     transform.destination_space = CoordinateSpace::desktop;
     CoordinateTransform source_to_desktop;
     SaccadeResult result = source_to_desktop.initialize(transform);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
 
     SaccadeWin32CaptureFrameDesc frame{};
     frame.struct_size = sizeof(frame);
@@ -264,7 +272,8 @@ SaccadeResult import_replay_frame(const SceneCaptureFrame& capture, const Displa
     frame.frame_id = frame_id;
     frame.transform_epoch = capture.frame.transform_epoch;
     result = saccade_frame_import_win32_capture(runtime, &frame, &output->frame);
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
 
     output->source_id = capture.frame.source_id;
     output->topology_epoch = capture.topology_epoch;
@@ -277,20 +286,22 @@ SaccadeResult import_replay_frame(const SceneCaptureFrame& capture, const Displa
     return SACCADE_OK;
 }
 
-SaccadeResult offer_replay_frames(const DisplaySnapshot& displays, const ReplayFrames& replay,
-                                  DesktopNeuralCoordinator* coordinator, SaccadeRuntimeHandle runtime,
-                                  uint64_t capture_time_ns, uint64_t* next_frame_id, uint64_t* offered) noexcept {
+SaccadeResult offer_replay_frames(const DisplaySnapshot& displays, const ReplayFrames& replay, DesktopNeuralCoordinator* coordinator,
+                                  SaccadeRuntimeHandle runtime, uint64_t capture_time_ns, uint64_t* next_frame_id,
+                                  uint64_t* offered) noexcept {
     for (uint32_t index = 0; index < replay.count; ++index) {
         DesktopNeuralFrame frame{};
-        SaccadeResult result = import_replay_frame(replay.frames[index], displays.displays[index], displays.epoch,
-                                                   (*next_frame_id)++, capture_time_ns, runtime, &frame);
-        if (result != SACCADE_OK) return result;
+        SaccadeResult result = import_replay_frame(replay.frames[index], displays.displays[index], displays.epoch, (*next_frame_id)++,
+                                                   capture_time_ns, runtime, &frame);
+        if (result != SACCADE_OK)
+            return result;
         frame.source_count = replay.count;
         result = coordinator->offer(frame);
         if (result != SACCADE_OK) {
             if (result != SACCADE_ERROR_STALE_HANDLE) {
                 (void)saccade_frame_release(runtime, frame.frame);
-                if (frame.retire != nullptr) frame.retire(frame.retire_context, frame.frame);
+                if (frame.retire != nullptr)
+                    frame.retire(frame.retire_context, frame.frame);
             }
             return result;
         }
@@ -300,14 +311,15 @@ SaccadeResult offer_replay_frames(const DisplaySnapshot& displays, const ReplayF
 }
 
 SaccadeResult offer_frames(const DisplaySnapshot& displays, SceneCaptureSet* captures, NeuralBridge* bridge,
-                           DesktopNeuralCoordinator* coordinator, SaccadeRuntimeHandle runtime,
-                           uint64_t* offered) noexcept {
+                           DesktopNeuralCoordinator* coordinator, SaccadeRuntimeHandle runtime, uint64_t* offered) noexcept {
     for (uint32_t index = 0; index < displays.count; ++index) {
         const auto& display = displays.displays[index];
         SceneCaptureFrame capture{};
         SaccadeResult result = captures->acquire(display.display_id, &capture);
-        if (result == SACCADE_ERROR_BUSY) continue;
-        if (result != SACCADE_OK) return result;
+        if (result == SACCADE_ERROR_BUSY)
+            continue;
+        if (result != SACCADE_OK)
+            return result;
 
         DesktopNeuralFrame frame{};
         result = bridge->import(captures, capture, display, displays.epoch, &frame);
@@ -316,12 +328,14 @@ SaccadeResult offer_frames(const DisplaySnapshot& displays, SceneCaptureSet* cap
             return result;
         }
         frame.source_count = displays.count;
-        if (frame.capture_time_ns == 0) frame.capture_time_ns = monotonic_ns();
+        if (frame.capture_time_ns == 0)
+            frame.capture_time_ns = monotonic_ns();
         result = coordinator->offer(frame);
         if (result != SACCADE_OK) {
             if (result != SACCADE_ERROR_STALE_HANDLE) {
                 (void)saccade_frame_release(runtime, frame.frame);
-                if (frame.retire != nullptr) frame.retire(frame.retire_context, frame.frame);
+                if (frame.retire != nullptr)
+                    frame.retire(frame.retire_context, frame.frame);
             }
             return result;
         }
@@ -333,29 +347,35 @@ SaccadeResult offer_frames(const DisplaySnapshot& displays, SceneCaptureSet* cap
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 3 || argc > 5) return exit_code(ExitCode::usage);
+    if (argc < 3 || argc > 5)
+        return exit_code(ExitCode::usage);
     uint32_t duration_seconds = default_duration_seconds;
-    if (argc >= 4 && !parse_duration(argv[3], &duration_seconds)) return exit_code(ExitCode::usage);
+    if (argc >= 4 && !parse_duration(argv[3], &duration_seconds))
+        return exit_code(ExitCode::usage);
     BenchmarkMode mode = BenchmarkMode::live;
-    if (argc == 5 && !parse_mode(argv[4], &mode)) return exit_code(ExitCode::usage);
+    if (argc == 5 && !parse_mode(argv[4], &mode))
+        return exit_code(ExitCode::usage);
 
     const DPI_AWARENESS_CONTEXT previous_dpi = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     RuntimeScheduling scheduling;
     SaccadeResult result = scheduling.initialize();
-    if (result != SACCADE_OK) return fail(ExitCode::scheduling, "scheduling", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::scheduling, "scheduling", result);
     const uint64_t initialized_at = monotonic_ns();
-    if (initialized_at == 0) return exit_code(ExitCode::timing);
+    if (initialized_at == 0)
+        return exit_code(ExitCode::timing);
     const saccade::model::ArtifactVerifier verifier{nullptr, trust_benchmark_artifact};
     static MappedArtifact artifact;
     result = artifact.initialize(argv[1], verifier);
-    if (result != SACCADE_OK) return fail(ExitCode::artifact, "artifact", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::artifact, "artifact", result);
 
     static DirectMlInferenceProvider provider;
     const bool profile_stages = GetEnvironmentVariableW(L"SACCADE_PROFILE_WINDOWS_PIPELINE", nullptr, 0) != 0;
-    const DirectMlProviderConfig provider_config{argv[2], verifier, DirectMlExecutionPolicy::hardware_only,
-                                                 profile_stages};
+    const DirectMlProviderConfig provider_config{argv[2], verifier, DirectMlExecutionPolicy::hardware_only, profile_stages};
     result = provider.initialize(provider_config);
-    if (result != SACCADE_OK) return fail(ExitCode::provider, "provider", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::provider, "provider", result);
 
     static InferenceRuntime inference;
     const SaccadeInferenceProviderDesc provider_desc = provider.descriptor();
@@ -385,26 +405,31 @@ int main(int argc, char** argv) {
     static DisplayCollector display_collector;
     result = mode == BenchmarkMode::live ? capture_provider.initialize_native(provider.adapter_luid())
                                          : capture_provider.initialize(provider.capture_device());
-    if (result != SACCADE_OK) return fail(ExitCode::capture, "capture_provider", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::capture, "capture_provider", result);
     result = display_collector.refresh(&displays);
     if (result != SACCADE_OK || displays.snapshot().count == 0)
         return fail(ExitCode::topology, "topology", result == SACCADE_OK ? SACCADE_ERROR_NOT_FOUND : result);
     result = captures.initialize(&capture_provider, 0, 0);
-    if (result != SACCADE_OK) return fail(ExitCode::capture, "capture_set", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::capture, "capture_set", result);
     result = captures.synchronize(displays.snapshot());
-    if (result != SACCADE_OK) return fail(ExitCode::capture, "capture_synchronize", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::capture, "capture_synchronize", result);
     result = captures.set_running(true);
-    if (result != SACCADE_OK) return fail(ExitCode::capture, "capture_start", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::capture, "capture_start", result);
 
     static NeuralBridge bridge;
     if (mode == BenchmarkMode::live) {
-        const NeuralBridgeConfig bridge_config{inference.runtime(), capture_provider.device(),
-                                               capture_provider.context(), provider.graphics_device()};
+        const NeuralBridgeConfig bridge_config{inference.runtime(), capture_provider.device(), capture_provider.context(),
+                                               provider.graphics_device()};
         result = bridge.initialize(bridge_config);
     } else {
         result = bridge.initialize(inference.runtime());
     }
-    if (result != SACCADE_OK) return fail(ExitCode::capture, "bridge", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::capture, "bridge", result);
 
     static saccade::scene::SceneStoreStorage scene_storage;
     static DesktopNeuralCoordinatorStorage coordinator_storage;
@@ -420,15 +445,18 @@ int main(int argc, char** argv) {
     coordinator_config.maximum_targets = artifact.view().max_targets;
     coordinator_config.start_time_ns = monotonic_ns();
     result = scenes.initialize(&scene_storage);
-    if (result != SACCADE_OK) return fail(ExitCode::scene_store, "scene_store", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::scene_store, "scene_store", result);
     result = coordinator.initialize(coordinator_config, &coordinator_storage, &scenes);
-    if (result != SACCADE_OK) return fail(ExitCode::coordinator, "coordinator", result);
+    if (result != SACCADE_OK)
+        return fail(ExitCode::coordinator, "coordinator", result);
 
     static Samples samples;
     static ReplayFrames replay;
     if (mode == BenchmarkMode::replay) {
         result = acquire_replay_frames(displays.snapshot(), &captures, &replay);
-        if (result != SACCADE_OK) return fail(ExitCode::capture, "replay_capture", result);
+        if (result != SACCADE_OK)
+            return fail(ExitCode::capture, "replay_capture", result);
     }
     uint64_t next_frame_id = 1;
     uint64_t frames_offered = 0;
@@ -440,8 +468,7 @@ int main(int argc, char** argv) {
     const uint64_t warmup_started = monotonic_ns();
     const uint64_t warmup_deadline = warmup_started + capture_start_timeout_ns;
     uint64_t next_capture_ns = warmup_started;
-    while (run_result == SACCADE_OK && coordinator.stats().batches_published < warmup_scene_count &&
-           monotonic_ns() < warmup_deadline) {
+    while (run_result == SACCADE_OK && coordinator.stats().batches_published < warmup_scene_count && monotonic_ns() < warmup_deadline) {
         const uint64_t now_ns = monotonic_ns();
         if (now_ns == 0) {
             run_result = SACCADE_ERROR_BACKEND;
@@ -449,18 +476,18 @@ int main(int argc, char** argv) {
         }
         if (now_ns >= next_capture_ns) {
             run_result = mode == BenchmarkMode::live
-                             ? offer_frames(displays.snapshot(), &captures, &bridge, &coordinator, inference.runtime(),
-                                            &frames_offered)
-                             : offer_replay_frames(displays.snapshot(), replay, &coordinator, inference.runtime(),
-                                                   now_ns, &next_frame_id, &frames_offered);
+                             ? offer_frames(displays.snapshot(), &captures, &bridge, &coordinator, inference.runtime(), &frames_offered)
+                             : offer_replay_frames(displays.snapshot(), replay, &coordinator, inference.runtime(), now_ns, &next_frame_id,
+                                                   &frames_offered);
             ++capture_cycles;
             const uint64_t elapsed = now_ns - next_capture_ns;
-            next_capture_ns += (elapsed / saccade::scheduler::interaction_period_120hz_ns + 1U) *
-                               saccade::scheduler::interaction_period_120hz_ns;
+            next_capture_ns +=
+                (elapsed / saccade::scheduler::interaction_period_120hz_ns + 1U) * saccade::scheduler::interaction_period_120hz_ns;
         }
 
         DesktopNeuralAdvance advance{};
-        if (run_result == SACCADE_OK) run_result = coordinator.advance(now_ns, &advance);
+        if (run_result == SACCADE_OK)
+            run_result = coordinator.advance(now_ns, &advance);
         if (advance.scene_published && cold_full_scope_latency_ns == 0) {
             cold_batch_latency_ns = advance.batch_latency_ns;
             cold_full_scope_latency_ns = advance.full_scope_latency_ns;
@@ -509,8 +536,7 @@ int main(int argc, char** argv) {
     inference_memory_baseline.struct_size = sizeof(inference_memory_baseline);
     inference_memory_baseline.api_version = SACCADE_API_VERSION;
     SaccadeMemoryStats capture_memory_baseline = inference_memory_baseline;
-    if (saccade_inference_memory_stats(inference.runtime(), inference.session(), &inference_memory_baseline) !=
-            SACCADE_OK ||
+    if (saccade_inference_memory_stats(inference.runtime(), inference.session(), &inference_memory_baseline) != SACCADE_OK ||
         captures.read_memory_stats(&capture_memory_baseline) != SACCADE_OK) {
         return exit_code(ExitCode::memory);
     }
@@ -526,20 +552,21 @@ int main(int argc, char** argv) {
             run_result = SACCADE_ERROR_BACKEND;
             break;
         }
-        if (now_ns - run_started >= duration_ns) break;
+        if (now_ns - run_started >= duration_ns)
+            break;
         if (now_ns >= next_capture_ns) {
             run_result = mode == BenchmarkMode::live
-                             ? offer_frames(displays.snapshot(), &captures, &bridge, &coordinator, inference.runtime(),
-                                            &frames_offered)
-                             : offer_replay_frames(displays.snapshot(), replay, &coordinator, inference.runtime(),
-                                                   now_ns, &next_frame_id, &frames_offered);
+                             ? offer_frames(displays.snapshot(), &captures, &bridge, &coordinator, inference.runtime(), &frames_offered)
+                             : offer_replay_frames(displays.snapshot(), replay, &coordinator, inference.runtime(), now_ns, &next_frame_id,
+                                                   &frames_offered);
             ++capture_cycles;
             const uint64_t elapsed = now_ns - next_capture_ns;
-            next_capture_ns += (elapsed / saccade::scheduler::interaction_period_120hz_ns + 1U) *
-                               saccade::scheduler::interaction_period_120hz_ns;
+            next_capture_ns +=
+                (elapsed / saccade::scheduler::interaction_period_120hz_ns + 1U) * saccade::scheduler::interaction_period_120hz_ns;
         }
         DesktopNeuralAdvance advance{};
-        if (run_result == SACCADE_OK) run_result = coordinator.advance(now_ns, &advance);
+        if (run_result == SACCADE_OK)
+            run_result = coordinator.advance(now_ns, &advance);
         record_sample(&samples, advance, profile_stages, provider, &previous_pipeline_stats);
         (void)SwitchToThread();
     }
@@ -554,13 +581,15 @@ int main(int argc, char** argv) {
     }
     if (mode == BenchmarkMode::replay) {
         const SaccadeResult released = release_replay_frames(&captures, &replay);
-        if (released != SACCADE_OK && run_result == SACCADE_OK) run_result = released;
+        if (released != SACCADE_OK && run_result == SACCADE_OK)
+            run_result = released;
         if (captures.set_running(false) != SACCADE_OK && run_result == SACCADE_OK) {
             run_result = SACCADE_ERROR_BACKEND;
         }
     }
     const uint64_t run_ended = monotonic_ns();
-    if (run_result != SACCADE_OK || run_ended <= run_started) return exit_code(ExitCode::run);
+    if (run_result != SACCADE_OK || run_ended <= run_started)
+        return exit_code(ExitCode::run);
 
     SaccadeMemoryStats inference_memory{};
     inference_memory.struct_size = sizeof(inference_memory);
@@ -598,30 +627,25 @@ int main(int argc, char** argv) {
     const uint64_t postprocess_p99 = percentile(&samples.postprocess, samples.count, 99);
     const uint64_t measured_ns = run_ended - run_started;
     const uint64_t batches_published = coordinator_stats.batches_published - coordinator_baseline.batches_published;
-    const uint64_t batch_deadline_misses =
-        coordinator_stats.batch_deadlines_missed - coordinator_baseline.batch_deadlines_missed;
+    const uint64_t batch_deadline_misses = coordinator_stats.batch_deadlines_missed - coordinator_baseline.batch_deadlines_missed;
     const uint64_t full_scope_deadline_misses =
         coordinator_stats.full_scope_deadlines_missed - coordinator_baseline.full_scope_deadlines_missed;
     const uint64_t deadline_misses = std::max(batch_deadline_misses, full_scope_deadline_misses);
     const uint64_t refresh_millihz = batches_published * UINT64_C(1'000'000'000'000) / measured_ns;
     const uint64_t interaction_ticks = scheduler_stats.interaction_ticks - scheduler_baseline.interaction_ticks;
     const uint64_t interaction_refresh_millihz = interaction_ticks * UINT64_C(1'000'000'000'000) / measured_ns;
-    const uint64_t deadline_miss_ppm =
-        batches_published == 0 ? UINT64_MAX : deadline_misses * UINT64_C(1'000'000) / batches_published;
-    const uint64_t inference_high_water_growth =
-        inference_memory.high_water_bytes > inference_memory_baseline.high_water_bytes
-            ? inference_memory.high_water_bytes - inference_memory_baseline.high_water_bytes
-            : 0;
-    const uint64_t capture_high_water_growth =
-        capture_memory.high_water_bytes > capture_memory_baseline.high_water_bytes
-            ? capture_memory.high_water_bytes - capture_memory_baseline.high_water_bytes
-            : 0;
+    const uint64_t deadline_miss_ppm = batches_published == 0 ? UINT64_MAX : deadline_misses * UINT64_C(1'000'000) / batches_published;
+    const uint64_t inference_high_water_growth = inference_memory.high_water_bytes > inference_memory_baseline.high_water_bytes
+                                                     ? inference_memory.high_water_bytes - inference_memory_baseline.high_water_bytes
+                                                     : 0;
+    const uint64_t capture_high_water_growth = capture_memory.high_water_bytes > capture_memory_baseline.high_water_bytes
+                                                   ? capture_memory.high_water_bytes - capture_memory_baseline.high_water_bytes
+                                                   : 0;
     const bool memory_stable = inference_high_water_growth == 0 && capture_high_water_growth == 0;
     const bool scheduling_ready = scheduling.mmcss_active() && provider.worker_mmcss_active();
     const bool qualified = scheduling_ready && refresh_millihz >= minimum_refresh_millihz &&
                            interaction_refresh_millihz >= minimum_interaction_millihz &&
-                           batch_p95 <= saccade::scheduler::scene_period_30hz_ns &&
-                           full_p95 <= saccade::scheduler::scene_period_30hz_ns &&
+                           batch_p95 <= saccade::scheduler::scene_period_30hz_ns && full_p95 <= saccade::scheduler::scene_period_30hz_ns &&
                            deadline_miss_ppm <= maximum_deadline_miss_ppm && memory_stable;
 
     StackStringBuilder<2048> output;
@@ -631,34 +655,26 @@ int main(int argc, char** argv) {
         append_metric(&output, "worker_mmcss", provider.worker_mmcss_active() ? 1U : 0U) &&
         append_metric(&output, "worker_thread_id", provider.worker_thread_id()) &&
         append_metric(&output, "process_priority_elevated", scheduling.process_priority_elevated() ? 1U : 0U) &&
-        append_metric(&output, "duration_ns", measured_ns) &&
-        append_metric(&output, "displays", displays.snapshot().count) &&
+        append_metric(&output, "duration_ns", measured_ns) && append_metric(&output, "displays", displays.snapshot().count) &&
         append_metric(&output, "warmup_scenes", coordinator_baseline.batches_published) &&
         append_metric(&output, "cold_batch_ns", cold_batch_latency_ns) &&
         append_metric(&output, "cold_full_scope_ns", cold_full_scope_latency_ns) &&
-        append_metric(&output, "capture_cycles", capture_cycles) &&
-        append_metric(&output, "frames_offered", frames_offered) &&
-        append_metric(&output, "scenes", batches_published) &&
-        append_metric(&output, "refresh_millihz", refresh_millihz) &&
+        append_metric(&output, "capture_cycles", capture_cycles) && append_metric(&output, "frames_offered", frames_offered) &&
+        append_metric(&output, "scenes", batches_published) && append_metric(&output, "refresh_millihz", refresh_millihz) &&
         append_metric(&output, "interaction_refresh_millihz", interaction_refresh_millihz) &&
         append_metric(&output, "minimum_interaction_millihz", minimum_interaction_millihz) &&
         append_metric(&output, "batch_p50_ns", batch_p50) && append_metric(&output, "batch_p95_ns", batch_p95) &&
         append_metric(&output, "batch_p99_ns", batch_p99) && append_metric(&output, "full_scope_p50_ns", full_p50) &&
-        append_metric(&output, "full_scope_p95_ns", full_p95) &&
-        append_metric(&output, "full_scope_p99_ns", full_p99) &&
-        append_metric(&output, "capture_age_p50_ns", capture_age_p50) &&
-        append_metric(&output, "capture_age_p95_ns", capture_age_p95) &&
-        append_metric(&output, "capture_age_p99_ns", capture_age_p99) &&
-        append_metric(&output, "batch_misses", batch_deadline_misses) &&
+        append_metric(&output, "full_scope_p95_ns", full_p95) && append_metric(&output, "full_scope_p99_ns", full_p99) &&
+        append_metric(&output, "capture_age_p50_ns", capture_age_p50) && append_metric(&output, "capture_age_p95_ns", capture_age_p95) &&
+        append_metric(&output, "capture_age_p99_ns", capture_age_p99) && append_metric(&output, "batch_misses", batch_deadline_misses) &&
         append_metric(&output, "full_scope_misses", full_scope_deadline_misses) &&
         append_metric(&output, "deadline_miss_ppm", deadline_miss_ppm) &&
         append_metric(&output, "scene_replaced", scheduler_stats.scene_replaced - scheduler_baseline.scene_replaced) &&
         append_metric(&output, "interaction_ticks", interaction_ticks) &&
-        append_metric(&output, "interaction_skipped",
-                      scheduler_stats.interaction_skipped - scheduler_baseline.interaction_skipped) &&
+        append_metric(&output, "interaction_skipped", scheduler_stats.interaction_skipped - scheduler_baseline.interaction_skipped) &&
         append_metric(&output, "capture_empty", capture_stats.empty_acquires - capture_baseline.empty_acquires) &&
-        append_metric(&output, "targets",
-                      coordinator_stats.targets_published - coordinator_baseline.targets_published) &&
+        append_metric(&output, "targets", coordinator_stats.targets_published - coordinator_baseline.targets_published) &&
         append_metric(&output, "inference_high_water_baseline", inference_memory_baseline.high_water_bytes) &&
         append_metric(&output, "inference_high_water", inference_memory.high_water_bytes) &&
         append_metric(&output, "inference_high_water_growth", inference_high_water_growth) &&
@@ -681,23 +697,33 @@ int main(int argc, char** argv) {
         append_metric(&output, "profile_inference_p99_ns", inference_p99) &&
         append_metric(&output, "profile_postprocess_p50_ns", postprocess_p50) &&
         append_metric(&output, "profile_postprocess_p95_ns", postprocess_p95) &&
-        append_metric(&output, "profile_postprocess_p99_ns", postprocess_p99) &&
-        append_metric(&output, "qualified", qualified ? 1U : 0U) && output.append('\n');
-    if (!written) return exit_code(ExitCode::run);
+        append_metric(&output, "profile_postprocess_p99_ns", postprocess_p99) && append_metric(&output, "qualified", qualified ? 1U : 0U) &&
+        output.append('\n');
+    if (!written)
+        return exit_code(ExitCode::run);
     emit(output.view());
 
     SaccadeResult cleanup = coordinator.shutdown();
     if (mode == BenchmarkMode::live && captures.set_running(false) != SACCADE_OK && cleanup == SACCADE_OK) {
         cleanup = SACCADE_ERROR_BACKEND;
     }
-    if (bridge.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (captures.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (inference.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (provider.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (artifact.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (scheduling.shutdown() != SACCADE_OK && cleanup == SACCADE_OK) cleanup = SACCADE_ERROR_BACKEND;
-    if (previous_dpi != nullptr) (void)SetThreadDpiAwarenessContext(previous_dpi);
-    if (cleanup != SACCADE_OK) return exit_code(ExitCode::cleanup);
-    if (!qualified) return exit_code(ExitCode::qualification);
+    if (bridge.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (captures.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (inference.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (provider.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (artifact.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (scheduling.shutdown() != SACCADE_OK && cleanup == SACCADE_OK)
+        cleanup = SACCADE_ERROR_BACKEND;
+    if (previous_dpi != nullptr)
+        (void)SetThreadDpiAwarenessContext(previous_dpi);
+    if (cleanup != SACCADE_OK)
+        return exit_code(ExitCode::cleanup);
+    if (!qualified)
+        return exit_code(ExitCode::qualification);
     return exit_code(ExitCode::success);
 }

@@ -24,15 +24,14 @@ bool font_family(const application::AppearanceSettings& appearance, std::array<w
 
 } // namespace
 
-SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& settings,
-                                    overlay::GlyphAtlasStorage* output) noexcept {
-    if (output == nullptr || settings.hints.alphabet_count < 2 ||
-        settings.hints.alphabet_count > overlay::glyph_atlas_capacity) {
+SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& settings, overlay::GlyphAtlasStorage* output) noexcept {
+    if (output == nullptr || settings.hints.alphabet_count < 2 || settings.hints.alphabet_count > overlay::glyph_atlas_capacity) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
     std::array<wchar_t, 64> family{};
-    if (!font_family(settings.appearance, &family)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!font_family(settings.appearance, &family))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     output->pixels.fill(0);
     output->symbols.fill(0);
@@ -48,13 +47,15 @@ SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& setting
     void* bitmap_pixels = nullptr;
     HBITMAP bitmap = CreateDIBSection(nullptr, &bitmap_info, DIB_RGB_COLORS, &bitmap_pixels, nullptr, 0);
     HDC context = CreateCompatibleDC(nullptr);
-    HFONT font = CreateFontW(-48, 0, 0, 0, static_cast<LONG>(settings.appearance.font_weight), FALSE, FALSE, FALSE,
-                             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
-                             DEFAULT_PITCH | FF_DONTCARE, family.data());
+    HFONT font = CreateFontW(-48, 0, 0, 0, static_cast<LONG>(settings.appearance.font_weight), FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH | FF_DONTCARE, family.data());
     if (bitmap == nullptr || bitmap_pixels == nullptr || context == nullptr || font == nullptr) {
-        if (font != nullptr) (void)DeleteObject(font);
-        if (context != nullptr) (void)DeleteDC(context);
-        if (bitmap != nullptr) (void)DeleteObject(bitmap);
+        if (font != nullptr)
+            (void)DeleteObject(font);
+        if (context != nullptr)
+            (void)DeleteDC(context);
+        if (bitmap != nullptr)
+            (void)DeleteObject(bitmap);
         return SACCADE_ERROR_BACKEND;
     }
 
@@ -79,8 +80,7 @@ SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& setting
         wchar_t text[2]{static_cast<wchar_t>(symbol), L'\0'};
         const uint32_t column = index % overlay::glyph_atlas_columns;
         const uint32_t row = index / overlay::glyph_atlas_columns;
-        RECT bounds{static_cast<LONG>(column * overlay::glyph_atlas_cell_width),
-                    static_cast<LONG>(row * overlay::glyph_atlas_cell_height),
+        RECT bounds{static_cast<LONG>(column * overlay::glyph_atlas_cell_width), static_cast<LONG>(row * overlay::glyph_atlas_cell_height),
                     static_cast<LONG>((column + 1U) * overlay::glyph_atlas_cell_width),
                     static_cast<LONG>((row + 1U) * overlay::glyph_atlas_cell_height)};
         if (DrawTextW(context, text, 1, &bounds, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX) == 0) {

@@ -7,12 +7,13 @@ InferenceRuntime::~InferenceRuntime() {
 }
 
 SaccadeResult InferenceRuntime::initialize(const InferenceRuntimeConfig& config) noexcept {
-    if (runtime_ != 0) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (runtime_ != 0)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (config.provider.context == nullptr || config.provider.info.struct_size < sizeof(SaccadeProviderInfo) ||
-        config.provider.info.api_version != SACCADE_API_VERSION || config.artifact.data == nullptr ||
-        config.artifact.size == 0 || config.required_capability_bits == 0 || config.required_format_bits == 0 ||
-        config.required_precision_bits == 0 || config.required_import_bits == 0 || config.queue_capacity == 0 ||
-        config.max_in_flight == 0 || config.max_in_flight > config.queue_capacity) {
+        config.provider.info.api_version != SACCADE_API_VERSION || config.artifact.data == nullptr || config.artifact.size == 0 ||
+        config.required_capability_bits == 0 || config.required_format_bits == 0 || config.required_precision_bits == 0 ||
+        config.required_import_bits == 0 || config.queue_capacity == 0 || config.max_in_flight == 0 ||
+        config.max_in_flight > config.queue_capacity) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     SaccadeRuntimeDesc runtime_desc{};
@@ -22,7 +23,8 @@ SaccadeResult InferenceRuntime::initialize(const InferenceRuntimeConfig& config)
     if (result == SACCADE_OK) {
         result = saccade_register_inference_provider(runtime_, &config.provider);
     }
-    if (result == SACCADE_OK) result = saccade_runtime_freeze(runtime_);
+    if (result == SACCADE_OK)
+        result = saccade_runtime_freeze(runtime_);
     if (result == SACCADE_OK) {
         SaccadeInferenceSessionDesc session_desc{};
         session_desc.struct_size = sizeof(session_desc);
@@ -60,7 +62,8 @@ SaccadeResult InferenceRuntime::initialize(const InferenceRuntimeConfig& config)
 }
 
 SaccadeResult InferenceRuntime::shutdown() noexcept {
-    if (runtime_ == 0) return SACCADE_OK;
+    if (runtime_ == 0)
+        return SACCADE_OK;
     if (session_ != 0) {
         const SaccadeResult destroyed = saccade_inference_session_destroy(runtime_, session_);
         if (destroyed != SACCADE_OK) {

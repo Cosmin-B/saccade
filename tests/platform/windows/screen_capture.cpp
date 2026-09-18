@@ -30,8 +30,7 @@ void report_native_error(const saccade::platform::windows::ScreenCaptureProvider
     }
     *converted.ptr++ = '\n';
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.data(), static_cast<DWORD>(converted.ptr - text.data()),
-                    &written, nullptr);
+    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.data(), static_cast<DWORD>(converted.ptr - text.data()), &written, nullptr);
 }
 
 bool detached_from_console() noexcept {
@@ -56,14 +55,13 @@ int main() {
     }
     const SaccadeCaptureProviderDesc backend = provider.descriptor();
     if (backend.context == nullptr || backend.ops.enumerate_sources == nullptr || backend.ops.create == nullptr ||
-        backend.ops.start == nullptr || backend.ops.acquire == nullptr || backend.ops.release == nullptr ||
-        backend.ops.stop == nullptr || backend.ops.destroy == nullptr) {
+        backend.ops.start == nullptr || backend.ops.acquire == nullptr || backend.ops.release == nullptr || backend.ops.stop == nullptr ||
+        backend.ops.destroy == nullptr) {
         return 3;
     }
     SaccadeCaptureSourceInfo source = output_structure<SaccadeCaptureSourceInfo>();
-    if (backend.ops.enumerate_sources(backend.context, 0, &source) != SACCADE_OK ||
-        source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY || source.stable_id == 0 || source.desktop_bounds.width <= 0 ||
-        source.desktop_bounds.height <= 0) {
+    if (backend.ops.enumerate_sources(backend.context, 0, &source) != SACCADE_OK || source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY ||
+        source.stable_id == 0 || source.desktop_bounds.width <= 0 || source.desktop_bounds.height <= 0) {
         return 4;
     }
     SaccadeCaptureStreamDesc desc{};
@@ -94,8 +92,8 @@ int main() {
         frame = output_structure<SaccadeCapturedFrame>();
         acquired = backend.ops.acquire(backend.context, stream, 0, &frame);
     }
-    if (acquired != SACCADE_OK || frame.frame == 0 || frame.width == 0 || frame.height == 0 ||
-        frame.pixel_format != SACCADE_FORMAT_BGRA8 || frame.transform_epoch == 0) {
+    if (acquired != SACCADE_OK || frame.frame == 0 || frame.width == 0 || frame.height == 0 || frame.pixel_format != SACCADE_FORMAT_BGRA8 ||
+        frame.transform_epoch == 0) {
         return 6;
     }
     saccade::platform::windows::NativeCapturedFrame native{};
@@ -111,8 +109,8 @@ int main() {
     }
     std::array<SaccadeRectI32, 64> damage{};
     uint32_t damage_count = 0;
-    if (backend.ops.copy_damage(backend.context, stream, frame.frame, damage.data(),
-                                static_cast<uint32_t>(damage.size()), &damage_count) != SACCADE_OK ||
+    if (backend.ops.copy_damage(backend.context, stream, frame.frame, damage.data(), static_cast<uint32_t>(damage.size()), &damage_count) !=
+            SACCADE_OK ||
         damage_count != frame.damage_count) {
         return 9;
     }
@@ -123,8 +121,8 @@ int main() {
     SaccadeMemoryStats memory = output_structure<SaccadeMemoryStats>();
     saccade::platform::windows::ScreenCaptureStats stats{};
     if (backend.ops.memory_stats(backend.context, stream, &memory) != SACCADE_OK || memory.copied_bytes != 0 ||
-        memory.framework_opaque == 0 || provider.read_stats(stream, &stats) != SACCADE_OK || stats.acquired != 1 ||
-        stats.released != 1 || stats.stale_releases != 1 || backend.ops.stop(backend.context, stream) != SACCADE_OK ||
+        memory.framework_opaque == 0 || provider.read_stats(stream, &stats) != SACCADE_OK || stats.acquired != 1 || stats.released != 1 ||
+        stats.stale_releases != 1 || backend.ops.stop(backend.context, stream) != SACCADE_OK ||
         backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
         return 11;
     }

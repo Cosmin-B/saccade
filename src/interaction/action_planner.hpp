@@ -80,8 +80,7 @@ struct ActionPlannerStats {
 
 class ActionPlanner final {
   public:
-    SaccadeResult build(const scene::PacketView&, const ActionContext&, const ActionRequest&, ActionPlanStorage*,
-                        SaccadeSpanU8*) noexcept;
+    SaccadeResult build(const scene::PacketView&, const ActionContext&, const ActionRequest&, ActionPlanStorage*, SaccadeSpanU8*) noexcept;
 
     [[nodiscard]] ActionPlannerStats stats() const noexcept { return stats_; }
 

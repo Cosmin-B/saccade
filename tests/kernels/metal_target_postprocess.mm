@@ -41,40 +41,24 @@ void make_candidates(std::array<DenseCandidate, candidate_count>* output) {
         candidate.flags = SACCADE_TARGET_ACTIONABLE;
         (*output)[index] = candidate;
     }
-    (*output)[13] = {
-        40, 40, 800, 600, 65535, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[29] = {
-        80, 80, 100, 100, 65534, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[47] = {
-        44, 44, 800, 600, 65533, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[5] = {12000,
-                    12000,
-                    16,
-                    16,
-                    65532,
-                    SACCADE_TARGET_ROLE_BUTTON,
-                    SACCADE_TARGET_SOURCE_NEURAL,
-                    SACCADE_TARGET_ACTIONABLE,
-                    0};
+    (*output)[13] = {40, 40, 800, 600, 65535, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[29] = {80, 80, 100, 100, 65534, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[47] = {44, 44, 800, 600, 65533, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[5] = {12000, 12000, 16, 16, 65532, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
 }
 
 int run_path(id<MTLDevice> device, const char* metallib, const std::array<DenseCandidate, candidate_count>& candidates,
              uint32_t active_candidates, const uint8_t* expected, size_t expected_size, const PostprocessConfig& config,
              const PostprocessEpochs& epochs, PathPreference preference) {
-    id<MTLBuffer> candidate_buffer =
-        [device newBufferWithBytes:candidates.data()
-                            length:sizeof(candidates)
-                           options:MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked];
+    id<MTLBuffer> candidate_buffer = [device newBufferWithBytes:candidates.data()
+                                                         length:sizeof(candidates)
+                                                        options:MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked];
     if (candidate_buffer == nil) {
         return 10;
     }
     TargetPostprocessor postprocessor;
     if (postprocessor.initialize((__bridge void*)device, metallib, preference,
-                                 {candidate_count, target_capacity, (__bridge void*)candidate_buffer, 0}) !=
-        SACCADE_OK) {
+                                 {candidate_count, target_capacity, (__bridge void*)candidate_buffer, 0}) != SACCADE_OK) {
         return 11;
     }
     TargetPostprocessSubmission submission{};
@@ -91,15 +75,13 @@ int run_path(id<MTLDevice> device, const char* metallib, const std::array<DenseC
     }
     if (packet.size != expected_size || std::memcmp(packet.data, expected, std::min(packet.size, expected_size)) != 0) {
         const auto* expected_header = reinterpret_cast<const SaccadeTargetPacketHeader*>(expected);
-        std::fprintf(stderr, "packet mismatch path=%u size=%zu/%zu targets=%u/%u\n",
-                     static_cast<unsigned>(postprocessor.stats().path), packet.size, expected_size,
-                     view.header->target_count, expected_header->target_count);
+        std::fprintf(stderr, "packet mismatch path=%u size=%zu/%zu targets=%u/%u\n", static_cast<unsigned>(postprocessor.stats().path),
+                     packet.size, expected_size, view.header->target_count, expected_header->target_count);
         if (view.header->target_count != 0 && expected_header->target_count != 0) {
-            const auto* expected_targets =
-                reinterpret_cast<const SaccadeTargetRecord*>(expected + expected_header->targets_offset);
+            const auto* expected_targets = reinterpret_cast<const SaccadeTargetRecord*>(expected + expected_header->targets_offset);
             std::fprintf(stderr, "first target confidence=%u/%u xy=%d,%d/%d,%d\n", view.targets[0].confidence_q16,
-                         expected_targets[0].confidence_q16, view.targets[0].x_q8, view.targets[0].y_q8,
-                         expected_targets[0].x_q8, expected_targets[0].y_q8);
+                         expected_targets[0].confidence_q16, view.targets[0].x_q8, view.targets[0].y_q8, expected_targets[0].x_q8,
+                         expected_targets[0].y_q8);
             for (uint32_t candidate_index = 0; candidate_index < candidates.size(); ++candidate_index) {
                 const DenseCandidate& candidate = candidates[candidate_index];
                 if (candidate.confidence_q16 == view.targets[0].confidence_q16 &&
@@ -111,8 +93,7 @@ int run_path(id<MTLDevice> device, const char* metallib, const std::array<DenseC
             for (uint32_t target_index = 1; target_index < view.header->target_count; ++target_index) {
                 if (view.targets[target_index - 1].confidence_q16 < view.targets[target_index].confidence_q16) {
                     std::fprintf(stderr, "confidence inversion at %u: %u then %u\n", target_index,
-                                 view.targets[target_index - 1].confidence_q16,
-                                 view.targets[target_index].confidence_q16);
+                                 view.targets[target_index - 1].confidence_q16, view.targets[target_index].confidence_q16);
                     break;
                 }
             }
@@ -159,24 +140,22 @@ int main(int argc, char** argv) {
     config.iou_threshold_q16 = 32768;
     PostprocessEpochs epochs{101, 202, 303, 404, 505, 606};
     static PostprocessWorkspace workspace;
-    alignas(8) std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord)>
-        expected{};
+    alignas(8) std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord)> expected{};
     size_t expected_size = 0;
     PostprocessStats stats{};
     const std::array<uint32_t, 5> counts{0, 1, 256, 257, candidate_count};
     for (uint32_t active_candidates : counts) {
         if (saccade::kernels::targets::postprocess(candidates.data(), active_candidates, config, epochs, &workspace,
-                                                   {expected.data(), expected.size()}, &expected_size,
-                                                   &stats) != SACCADE_OK) {
+                                                   {expected.data(), expected.size()}, &expected_size, &stats) != SACCADE_OK) {
             return 2;
         }
-        int result = run_path(device, argv[1], candidates, active_candidates, expected.data(), expected_size, config,
-                              epochs, PathPreference::metal3);
+        int result = run_path(device, argv[1], candidates, active_candidates, expected.data(), expected_size, config, epochs,
+                              PathPreference::metal3);
         if (result != 0) {
             return result;
         }
-        result = run_path(device, argv[1], candidates, active_candidates, expected.data(), expected_size, config,
-                          epochs, PathPreference::automatic);
+        result = run_path(device, argv[1], candidates, active_candidates, expected.data(), expected_size, config, epochs,
+                          PathPreference::automatic);
         if (result != 0) {
             return result;
         }

@@ -49,8 +49,8 @@ class CoreMlImageBridge final {
 
     SaccadeResult initialize(CoreMlImageBridgeConfig) noexcept;
     SaccadeResult begin(SceneCaptureSet*, const SceneCaptureFrame&, const geometry::DisplaySurface&) noexcept;
-    SaccadeResult begin_scope(SceneCaptureSet*, const SceneCaptureFrame*, const geometry::DisplaySurface*,
-                              uint32_t display_count, geometry::RectQ8 scope, uint64_t source_id) noexcept;
+    SaccadeResult begin_scope(SceneCaptureSet*, const SceneCaptureFrame*, const geometry::DisplaySurface*, uint32_t display_count,
+                              geometry::RectQ8 scope, uint64_t source_id) noexcept;
     SaccadeResult begin_cached() noexcept;
     SaccadeResult poll(scheduler::NeuralFrame*, bool* ready) noexcept;
     SaccadeResult discard() noexcept;

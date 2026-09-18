@@ -9,8 +9,8 @@ namespace {
 
 constexpr uint8_t settings_magic[4] = {'S', 'C', 'S', 'T'};
 constexpr uint32_t settings_flag_mask = settings_animate_overlay | settings_reduced_motion;
-constexpr uint32_t modifier_mask = SACCADE_INPUT_MODIFIER_SHIFT | SACCADE_INPUT_MODIFIER_CONTROL |
-                                   SACCADE_INPUT_MODIFIER_ALT | SACCADE_INPUT_MODIFIER_META;
+constexpr uint32_t modifier_mask =
+    SACCADE_INPUT_MODIFIER_SHIFT | SACCADE_INPUT_MODIFIER_CONTROL | SACCADE_INPUT_MODIFIER_ALT | SACCADE_INPUT_MODIFIER_META;
 constexpr uint32_t binding_flag_mask = hotkey_always_active | hotkey_session_only;
 constexpr uint32_t hid_keyboard_first = 0x04;
 constexpr uint32_t hid_keyboard_last = 0xe7;
@@ -113,8 +113,7 @@ OverlayPalette overlay_palette(const AppearanceSettings& appearance, bool dark_s
     case Theme::dark:
         return dark_palette;
     case Theme::custom:
-        return {appearance.outline_rgba, appearance.background_rgba, appearance.label_rgba, appearance.glow_rgba,
-                appearance.label_rgba};
+        return {appearance.outline_rgba, appearance.background_rgba, appearance.label_rgba, appearance.glow_rgba, appearance.label_rgba};
     }
     return dark_palette;
 }
@@ -127,9 +126,11 @@ template <size_t Size> bool text_valid(const std::array<char, Size>& text, bool 
     size_t end = 0;
     while (end != text.size() && text[end] != '\0')
         ++end;
-    if (end == text.size() || (!allow_empty && end == 0)) return false;
+    if (end == text.size() || (!allow_empty && end == 0))
+        return false;
     for (size_t index = end + 1U; index < text.size(); ++index) {
-        if (text[index] != '\0') return false;
+        if (text[index] != '\0')
+            return false;
     }
     return true;
 }
@@ -139,19 +140,23 @@ uint16_t canonical_symbol(uint16_t symbol) noexcept {
 }
 
 bool language_tag_valid(const std::array<char, language_tag_capacity>& language) noexcept {
-    if (!text_valid(language, false)) return false;
+    if (!text_valid(language, false))
+        return false;
 
     bool segment_start = true;
     for (char value : language) {
-        if (value == '\0') break;
+        if (value == '\0')
+            break;
         const bool alpha = (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z');
         const bool digit = value >= '0' && value <= '9';
         if (value == '-') {
-            if (segment_start) return false;
+            if (segment_start)
+                return false;
             segment_start = true;
             continue;
         }
-        if (!alpha && !digit) return false;
+        if (!alpha && !digit)
+            return false;
         segment_start = false;
     }
     return !segment_start;
@@ -163,9 +168,12 @@ bool hint_key_valid(uint32_t physical_key) noexcept {
 
 uint32_t us_physical_key(uint16_t symbol) noexcept {
     const uint16_t upper = canonical_symbol(symbol);
-    if (upper >= 'A' && upper <= 'Z') return 0x04U + upper - 'A';
-    if (symbol >= '1' && symbol <= '9') return 0x1eU + symbol - '1';
-    if (symbol == '0') return 0x27;
+    if (upper >= 'A' && upper <= 'Z')
+        return 0x04U + upper - 'A';
+    if (symbol >= '1' && symbol <= '9')
+        return 0x1eU + symbol - '1';
+    if (symbol == '0')
+        return 0x27;
 
     switch (symbol) {
     case ' ':
@@ -210,7 +218,8 @@ uint32_t us_physical_key(uint16_t symbol) noexcept {
 
 bool key_used(const HintSettings& hints, uint32_t count, uint32_t physical_key) noexcept {
     for (uint32_t index = 0; index < count; ++index) {
-        if (hints.physical_keys[index] == physical_key) return true;
+        if (hints.physical_keys[index] == physical_key)
+            return true;
     }
     return false;
 }
@@ -236,11 +245,10 @@ bool binding_valid(const HotkeyBinding& binding) noexcept {
                                (binding.physical_key >= 0x2c && binding.physical_key <= 0x31) ||
                                (binding.physical_key >= 0x33 && binding.physical_key <= 0x38);
     const bool valid_symbol = binding.logical_symbol < 0xd800 || binding.logical_symbol > 0xdfff;
-    return enum_between(binding.command, Command::pointer_move, last_command) &&
-           binding.physical_key >= hid_keyboard_first && binding.physical_key <= hid_keyboard_last &&
-           (binding.modifiers & ~modifier_mask) == 0 && (binding.flags & ~binding_flag_mask) == 0 && valid_symbol &&
-           (binding.flags & (hotkey_always_active | hotkey_session_only)) !=
-               (hotkey_always_active | hotkey_session_only) &&
+    return enum_between(binding.command, Command::pointer_move, last_command) && binding.physical_key >= hid_keyboard_first &&
+           binding.physical_key <= hid_keyboard_last && (binding.modifiers & ~modifier_mask) == 0 &&
+           (binding.flags & ~binding_flag_mask) == 0 && valid_symbol &&
+           (binding.flags & (hotkey_always_active | hotkey_session_only)) != (hotkey_always_active | hotkey_session_only) &&
            (!printable_key || binding.logical_symbol != 0);
 }
 
@@ -248,8 +256,7 @@ bool hints_valid(const HintSettings& hints) noexcept {
     if (hints.alphabet_count < 2 || hints.alphabet_count > hints.alphabet.size() ||
         !enum_between(hints.priority, interaction::HintPriority::scene_order, interaction::HintPriority::randomized) ||
         !enum_between(hints.placement, HintPlacement::automatic, HintPlacement::right) ||
-        !enum_between(hints.sorting, HintSorting::sorted, HintSorting::randomized) ||
-        !language_tag_valid(hints.language))
+        !enum_between(hints.sorting, HintSorting::sorted, HintSorting::randomized) || !language_tag_valid(hints.language))
         return false;
     for (uint32_t index = 0; index < hints.alphabet_count; ++index) {
         if (hints.alphabet[index] == 0 || (hints.alphabet[index] >= 0xd800 && hints.alphabet[index] <= 0xdfff) ||
@@ -264,7 +271,8 @@ bool hints_valid(const HintSettings& hints) noexcept {
         }
     }
     for (uint32_t index = hints.alphabet_count; index < hints.alphabet.size(); ++index) {
-        if (hints.alphabet[index] != 0 || hints.physical_keys[index] != 0) return false;
+        if (hints.alphabet[index] != 0 || hints.physical_keys[index] != 0)
+            return false;
     }
     return true;
 }
@@ -290,8 +298,8 @@ struct Writer {
     }
 
     void u32(uint32_t value) noexcept {
-        const uint8_t bytes_[4]{static_cast<uint8_t>(value), static_cast<uint8_t>(value >> 8U),
-                                static_cast<uint8_t>(value >> 16U), static_cast<uint8_t>(value >> 24U)};
+        const uint8_t bytes_[4]{static_cast<uint8_t>(value), static_cast<uint8_t>(value >> 8U), static_cast<uint8_t>(value >> 16U),
+                                static_cast<uint8_t>(value >> 24U)};
         bytes(bytes_, sizeof(bytes_));
     }
 
@@ -325,8 +333,8 @@ struct Reader {
     uint32_t u32() noexcept {
         uint8_t value[4]{};
         bytes(value, sizeof(value));
-        return static_cast<uint32_t>(value[0]) | static_cast<uint32_t>(value[1]) << 8U |
-               static_cast<uint32_t>(value[2]) << 16U | static_cast<uint32_t>(value[3]) << 24U;
+        return static_cast<uint32_t>(value[0]) | static_cast<uint32_t>(value[1]) << 8U | static_cast<uint32_t>(value[2]) << 16U |
+               static_cast<uint32_t>(value[3]) << 24U;
     }
 
     uint64_t u64() noexcept {
@@ -412,7 +420,8 @@ void decode_body(Reader& reader, uint32_t version, SettingsDocument* settings) n
         binding.physical_key = reader.u32();
         binding.modifiers = reader.u32();
         const uint32_t flags = reader.u32();
-        if (flags > UINT16_MAX) reader.failed_ = true;
+        if (flags > UINT16_MAX)
+            reader.failed_ = true;
         binding.flags = static_cast<uint16_t>(flags);
         binding.logical_symbol = reader.u16();
     }
@@ -438,7 +447,8 @@ void decode_body(Reader& reader, uint32_t version, SettingsDocument* settings) n
     settings->detector.duplicate_iou_q16 = reader.u16();
     settings->detector.minimum_width_q8 = reader.u16();
     settings->detector.minimum_height_q8 = reader.u16();
-    if (reader.u16() != 0) reader.failed_ = true;
+    if (reader.u16() != 0)
+        reader.failed_ = true;
     settings->detector.merge_policy = static_cast<MergePolicy>(reader.u32());
     settings->grid.rows = reader.u16();
     settings->grid.columns = reader.u16();
@@ -487,14 +497,12 @@ SettingsDocument default_settings() noexcept {
     std::memcpy(settings.hints.language.data(), language, sizeof(language));
     std::memcpy(settings.appearance.font_family.data(), font, sizeof(font));
     std::copy(default_global_bindings.begin(), default_global_bindings.end(), settings.bindings.begin());
-    std::copy(default_session_bindings.begin(), default_session_bindings.end(),
-              settings.bindings.begin() + default_global_bindings.size());
+    std::copy(default_session_bindings.begin(), default_session_bindings.end(), settings.bindings.begin() + default_global_bindings.size());
     settings.binding_count = static_cast<uint32_t>(default_global_bindings.size() + default_session_bindings.size());
     return settings;
 }
 
-SaccadeOverlayStyle resolve_overlay_style(const AppearanceSettings& appearance, uint32_t settings_flags,
-                                          bool dark_system_theme) noexcept {
+SaccadeOverlayStyle resolve_overlay_style(const AppearanceSettings& appearance, uint32_t settings_flags, bool dark_system_theme) noexcept {
     const OverlayPalette palette = overlay_palette(appearance, dark_system_theme);
     const uint16_t glyph_height_q3 = q8_to_q3(appearance.font_size_q8);
     const uint16_t glyph_width_q3 = static_cast<uint16_t>((static_cast<uint32_t>(glyph_height_q3) * 5U + 3U) / 7U);
@@ -523,16 +531,16 @@ SaccadeOverlayStyle resolve_overlay_style(const AppearanceSettings& appearance, 
     return style;
 }
 
-InteractionProfile make_interaction_profile(const SettingsDocument& settings, const HintSettings& resolved_hints,
-                                            int32_t pointer_x_q8, int32_t pointer_y_q8, int32_t scope_center_x_q8,
-                                            int32_t scope_center_y_q8, uint64_t random_seed) noexcept {
+InteractionProfile make_interaction_profile(const SettingsDocument& settings, const HintSettings& resolved_hints, int32_t pointer_x_q8,
+                                            int32_t pointer_y_q8, int32_t scope_center_x_q8, int32_t scope_center_y_q8,
+                                            uint64_t random_seed) noexcept {
     constexpr uint64_t nanoseconds_per_millisecond = UINT64_C(1'000'000);
     InteractionProfile profile{};
     profile.hints.alphabet = resolved_hints.alphabet;
     profile.hints.physical_keys = resolved_hints.physical_keys;
     profile.hints.alphabet_count = resolved_hints.alphabet_count;
-    profile.hints.priority = settings.hints.sorting == HintSorting::randomized ? interaction::HintPriority::randomized
-                                                                               : settings.hints.priority;
+    profile.hints.priority =
+        settings.hints.sorting == HintSorting::randomized ? interaction::HintPriority::randomized : settings.hints.priority;
     profile.hints.pointer_x_q8 = pointer_x_q8;
     profile.hints.pointer_y_q8 = pointer_y_q8;
     profile.hints.scope_center_x_q8 = scope_center_x_q8;
@@ -552,8 +560,7 @@ InteractionProfile make_interaction_profile(const SettingsDocument& settings, co
     return profile;
 }
 
-SaccadeResult resolve_hint_alphabet(const HintSettings& input, const uint16_t* translated_symbols,
-                                    HintSettings* output) noexcept {
+SaccadeResult resolve_hint_alphabet(const HintSettings& input, const uint16_t* translated_symbols, HintSettings* output) noexcept {
     if (translated_symbols == nullptr || output == nullptr || !hints_valid(input)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -574,7 +581,8 @@ SaccadeResult resolve_hint_alphabet(const HintSettings& input, const uint16_t* t
                     continue;
                 }
 
-                if (!translated[previous] && !translated[index]) return SACCADE_ERROR_ALREADY_EXISTS;
+                if (!translated[previous] && !translated[index])
+                    return SACCADE_ERROR_ALREADY_EXISTS;
                 const uint32_t fallback = translated[index] ? index : previous;
                 translated[fallback] = false;
                 output->alphabet[fallback] = input.alphabet[fallback];
@@ -582,7 +590,8 @@ SaccadeResult resolve_hint_alphabet(const HintSettings& input, const uint16_t* t
                 break;
             }
         }
-        if (!collision) break;
+        if (!collision)
+            break;
     }
 
     return hints_valid(*output) ? SACCADE_OK : SACCADE_ERROR_INVALID_ARGUMENT;
@@ -599,7 +608,8 @@ SaccadeResult set_hint_alphabet(HintSettings* hints, const uint16_t* symbols, ui
     updated.alphabet_count = symbol_count;
     std::copy_n(symbols, symbol_count, updated.alphabet.begin());
     migrate_hint_keys(&updated);
-    if (!hints_valid(updated)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!hints_valid(updated))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *hints = updated;
     return SACCADE_OK;
 }
@@ -611,7 +621,8 @@ SaccadeResult validate_settings(const SettingsDocument& settings) noexcept {
         (settings.scope == TargetScope::monitor && settings.monitor_stable_id == 0) || !hints_valid(settings.hints))
         return SACCADE_ERROR_INVALID_ARGUMENT;
     for (uint32_t index = 0; index < settings.binding_count; ++index) {
-        if (!binding_valid(settings.bindings[index])) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (!binding_valid(settings.bindings[index]))
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         for (uint32_t previous = 0; previous < index; ++previous) {
             if (settings.bindings[previous].physical_key == settings.bindings[index].physical_key &&
                 settings.bindings[previous].modifiers == settings.bindings[index].modifiers) {
@@ -632,19 +643,16 @@ SaccadeResult validate_settings(const SettingsDocument& settings) noexcept {
         static_cast<uint32_t>(settings.grid.rows) * settings.grid.columns > SACCADE_TARGET_PACKET_MAX_TARGETS ||
         !enum_between(settings.pointer.final_position, FinalPointerPosition::target, FinalPointerPosition::anchor) ||
         settings.pointer.movement_duration_ms > 10'000 ||
-        !enum_between(settings.actions.initial_mode, interaction::SelectionMode::single,
-                      interaction::SelectionMode::path) ||
-        settings.actions.timeout_ms < 100 || settings.actions.timeout_ms > 60'000 ||
-        settings.actions.hold_duration_ms > 60'000 || settings.actions.drag_duration_ms > 60'000 ||
-        settings.actions.scroll_duration_ms > 60'000 || settings.actions.scroll_vertical_q8 == 0 ||
-        settings.actions.scroll_vertical_q8 == INT32_MIN || settings.actions.scroll_horizontal_q8 == 0 ||
-        settings.actions.scroll_horizontal_q8 == INT32_MIN ||
-        (settings.actions.click_modifiers & ~modifier_mask) != 0 ||
-        !text_valid(settings.appearance.font_family, false) ||
+        !enum_between(settings.actions.initial_mode, interaction::SelectionMode::single, interaction::SelectionMode::path) ||
+        settings.actions.timeout_ms < 100 || settings.actions.timeout_ms > 60'000 || settings.actions.hold_duration_ms > 60'000 ||
+        settings.actions.drag_duration_ms > 60'000 || settings.actions.scroll_duration_ms > 60'000 ||
+        settings.actions.scroll_vertical_q8 == 0 || settings.actions.scroll_vertical_q8 == INT32_MIN ||
+        settings.actions.scroll_horizontal_q8 == 0 || settings.actions.scroll_horizontal_q8 == INT32_MIN ||
+        (settings.actions.click_modifiers & ~modifier_mask) != 0 || !text_valid(settings.appearance.font_family, false) ||
         !enum_between(settings.appearance.theme, Theme::system, Theme::custom) ||
         !enum_between(settings.appearance.placement, HintPlacement::automatic, HintPlacement::right) ||
-        settings.appearance.font_size_q8 == 0 || settings.appearance.font_size_q8 > 128U * 256U ||
-        settings.appearance.font_weight < 100 || settings.appearance.font_weight > 1000 ||
+        settings.appearance.font_size_q8 == 0 || settings.appearance.font_size_q8 > 128U * 256U || settings.appearance.font_weight < 100 ||
+        settings.appearance.font_weight > 1000 ||
         !enum_between(settings.compute.policy, ComputePolicy::automatic, ComputePolicy::named_device) ||
         (settings.compute.policy == ComputePolicy::named_device) != (settings.compute.device_stable_id != 0)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -689,19 +697,20 @@ SaccadeResult reset_settings_page(SettingsPage page, SettingsDocument* settings)
     return validate_settings(*settings);
 }
 
-SaccadeResult encode_settings(const SettingsDocument& settings, SaccadeMutableSpanU8 output,
-                              size_t* output_size) noexcept {
+SaccadeResult encode_settings(const SettingsDocument& settings, SaccadeMutableSpanU8 output, size_t* output_size) noexcept {
     if (output_size == nullptr || output.data == nullptr || output.size > settings_encoded_capacity)
         return SACCADE_ERROR_INVALID_ARGUMENT;
     *output_size = 0;
     const SaccadeResult valid = validate_settings(settings);
-    if (valid != SACCADE_OK) return valid;
+    if (valid != SACCADE_OK)
+        return valid;
     Writer writer{output.data, output.size};
     writer.bytes(settings_magic, sizeof(settings_magic));
     writer.u32(settings_version);
     writer.u32(0);
     encode_body(writer, settings);
-    if (writer.failed_) return SACCADE_ERROR_CAPACITY;
+    if (writer.failed_)
+        return SACCADE_ERROR_CAPACITY;
     const uint32_t total = static_cast<uint32_t>(writer.size_);
     output.data[8] = static_cast<uint8_t>(total);
     output.data[9] = static_cast<uint8_t>(total >> 8U);
@@ -720,15 +729,17 @@ SaccadeResult decode_settings(SaccadeSpanU8 input, SettingsDocument* output) noe
     reader.bytes(magic, sizeof(magic));
     const uint32_t version = reader.u32();
     const uint32_t total = reader.u32();
-    if (std::memcmp(magic, settings_magic, sizeof(magic)) != 0 || version < minimum_settings_version ||
-        version > settings_version || total != input.size) {
+    if (std::memcmp(magic, settings_magic, sizeof(magic)) != 0 || version < minimum_settings_version || version > settings_version ||
+        total != input.size) {
         return SACCADE_ERROR_VERSION;
     }
     SettingsDocument decoded{};
     decode_body(reader, version, &decoded);
-    if (reader.failed_ || reader.position_ != input.size) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (reader.failed_ || reader.position_ != input.size)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const SaccadeResult valid = validate_settings(decoded);
-    if (valid != SACCADE_OK) return valid;
+    if (valid != SACCADE_OK)
+        return valid;
     *output = decoded;
     return SACCADE_OK;
 }

@@ -43,13 +43,11 @@ constexpr uint16_t q3(uint16_t pixels) noexcept {
     return static_cast<uint16_t>(pixels * UINT16_C(8));
 }
 
-template <class Record, size_t Size>
-void store(std::array<uint8_t, Size>& bytes, size_t offset, const Record& record) noexcept {
+template <class Record, size_t Size> void store(std::array<uint8_t, Size>& bytes, size_t offset, const Record& record) noexcept {
     std::memcpy(bytes.data() + offset, &record, sizeof(record));
 }
 
-bool is_rect(const SaccadeOverlayRect& rect, uint16_t x_q3, uint16_t y_q3, uint16_t width_q3,
-             uint16_t height_q3) noexcept {
+bool is_rect(const SaccadeOverlayRect& rect, uint16_t x_q3, uint16_t y_q3, uint16_t width_q3, uint16_t height_q3) noexcept {
     return rect.x_q3 == x_q3 && rect.y_q3 == y_q3 && rect.width_q3 == width_q3 && rect.height_q3 == height_q3;
 }
 
@@ -69,8 +67,9 @@ int main() {
     static_assert(sizeof(SaccadeOverlayRect) == 8);
     static_assert(sizeof(SaccadeOverlayInstanceMeta) == 4);
 
-    const SaccadeOverlayInstanceMeta packed_max = saccade_overlay_instance_meta_make(
-        SACCADE_OVERLAY_MAX_TARGETS - 1U, SACCADE_OVERLAY_MAX_STYLES - 1U, SACCADE_OVERLAY_INSTANCE_ACTIVE);
+    const SaccadeOverlayInstanceMeta packed_max =
+        saccade_overlay_instance_meta_make(SACCADE_OVERLAY_MAX_TARGETS - 1U, SACCADE_OVERLAY_MAX_STYLES - 1U,
+                                           SACCADE_OVERLAY_INSTANCE_ACTIVE);
     if (saccade_overlay_instance_meta_target(packed_max) != SACCADE_OVERLAY_MAX_TARGETS - 1U ||
         saccade_overlay_instance_meta_style(packed_max) != SACCADE_OVERLAY_MAX_STYLES - 1U ||
         saccade_overlay_instance_meta_kind(packed_max) != SACCADE_OVERLAY_INSTANCE_ACTIVE) {
@@ -150,9 +149,9 @@ int main() {
     const auto before_rects = undersized_rects;
     const auto before_metadata = undersized_metadata;
     size_t static_count = 0;
-    if (saccade::overlay::expand_static(
-            view, ExpandedInstanceSpan{undersized_rects.data(), undersized_metadata.data(), undersized_rects.size()},
-            &static_count) != SACCADE_ERROR_CAPACITY ||
+    if (saccade::overlay::expand_static(view,
+                                        ExpandedInstanceSpan{undersized_rects.data(), undersized_metadata.data(), undersized_rects.size()},
+                                        &static_count) != SACCADE_ERROR_CAPACITY ||
         static_count != 5 || std::memcmp(undersized_rects.data(), before_rects.data(), sizeof(undersized_rects)) != 0 ||
         std::memcmp(undersized_metadata.data(), before_metadata.data(), sizeof(undersized_metadata)) != 0) {
         return to_process_exit_code(ExitCode::undersized_output);
@@ -160,8 +159,8 @@ int main() {
 
     std::array<SaccadeOverlayRect, 5> rects{};
     std::array<SaccadeOverlayInstanceMeta, 5> metadata{};
-    if (saccade::overlay::expand_static(view, ExpandedInstanceSpan{rects.data(), metadata.data(), rects.size()},
-                                        &static_count) != SACCADE_OK ||
+    if (saccade::overlay::expand_static(view, ExpandedInstanceSpan{rects.data(), metadata.data(), rects.size()}, &static_count) !=
+            SACCADE_OK ||
         static_count != rects.size()) {
         return to_process_exit_code(ExitCode::static_output);
     }
@@ -177,32 +176,27 @@ int main() {
     }
     for (size_t index = 0; index < 4; ++index) {
         if (saccade_overlay_instance_meta_kind(metadata[index]) != SACCADE_OVERLAY_INSTANCE_OUTLINE ||
-            saccade_overlay_instance_meta_target(metadata[index]) != 0 ||
-            saccade_overlay_instance_meta_style(metadata[index]) != 0) {
+            saccade_overlay_instance_meta_target(metadata[index]) != 0 || saccade_overlay_instance_meta_style(metadata[index]) != 0) {
             return to_process_exit_code(ExitCode::outline_metadata);
         }
     }
 
-    const uint16_t label_width =
-        static_cast<uint16_t>(static_cast<uint32_t>(style.label_padding_x_q3) * 2U +
-                              static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count);
+    const uint16_t label_width = static_cast<uint16_t>(static_cast<uint32_t>(style.label_padding_x_q3) * 2U +
+                                                       static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count);
     if (!is_rect(rects[4], target.label_x_q3, target.label_y_q3, label_width, style.label_height_q3) ||
         saccade_overlay_instance_meta_kind(metadata[4]) != SACCADE_OVERLAY_INSTANCE_LABEL ||
-        saccade_overlay_instance_meta_target(metadata[4]) != 0 ||
-        saccade_overlay_instance_meta_style(metadata[4]) != 0) {
+        saccade_overlay_instance_meta_target(metadata[4]) != 0 || saccade_overlay_instance_meta_style(metadata[4]) != 0) {
         return to_process_exit_code(ExitCode::label);
     }
 
     std::array<SaccadeOverlayRect, 1> active_rects{};
     std::array<SaccadeOverlayInstanceMeta, 1> active_metadata{};
     size_t active_count = 0;
-    if (saccade::overlay::expand_active(
-            view, 0, ExpandedInstanceSpan{active_rects.data(), active_metadata.data(), active_rects.size()},
-            &active_count) != SACCADE_OK ||
+    if (saccade::overlay::expand_active(view, 0, ExpandedInstanceSpan{active_rects.data(), active_metadata.data(), active_rects.size()},
+                                        &active_count) != SACCADE_OK ||
         active_count != 1 || !is_rect(active_rects[0], x, y, target.width_q3, target.height_q3) ||
         saccade_overlay_instance_meta_kind(active_metadata[0]) != SACCADE_OVERLAY_INSTANCE_ACTIVE ||
-        saccade_overlay_instance_meta_target(active_metadata[0]) != 0 ||
-        saccade_overlay_instance_meta_style(active_metadata[0]) != 0) {
+        saccade_overlay_instance_meta_target(active_metadata[0]) != 0 || saccade_overlay_instance_meta_style(active_metadata[0]) != 0) {
         return to_process_exit_code(ExitCode::active);
     }
 
@@ -250,8 +244,7 @@ int main() {
     animated_style.flags = SACCADE_OVERLAY_STYLE_ANIMATED;
     store(animated_style_bytes, style_offset, animated_style);
     PacketView animated_view{};
-    if (saccade::overlay::validate_packet({animated_style_bytes.data(), animated_style_bytes.size()}, &animated_view) !=
-        SACCADE_OK) {
+    if (saccade::overlay::validate_packet({animated_style_bytes.data(), animated_style_bytes.size()}, &animated_view) != SACCADE_OK) {
         return to_process_exit_code(ExitCode::animated_style);
     }
 
@@ -279,8 +272,7 @@ int main() {
     }
 
     active_count = 99;
-    if (saccade::overlay::expand_active(view, SACCADE_OVERLAY_ACTIVE_TARGET_NONE, ExpandedInstanceSpan{},
-                                        &active_count) != SACCADE_OK ||
+    if (saccade::overlay::expand_active(view, SACCADE_OVERLAY_ACTIVE_TARGET_NONE, ExpandedInstanceSpan{}, &active_count) != SACCADE_OK ||
         active_count != 0) {
         return to_process_exit_code(ExitCode::empty_active);
     }
@@ -289,13 +281,11 @@ int main() {
     for (size_t repeat = 0; repeat < 1000; ++repeat) {
         PacketView repeated_view{};
         if (saccade::overlay::validate_packet(packet, &repeated_view) != SACCADE_OK ||
-            saccade::overlay::expand_static(repeated_view,
-                                            ExpandedInstanceSpan{rects.data(), metadata.data(), rects.size()},
+            saccade::overlay::expand_static(repeated_view, ExpandedInstanceSpan{rects.data(), metadata.data(), rects.size()},
                                             &static_count) != SACCADE_OK ||
-            saccade::overlay::expand_active(
-                repeated_view, 0,
-                ExpandedInstanceSpan{active_rects.data(), active_metadata.data(), active_rects.size()},
-                &active_count) != SACCADE_OK) {
+            saccade::overlay::expand_active(repeated_view, 0,
+                                            ExpandedInstanceSpan{active_rects.data(), active_metadata.data(), active_rects.size()},
+                                            &active_count) != SACCADE_OK) {
             saccade::test::end_allocation_tracking();
             return to_process_exit_code(ExitCode::repeated_validation);
         }

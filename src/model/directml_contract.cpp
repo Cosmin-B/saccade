@@ -62,7 +62,8 @@ bool valid_feature_name(SaccadeSpanU8 name) noexcept {
     }
     for (size_t index = 1; index < name.size; ++index) {
         const uint8_t value = name.data[index];
-        if (!is_alpha(value) && !is_digit(value) && value != '_') return false;
+        if (!is_alpha(value) && !is_digit(value) && value != '_')
+            return false;
     }
     return true;
 }
@@ -70,8 +71,7 @@ bool valid_feature_name(SaccadeSpanU8 name) noexcept {
 } // namespace
 
 SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noexcept {
-    if (output == nullptr || artifact.artifact != ArtifactKind::onnx ||
-        (artifact.flags & artifact_relative_locator) != 0 ||
+    if (output == nullptr || artifact.artifact != ArtifactKind::onnx || (artifact.flags & artifact_relative_locator) != 0 ||
         (artifact.provider_compatibility_bits & provider_compatibility_bit) == 0 || artifact.input_channels != 3 ||
         artifact.payload.data == nullptr || artifact.payload.size <= payload_header_bytes) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -97,16 +97,14 @@ SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noe
     const std::array<float, 3> channel_bias = read_float3(data, channel_bias_offset);
     const std::array<float, 3> letterbox_rgb = read_float3(data, letterbox_rgb_offset);
     const uint64_t names_size = static_cast<uint64_t>(input_name_size) + candidate_name_size;
-    const bool fp16 = input_kind == static_cast<uint32_t>(InputKind::planar_fp16) &&
-                      artifact.precision_bits == SACCADE_PRECISION_FP16;
-    const bool int8 = input_kind == static_cast<uint32_t>(InputKind::planar_int8) &&
-                      artifact.precision_bits == SACCADE_PRECISION_INT8;
+    const bool fp16 = input_kind == static_cast<uint32_t>(InputKind::planar_fp16) && artifact.precision_bits == SACCADE_PRECISION_FP16;
+    const bool int8 = input_kind == static_cast<uint32_t>(InputKind::planar_int8) && artifact.precision_bits == SACCADE_PRECISION_INT8;
     if ((!fp16 && !int8) || candidate_capacity == 0 || candidate_capacity > kernels::targets::maximum_candidates ||
         target_capacity != artifact.max_targets || target_capacity == 0 || target_capacity > candidate_capacity ||
         minimum_confidence > UINT16_MAX || band_minimum_confidence > UINT16_MAX || band_min_short_side > UINT16_MAX ||
-        band_max_short_side > UINT16_MAX || iou_threshold > UINT16_MAX || !finite(channel_scale) ||
-        !finite(channel_bias) || !finite(letterbox_rgb) || read_u32(data, reserved_offset) != 0 ||
-        read_u32(data, extended_reserved_offset) != 0 || names_size >= artifact.payload.size - payload_header_bytes) {
+        band_max_short_side > UINT16_MAX || iou_threshold > UINT16_MAX || !finite(channel_scale) || !finite(channel_bias) ||
+        !finite(letterbox_rgb) || read_u32(data, reserved_offset) != 0 || read_u32(data, extended_reserved_offset) != 0 ||
+        names_size >= artifact.payload.size - payload_header_bytes) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     kernels::targets::PostprocessConfig postprocess{};
@@ -120,8 +118,7 @@ SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noe
     const uint8_t* strings = data + payload_header_bytes;
     const SaccadeSpanU8 input_name{strings, input_name_size};
     const SaccadeSpanU8 candidate_name{strings + input_name_size, candidate_name_size};
-    const SaccadeSpanU8 graph{strings + names_size,
-                              artifact.payload.size - payload_header_bytes - static_cast<size_t>(names_size)};
+    const SaccadeSpanU8 graph{strings + names_size, artifact.payload.size - payload_header_bytes - static_cast<size_t>(names_size)};
     if (!valid_feature_name(input_name) || !valid_feature_name(candidate_name) || graph.size == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }

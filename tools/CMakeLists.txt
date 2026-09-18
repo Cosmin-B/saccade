@@ -35,6 +35,7 @@ if(SACCADE_BUILD_TESTS)
             "-DMCP_EXECUTABLE=$<TARGET_FILE:saccade_mcp>"
             "-DINPUT_FILE=${PROJECT_SOURCE_DIR}/tests/fixtures/mcp-stdio.jsonl"
             -P "${PROJECT_SOURCE_DIR}/tests/cmake/mcp_stdio.cmake")
+
 endif()
 
 install(TARGETS saccade_cli saccade_mcp

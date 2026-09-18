@@ -78,8 +78,7 @@ class OverlayRenderer final {
     [[nodiscard]] OverlayStats stats() const noexcept;
 
   private:
-    SaccadeResult submit_internal(const SaccadeOverlayFrameDesc&, const OverlayRenderTarget*,
-                                  OverlaySubmission*) noexcept;
+    SaccadeResult submit_internal(const SaccadeOverlayFrameDesc&, const OverlayRenderTarget*, OverlaySubmission*) noexcept;
     [[nodiscard]] Impl& impl() noexcept;
     [[nodiscard]] const Impl& impl() const noexcept;
 

@@ -10,9 +10,11 @@ uint32_t operating_system_build() noexcept {
     using RtlGetVersion = LONG(WINAPI*)(OSVERSIONINFOW*);
 
     const HMODULE module = GetModuleHandleW(L"ntdll.dll");
-    if (module == nullptr) return 0;
+    if (module == nullptr)
+        return 0;
     const auto query = reinterpret_cast<RtlGetVersion>(GetProcAddress(module, "RtlGetVersion"));
-    if (query == nullptr) return 0;
+    if (query == nullptr)
+        return 0;
 
     OSVERSIONINFOW version{};
     version.dwOSVersionInfoSize = sizeof(version);

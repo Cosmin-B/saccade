@@ -21,14 +21,7 @@ struct TextureLease {
     ID3D12Resource* texture = nullptr;
 };
 
-enum class InitializationStage : uint32_t {
-    none,
-    factory,
-    hardware_adapter,
-    software_adapter,
-    command_queue,
-    capture_bridge
-};
+enum class InitializationStage : uint32_t { none, factory, hardware_adapter, software_adapter, command_queue, capture_bridge };
 
 enum class DevicePreference : uint32_t { hardware_only = 0, software_only = 1, hardware_then_software = 2 };
 
@@ -51,8 +44,7 @@ class GraphicsDevice final {
     GraphicsDevice(GraphicsDevice&&) = delete;
     GraphicsDevice& operator=(GraphicsDevice&&) = delete;
 
-    SaccadeResult initialize(DevicePreference = DevicePreference::hardware_only,
-                             uint64_t requested_adapter_luid = 0) noexcept;
+    SaccadeResult initialize(DevicePreference = DevicePreference::hardware_only, uint64_t requested_adapter_luid = 0) noexcept;
     SaccadeResult shutdown() noexcept;
     SaccadeResult adopt_current_thread() noexcept;
     [[nodiscard]] ID3D12Device* device() const noexcept;

@@ -23,8 +23,7 @@ bool scan_from_modifier(uint32_t modifier, KeyScan* output) noexcept;
 uint32_t modifier_from_scan(KeyScan scan) noexcept;
 uint16_t logical_symbol_from_hid_usage(uint32_t usage) noexcept;
 uint64_t active_keyboard_layout_token() noexcept;
-SaccadeResult resolve_hint_language(const application::HintSettings&, application::HintSettings*,
-                                    uint64_t* layout_token) noexcept;
+SaccadeResult resolve_hint_language(const application::HintSettings&, application::HintSettings*, uint64_t* layout_token) noexcept;
 
 } // namespace saccade::platform::windows
 

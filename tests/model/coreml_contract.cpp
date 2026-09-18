@@ -62,8 +62,8 @@ constexpr std::array<uint8_t, 20> locator{'m', 'o', 'd', 'e', 'l', 's', '/', 'u'
 constexpr std::array<uint8_t, 5> input_name{'i', 'm', 'a', 'g', 'e'};
 constexpr std::array<uint8_t, 7> rows_name{'t', 'a', 'r', 'g', 'e', 't', 's'};
 constexpr std::array<uint8_t, 5> count_name{'c', 'o', 'u', 'n', 't'};
-constexpr size_t contract_size = saccade::model::coreml::payload_header_bytes + locator.size() + sizeof(".mlmodelc") -
-                                 1U + input_name.size() + rows_name.size() + count_name.size();
+constexpr size_t contract_size = saccade::model::coreml::payload_header_bytes + locator.size() + sizeof(".mlmodelc") - 1U +
+                                 input_name.size() + rows_name.size() + count_name.size();
 constexpr size_t artifact_size = saccade::model::artifact_header_bytes + contract_size;
 
 int result(TestResult value) noexcept {
@@ -95,8 +95,7 @@ std::array<uint8_t, artifact_size> artifact() noexcept {
     write_u32(bytes.data(), artifact_total_size_offset, static_cast<uint32_t>(bytes.size()));
     write_u64(bytes.data(), artifact_stable_id_offset, stable_id);
     write_u32(bytes.data(), artifact_graph_offset, static_cast<uint32_t>(saccade::model::GraphKind::ui_detector));
-    write_u32(bytes.data(), artifact_kind_offset,
-              static_cast<uint32_t>(saccade::model::ArtifactKind::coreml_compiled_bundle));
+    write_u32(bytes.data(), artifact_kind_offset, static_cast<uint32_t>(saccade::model::ArtifactKind::coreml_compiled_bundle));
     write_u32(bytes.data(), artifact_precision_offset, SACCADE_PRECISION_FP16);
     write_u32(bytes.data(), artifact_width_offset, input_width);
     write_u32(bytes.data(), artifact_height_offset, input_height);
@@ -115,8 +114,7 @@ std::array<uint8_t, artifact_size> artifact() noexcept {
     payload[2] = 'M';
     payload[3] = 'C';
     write_u32(payload, contract_version_offset, saccade::model::coreml::contract_version);
-    write_u32(payload, contract_input_kind_offset,
-              static_cast<uint32_t>(saccade::model::coreml::InputKind::image_bgra8));
+    write_u32(payload, contract_input_kind_offset, static_cast<uint32_t>(saccade::model::coreml::InputKind::image_bgra8));
     write_u32(payload, contract_output_layout_offset,
               static_cast<uint32_t>(saccade::model::coreml::OutputLayout::normalized_target_rows_v1));
     write_u32(payload, contract_candidate_capacity_offset, candidate_capacity);
@@ -156,33 +154,26 @@ int main() {
     }
     saccade::model::coreml::Contract contract{};
     if (saccade::model::coreml::parse_contract(artifact_view, &contract) != SACCADE_OK ||
-        contract.candidate_capacity != candidate_capacity ||
-        contract.minimum_confidence_q16 != minimum_confidence_q16 ||
-        contract.band_minimum_confidence_q16 != band_minimum_confidence_q16 ||
-        contract.band_min_short_side_q3 != band_min_short_side_q3 ||
+        contract.candidate_capacity != candidate_capacity || contract.minimum_confidence_q16 != minimum_confidence_q16 ||
+        contract.band_minimum_confidence_q16 != band_minimum_confidence_q16 || contract.band_min_short_side_q3 != band_min_short_side_q3 ||
         contract.band_max_short_side_q3 != band_max_short_side_q3 || contract.bundle_sha256 != bundle_sha256 ||
         contract.letterbox_rgb != letterbox_rgb || contract.locator.size != locator.size() + sizeof(".mlmodelc") - 1U) {
         return result(TestResult::contract_failed);
     }
-    constexpr std::array<float, 12> rows{
-        0.1F, 0.2F, 0.25F, 0.5F, 0.9F, static_cast<float>(SACCADE_TARGET_ROLE_BUTTON),
-        0.9F, 0.9F, 0.5F,  0.2F, 0.8F, static_cast<float>(SACCADE_TARGET_ROLE_TEXT_FIELD)};
+    constexpr std::array<float, 12> rows{0.1F, 0.2F, 0.25F, 0.5F, 0.9F, static_cast<float>(SACCADE_TARGET_ROLE_BUTTON),
+                                         0.9F, 0.9F, 0.5F,  0.2F, 0.8F, static_cast<float>(SACCADE_TARGET_ROLE_TEXT_FIELD)};
     std::array<saccade::kernels::targets::DenseCandidate, 2> candidates{};
     uint32_t candidate_count = 0;
-    const saccade::model::coreml::TargetRows target_rows{rows.data(), saccade::model::coreml::ScalarType::float32, 2, 6,
-                                                         6};
+    const saccade::model::coreml::TargetRows target_rows{rows.data(), saccade::model::coreml::ScalarType::float32, 2, 6, 6};
     if (saccade::model::coreml::decode_target_rows(contract, target_rows, 2, {0, 0, 1920, 1080}, candidates.data(),
-                                                   static_cast<uint32_t>(candidates.size()),
-                                                   &candidate_count) != SACCADE_OK ||
-        candidate_count != 2 || candidates[0].x_q3 != 1536 || candidates[0].y_q3 != 1728 ||
-        candidates[0].width_q3 != 3840 || candidates[0].height_q3 != 4320 ||
-        candidates[0].role != SACCADE_TARGET_ROLE_BUTTON || candidates[1].x_q3 != 13824 ||
+                                                   static_cast<uint32_t>(candidates.size()), &candidate_count) != SACCADE_OK ||
+        candidate_count != 2 || candidates[0].x_q3 != 1536 || candidates[0].y_q3 != 1728 || candidates[0].width_q3 != 3840 ||
+        candidates[0].height_q3 != 4320 || candidates[0].role != SACCADE_TARGET_ROLE_BUTTON || candidates[1].x_q3 != 13824 ||
         candidates[1].width_q3 != 1536 || candidates[1].role != SACCADE_TARGET_ROLE_TEXT_FIELD) {
         return result(TestResult::decode_failed);
     }
     bytes = artifact();
-    uint8_t* malformed =
-        bytes.data() + saccade::model::artifact_header_bytes + saccade::model::coreml::payload_header_bytes;
+    uint8_t* malformed = bytes.data() + saccade::model::artifact_header_bytes + saccade::model::coreml::payload_header_bytes;
     malformed[0] = static_cast<uint8_t>('/');
     if (saccade::model::parse_artifact({bytes.data(), bytes.size()}, &artifact_view) != SACCADE_OK ||
         saccade::model::coreml::parse_contract(artifact_view, &contract) != SACCADE_ERROR_INVALID_ARGUMENT) {

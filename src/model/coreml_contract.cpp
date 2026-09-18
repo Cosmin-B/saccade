@@ -48,7 +48,8 @@ bool finite(const std::array<float, 3>& values) noexcept {
 }
 
 bool bounded_add(uint64_t left, uint64_t right, uint64_t maximum, uint64_t* output) noexcept {
-    if (left > maximum || right > maximum - left) return false;
+    if (left > maximum || right > maximum - left)
+        return false;
     *output = left + right;
     return true;
 }
@@ -78,8 +79,7 @@ bool valid_feature_name(SaccadeSpanU8 name) noexcept {
 
 bool valid_locator(SaccadeSpanU8 locator) noexcept {
     constexpr char suffix[] = ".mlmodelc";
-    if (locator.data == nullptr || locator.size == 0 || locator.size > maximum_locator_bytes ||
-        locator.size < sizeof(suffix) - 1U ||
+    if (locator.data == nullptr || locator.size == 0 || locator.size > maximum_locator_bytes || locator.size < sizeof(suffix) - 1U ||
         std::memcmp(locator.data + locator.size - (sizeof(suffix) - 1U), suffix, sizeof(suffix) - 1U) != 0 ||
         locator.data[0] == static_cast<uint8_t>('/')) {
         return false;
@@ -88,8 +88,8 @@ bool valid_locator(SaccadeSpanU8 locator) noexcept {
     for (size_t index = 0; index <= locator.size; ++index) {
         if (index != locator.size && locator.data[index] != static_cast<uint8_t>('/')) {
             const uint8_t value = locator.data[index];
-            if (!is_alpha(value) && !is_digit(value) && value != static_cast<uint8_t>('_') &&
-                value != static_cast<uint8_t>('-') && value != static_cast<uint8_t>('.')) {
+            if (!is_alpha(value) && !is_digit(value) && value != static_cast<uint8_t>('_') && value != static_cast<uint8_t>('-') &&
+                value != static_cast<uint8_t>('.')) {
                 return false;
             }
             continue;
@@ -132,8 +132,7 @@ float half_to_float(uint16_t value) noexcept {
 }
 
 bool scalar_at(const TargetRows& rows, uint32_t row, uint32_t column, float* output) noexcept {
-    if (output == nullptr || row >= rows.row_count || column >= rows.column_count ||
-        rows.row_stride < rows.column_count) {
+    if (output == nullptr || row >= rows.row_count || column >= rows.column_count || rows.row_stride < rows.column_count) {
         return false;
     }
     const uint64_t index = static_cast<uint64_t>(row) * rows.row_stride + column;
@@ -158,14 +157,16 @@ float clamp_unit(float value) noexcept {
 bool q3_position(float unit, int32_t origin, int32_t extent, uint16_t* output) noexcept {
     const double scaled = (static_cast<double>(origin) + static_cast<double>(unit) * extent) * 8.0;
     const long rounded = std::lround(scaled);
-    if (rounded < 0 || rounded > UINT16_MAX) return false;
+    if (rounded < 0 || rounded > UINT16_MAX)
+        return false;
     *output = static_cast<uint16_t>(rounded);
     return true;
 }
 
 bool q3_extent(float unit, int32_t extent, uint16_t* output) noexcept {
     const long rounded = std::lround(static_cast<double>(unit) * extent * 8.0);
-    if (rounded <= 0 || rounded > UINT16_MAX) return false;
+    if (rounded <= 0 || rounded > UINT16_MAX)
+        return false;
     *output = static_cast<uint16_t>(rounded);
     return true;
 }
@@ -183,9 +184,8 @@ bool role_from_scalar(float value, uint8_t* output) noexcept {
 
 SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noexcept {
     if (output == nullptr || artifact.artifact != ArtifactKind::coreml_compiled_bundle ||
-        (artifact.flags & artifact_relative_locator) == 0 ||
-        (artifact.provider_compatibility_bits & provider_compatibility_bit) == 0 || artifact.payload.data == nullptr ||
-        artifact.payload.size < payload_header_bytes) {
+        (artifact.flags & artifact_relative_locator) == 0 || (artifact.provider_compatibility_bits & provider_compatibility_bit) == 0 ||
+        artifact.payload.data == nullptr || artifact.payload.size < payload_header_bytes) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {};
@@ -214,10 +214,9 @@ SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noe
         !bounded_add(variable_size, target_count_name_size, artifact.payload.size, &variable_size) ||
         variable_size != artifact.payload.size - payload_header_bytes || candidate_capacity == 0 ||
         candidate_capacity > kernels::targets::maximum_candidates || target_capacity != artifact.max_targets ||
-        target_capacity > candidate_capacity || minimum_confidence > UINT16_MAX ||
-        band_minimum_confidence > UINT16_MAX || band_min_short_side > UINT16_MAX || band_max_short_side > UINT16_MAX ||
-        iou_threshold > UINT16_MAX || !finite(letterbox_rgb) || read_u32(data, reserved_offset) != 0 ||
-        read_u32(data, preprocess_reserved_offset) != 0) {
+        target_capacity > candidate_capacity || minimum_confidence > UINT16_MAX || band_minimum_confidence > UINT16_MAX ||
+        band_min_short_side > UINT16_MAX || band_max_short_side > UINT16_MAX || iou_threshold > UINT16_MAX || !finite(letterbox_rgb) ||
+        read_u32(data, reserved_offset) != 0 || read_u32(data, preprocess_reserved_offset) != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     kernels::targets::PostprocessConfig postprocess{};
@@ -258,14 +257,13 @@ SaccadeResult parse_contract(const ArtifactView& artifact, Contract* output) noe
     return SACCADE_OK;
 }
 
-SaccadeResult decode_target_rows(const Contract& contract, const TargetRows& rows, uint32_t candidate_count,
-                                 SaccadeRectI32 scope, kernels::targets::DenseCandidate* output,
-                                 uint32_t output_capacity, uint32_t* output_count) noexcept {
+SaccadeResult decode_target_rows(const Contract& contract, const TargetRows& rows, uint32_t candidate_count, SaccadeRectI32 scope,
+                                 kernels::targets::DenseCandidate* output, uint32_t output_capacity, uint32_t* output_count) noexcept {
     if (output == nullptr || output_count == nullptr || rows.values == nullptr || rows.row_count < candidate_count ||
         rows.column_count != target_row_components || rows.row_stride < target_row_components ||
         candidate_count > contract.candidate_capacity || output_capacity < candidate_count ||
-        (rows.scalar_type != ScalarType::float16 && rows.scalar_type != ScalarType::float32) || scope.x < 0 ||
-        scope.y < 0 || scope.width <= 0 || scope.height <= 0) {
+        (rows.scalar_type != ScalarType::float16 && rows.scalar_type != ScalarType::float32) || scope.x < 0 || scope.y < 0 ||
+        scope.width <= 0 || scope.height <= 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output_count = 0;
@@ -277,8 +275,7 @@ SaccadeResult decode_target_rows(const Contract& contract, const TargetRows& row
         float confidence = 0.0F;
         float role = 0.0F;
         if (!scalar_at(rows, row, 0, &x) || !scalar_at(rows, row, 1, &y) || !scalar_at(rows, row, 2, &width) ||
-            !scalar_at(rows, row, 3, &height) || !scalar_at(rows, row, 4, &confidence) ||
-            !scalar_at(rows, row, 5, &role)) {
+            !scalar_at(rows, row, 3, &height) || !scalar_at(rows, row, 4, &confidence) || !scalar_at(rows, row, 5, &role)) {
             continue;
         }
         x = clamp_unit(x);
@@ -287,16 +284,15 @@ SaccadeResult decode_target_rows(const Contract& contract, const TargetRows& row
         height = clamp_unit(height);
         width = std::fmin(width, 1.0F - x);
         height = std::fmin(height, 1.0F - y);
-        if (width <= 0.0F || height <= 0.0F) continue;
+        if (width <= 0.0F || height <= 0.0F)
+            continue;
         kernels::targets::DenseCandidate candidate{};
-        if (!q3_position(x, scope.x, scope.width, &candidate.x_q3) ||
-            !q3_position(y, scope.y, scope.height, &candidate.y_q3) ||
-            !q3_extent(width, scope.width, &candidate.width_q3) ||
-            !q3_extent(height, scope.height, &candidate.height_q3) || !role_from_scalar(role, &candidate.role)) {
+        if (!q3_position(x, scope.x, scope.width, &candidate.x_q3) || !q3_position(y, scope.y, scope.height, &candidate.y_q3) ||
+            !q3_extent(width, scope.width, &candidate.width_q3) || !q3_extent(height, scope.height, &candidate.height_q3) ||
+            !role_from_scalar(role, &candidate.role)) {
             continue;
         }
-        candidate.confidence_q16 =
-            static_cast<uint16_t>(std::lround(static_cast<double>(clamp_unit(confidence)) * UINT16_MAX));
+        candidate.confidence_q16 = static_cast<uint16_t>(std::lround(static_cast<double>(clamp_unit(confidence)) * UINT16_MAX));
         candidate.source_bits = SACCADE_TARGET_SOURCE_NEURAL;
         candidate.flags = SACCADE_TARGET_ACTIONABLE;
         output[(*output_count)++] = candidate;

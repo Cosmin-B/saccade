@@ -23,7 +23,8 @@ bool key_valid(const P256PublicKey& key) noexcept {
 struct P256ArtifactVerifier::Impl {
     static SaccadeResult verify(void* context, const ArtifactView& artifact) noexcept {
         auto* owner = static_cast<P256ArtifactVerifier*>(context);
-        if (owner == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (owner == nullptr)
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         const Impl& self = owner->impl();
         if (self.key_ == nullptr || artifact.signed_message.data == nullptr || artifact.signed_message.size == 0 ||
             artifact.signature.data == nullptr || artifact.signature.size != artifact_signature_bytes) {
@@ -35,11 +36,13 @@ struct P256ArtifactVerifier::Impl {
         NSData* signature = [NSData dataWithBytesNoCopy:const_cast<uint8_t*>(artifact.signature.data)
                                                  length:artifact.signature.size
                                            freeWhenDone:NO];
-        if (message == nil || signature == nil) return SACCADE_ERROR_BACKEND;
+        if (message == nil || signature == nil)
+            return SACCADE_ERROR_BACKEND;
         CFErrorRef error = nullptr;
-        const bool valid = SecKeyVerifySignature(self.key_, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256,
-                                                 (__bridge CFDataRef)message, (__bridge CFDataRef)signature, &error);
-        if (error != nullptr) CFRelease(error);
+        const bool valid = SecKeyVerifySignature(self.key_, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256, (__bridge CFDataRef)message,
+                                                 (__bridge CFDataRef)signature, &error);
+        if (error != nullptr)
+            CFRelease(error);
         return valid ? SACCADE_OK : SACCADE_ERROR_PERMISSION;
     }
 
@@ -67,8 +70,10 @@ const P256ArtifactVerifier::Impl& P256ArtifactVerifier::impl() const noexcept {
 
 SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) noexcept {
     Impl& self = impl();
-    if (self.key_ != nullptr) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (!key_valid(public_key)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (self.key_ != nullptr)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (!key_valid(public_key))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     std::array<uint8_t, 65> external{};
     external[0] = 0x04;
     for (size_t index = 0; index < public_key.xy.size(); ++index)
@@ -81,9 +86,10 @@ SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) 
     };
     CFErrorRef error = nullptr;
     self.key_ = SecKeyCreateWithData((__bridge CFDataRef)data, (__bridge CFDictionaryRef)attributes, &error);
-    if (error != nullptr) CFRelease(error);
-    if (self.key_ == nullptr || !SecKeyIsAlgorithmSupported(self.key_, kSecKeyOperationTypeVerify,
-                                                            kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256)) {
+    if (error != nullptr)
+        CFRelease(error);
+    if (self.key_ == nullptr ||
+        !SecKeyIsAlgorithmSupported(self.key_, kSecKeyOperationTypeVerify, kSecKeyAlgorithmECDSASignatureMessageRFC4754SHA256)) {
         (void)shutdown();
         return SACCADE_ERROR_BACKEND;
     }
@@ -92,7 +98,8 @@ SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) 
 
 SaccadeResult P256ArtifactVerifier::shutdown() noexcept {
     Impl& self = impl();
-    if (self.key_ != nullptr) CFRelease(self.key_);
+    if (self.key_ != nullptr)
+        CFRelease(self.key_);
     self.key_ = nullptr;
     return SACCADE_OK;
 }

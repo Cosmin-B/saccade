@@ -38,8 +38,7 @@ template <typename T, size_t Capacity, typename Generation = uint32_t> class Han
     HandleTable& operator=(HandleTable&&) = delete;
 
     template <typename... Arguments>
-    SaccadeResult emplace(uint64_t* out_handle,
-                          Arguments&&... arguments) noexcept(std::is_nothrow_constructible_v<T, Arguments&&...>) {
+    SaccadeResult emplace(uint64_t* out_handle, Arguments&&... arguments) noexcept(std::is_nothrow_constructible_v<T, Arguments&&...>) {
         if (out_handle == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
@@ -208,9 +207,7 @@ template <typename T, size_t Capacity, typename Generation = uint32_t> class Han
 
     T* value(size_t index) noexcept { return std::launder(reinterpret_cast<T*>(storage_[index].bytes.data())); }
 
-    const T* value(size_t index) const noexcept {
-        return std::launder(reinterpret_cast<const T*>(storage_[index].bytes.data()));
-    }
+    const T* value(size_t index) const noexcept { return std::launder(reinterpret_cast<const T*>(storage_[index].bytes.data())); }
 
     static_assert(sizeof(Storage) == sizeof(T));
 

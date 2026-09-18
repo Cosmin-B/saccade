@@ -47,8 +47,7 @@ constexpr uint32_t capture_capacity = 256;
 constexpr uint32_t payload_capacity = 256;
 constexpr uint32_t maximum_test_commands = 8;
 constexpr int64_t scroll_fixed_point_scale = INT64_C(1) << 8U;
-constexpr size_t plan_capacity =
-    sizeof(SaccadeInputPlanHeader) + maximum_test_commands * sizeof(SaccadeInputCommand) + payload_capacity;
+constexpr size_t plan_capacity = sizeof(SaccadeInputPlanHeader) + maximum_test_commands * sizeof(SaccadeInputCommand) + payload_capacity;
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -88,8 +87,10 @@ SaccadeResult capture_preflight(void* context, const saccade::input::PlanView&, 
 bool capture_event(void* context, CGEventRef event) noexcept {
     auto* sink = static_cast<CaptureSink*>(context);
     ++sink->calls;
-    if (sink->calls == sink->failure_call) return false;
-    if (sink->count == sink->events.size()) return false;
+    if (sink->calls == sink->failure_call)
+        return false;
+    if (sink->count == sink->events.size())
+        return false;
     CapturedEvent& captured = sink->events[sink->count++];
     captured.type = CGEventGetType(event);
     captured.location = CGEventGetLocation(event);
@@ -109,9 +110,9 @@ SaccadeResult capture_activation(void* context, uint64_t window_id) noexcept {
     return SACCADE_OK;
 }
 
-SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permissions, uint32_t expected_buttons,
-                        uint32_t flags, const SaccadeInputCommand* commands, uint32_t command_count,
-                        const uint8_t* payload = nullptr, uint32_t payload_size = 0) noexcept {
+SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permissions, uint32_t expected_buttons, uint32_t flags,
+                        const SaccadeInputCommand* commands, uint32_t command_count, const uint8_t* payload = nullptr,
+                        uint32_t payload_size = 0) noexcept {
     *storage = {};
     SaccadeInputPlanHeader header{};
     header.struct_size = sizeof(header);
@@ -135,11 +136,9 @@ SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permiss
     header.display_id = display_id;
     header.deadline_ns = plan_deadline_ns;
     header.commands_offset = sizeof(header);
-    header.total_size =
-        sizeof(header) + static_cast<uint64_t>(command_count) * sizeof(SaccadeInputCommand) + payload_size;
+    header.total_size = sizeof(header) + static_cast<uint64_t>(command_count) * sizeof(SaccadeInputCommand) + payload_size;
     std::memcpy(storage->bytes.data(), &header, sizeof(header));
-    std::memcpy(storage->bytes.data() + sizeof(header), commands,
-                static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand));
+    std::memcpy(storage->bytes.data() + sizeof(header), commands, static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand));
     if (payload_size != 0) {
         std::memcpy(storage->bytes.data() + header.total_size - payload_size, payload, payload_size);
     }
@@ -165,22 +164,20 @@ int main() {
     click.data0 = SACCADE_INPUT_BUTTON_RIGHT;
     click.data1 = 2;
     click.data2 = SACCADE_INPUT_MODIFIER_CONTROL;
-    SaccadeSpanU8 plan =
-        make_plan(&storage, 1, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &click, 1);
+    SaccadeSpanU8 plan = make_plan(&storage, 1, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &click, 1);
     saccade::platform::macos::InputExecutionResult execution{};
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         execution.native_events != 7 || sink.count != 7 || sink.events[0].type != kCGEventMouseMoved ||
         sink.events[1].type != kCGEventFlagsChanged || sink.events[1].keycode != kVK_Control ||
         (sink.events[1].flags & kCGEventFlagMaskControl) == 0 || sink.events[2].type != kCGEventRightMouseDown ||
-        sink.events[2].click_state != 1 || sink.events[4].click_state != 2 ||
-        sink.events[5].type != kCGEventRightMouseUp || sink.events[6].type != kCGEventFlagsChanged ||
-        sink.events[6].flags != 0) {
+        sink.events[2].click_state != 1 || sink.events[4].click_state != 2 || sink.events[5].type != kCGEventRightMouseUp ||
+        sink.events[6].type != kCGEventFlagsChanged || sink.events[6].flags != 0) {
         return result(TestResult::click_failed);
     }
 
     const uint32_t before_dry_run = sink.count;
-    plan = make_plan(&storage, 2, SACCADE_INPUT_PERMISSION_POINTER, 0,
-                     SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &click, 1);
+    plan = make_plan(&storage, 2, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE,
+                     &click, 1);
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         sink.count != before_dry_run || execution.native_events != 0)
         return result(TestResult::dry_run_failed);
@@ -193,8 +190,8 @@ int main() {
     dry_moves[1] = dry_moves[0];
     dry_moves[1].x_q8 = 256;
     sink.preflight_calls = 0;
-    plan = make_plan(&storage, 99, SACCADE_INPUT_PERMISSION_POINTER, 0,
-                     SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE, dry_moves.data(), 2);
+    plan = make_plan(&storage, 99, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_DRY_RUN | SACCADE_INPUT_PLAN_STOP_ON_FAILURE,
+                     dry_moves.data(), 2);
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         sink.preflight_calls != 2 || sink.count != before_dry_run || execution.native_events != 0)
         return result(TestResult::dry_run_preflight_failed);
@@ -211,10 +208,9 @@ int main() {
     plan = make_plan(&storage, 3, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, hold.data(),
                      static_cast<uint32_t>(hold.size()));
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
-        execution.buttons != SACCADE_INPUT_BUTTON_LEFT ||
-        !saccade::platform::macos::synthetic_input_active(&executor) ||
-        saccade::platform::macos::neutralize_synthetic_input(&executor) != SACCADE_OK ||
-        executor.physical_state().state().buttons != 0 || sink.events[sink.count - 1U].type != kCGEventLeftMouseUp)
+        execution.buttons != SACCADE_INPUT_BUTTON_LEFT || !saccade::platform::macos::synthetic_input_active(&executor) ||
+        saccade::platform::macos::neutralize_synthetic_input(&executor) != SACCADE_OK || executor.physical_state().state().buttons != 0 ||
+        sink.events[sink.count - 1U].type != kCGEventLeftMouseUp)
         return result(TestResult::release_failed);
 
     std::array<SaccadeInputCommand, 2> keys{};
@@ -233,20 +229,18 @@ int main() {
         sink.events[key_start + 4U].type != kCGEventKeyUp)
         return result(TestResult::keyboard_failed);
 
-    constexpr std::array<uint8_t, 5> text_payload{
-        {static_cast<uint8_t>('A'), UINT8_C(0xf0), UINT8_C(0x9f), UINT8_C(0x98), UINT8_C(0x80)}};
+    constexpr std::array<uint8_t, 5> text_payload{{static_cast<uint8_t>('A'), UINT8_C(0xf0), UINT8_C(0x9f), UINT8_C(0x98), UINT8_C(0x80)}};
     SaccadeInputCommand text{};
     text.kind = SACCADE_INPUT_COMMAND_TEXT;
     text.target_id = 1;
     text.payload_offset = sizeof(SaccadeInputPlanHeader) + sizeof(SaccadeInputCommand);
     text.payload_size = static_cast<uint32_t>(text_payload.size());
     const uint32_t text_start = sink.count;
-    plan = make_plan(&storage, 5, SACCADE_INPUT_PERMISSION_TEXT, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &text, 1,
-                     text_payload.data(), static_cast<uint32_t>(text_payload.size()));
+    plan = make_plan(&storage, 5, SACCADE_INPUT_PERMISSION_TEXT, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &text, 1, text_payload.data(),
+                     static_cast<uint32_t>(text_payload.size()));
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_TEXT, execution_time_ns, &execution) != SACCADE_OK ||
         execution.native_events != 4 || sink.events[text_start].unicode_count != 1 ||
-        sink.events[text_start].unicode[0] != static_cast<UniChar>('A') ||
-        sink.events[text_start + 2U].unicode_count != 2)
+        sink.events[text_start].unicode[0] != static_cast<UniChar>('A') || sink.events[text_start + 2U].unicode_count != 2)
         return result(TestResult::text_failed);
 
     SaccadeInputCommand scroll{};
@@ -273,16 +267,15 @@ int main() {
     timed_move.y_q8 = 10 * 256;
     timed_move.duration_ns = timed_duration_ns;
     const uint32_t timed_move_start = sink.count;
-    plan = make_plan(&storage, 60, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &timed_move,
-                     1);
+    plan = make_plan(&storage, 60, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &timed_move, 1);
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         (execution.flags & saccade::platform::macos::input_execution_pending) == 0 || sink.count != timed_move_start)
         return result(TestResult::timed_move_failed);
     reinterpret_cast<SaccadeInputPlanHeader*>(storage.bytes.data())->deadline_ns = 2;
     if (executor.advance(UINT64_C(10'000'001), &execution) != SACCADE_OK || sink.count != timed_move_start + 1U ||
         sink.events[timed_move_start].location.x < 9.0 || sink.events[timed_move_start].location.x > 11.0 ||
-        executor.advance(UINT64_C(21'000'001), &execution) != SACCADE_OK || execution.flags != 0 ||
-        sink.count != timed_move_start + 2U || sink.events[timed_move_start + 1U].location.x != 20.0)
+        executor.advance(UINT64_C(21'000'001), &execution) != SACCADE_OK || execution.flags != 0 || sink.count != timed_move_start + 2U ||
+        sink.events[timed_move_start + 1U].location.x != 20.0)
         return result(TestResult::timed_move_failed);
 
     SaccadeInputCommand timed_hold{};
@@ -293,18 +286,15 @@ int main() {
     timed_hold.y_q8 = 10 * 256;
     timed_hold.data0 = SACCADE_INPUT_BUTTON_LEFT;
     timed_hold.duration_ns = timed_duration_ns;
-    plan = make_plan(&storage, 61, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &timed_hold,
-                     1);
+    plan = make_plan(&storage, 61, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &timed_hold, 1);
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
-        execution.buttons != SACCADE_INPUT_BUTTON_LEFT ||
-        executor.advance(UINT64_C(21'000'001), &execution) != SACCADE_OK || executor.synthetic_input_active() ||
-        sink.events[sink.count - 1U].type != kCGEventLeftMouseUp)
+        execution.buttons != SACCADE_INPUT_BUTTON_LEFT || executor.advance(UINT64_C(21'000'001), &execution) != SACCADE_OK ||
+        executor.synthetic_input_active() || sink.events[sink.count - 1U].type != kCGEventLeftMouseUp)
         return result(TestResult::timed_hold_failed);
 
     auto* header = reinterpret_cast<SaccadeInputPlanHeader*>(storage.bytes.data());
     header->topology_epoch = topology_epoch + 1U;
-    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) !=
-        SACCADE_ERROR_STALE_HANDLE)
+    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_ERROR_STALE_HANDLE)
         return result(TestResult::stale_epoch_failed);
 
     SaccadeInputCommand activate{};
@@ -319,11 +309,9 @@ int main() {
     failing_click.data0 = SACCADE_INPUT_BUTTON_LEFT;
     failing_click.data1 = 1;
     failing_click.data2 = 0;
-    plan = make_plan(&storage, 8, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE,
-                     &failing_click, 1);
+    plan = make_plan(&storage, 8, SACCADE_INPUT_PERMISSION_POINTER, 0, SACCADE_INPUT_PLAN_STOP_ON_FAILURE, &failing_click, 1);
     sink.failure_call = sink.calls + 3U;
-    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) !=
-            SACCADE_ERROR_BACKEND ||
+    if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_ERROR_BACKEND ||
         executor.physical_state().state().buttons != 0 || sink.events[sink.count - 1U].type != kCGEventLeftMouseUp)
         return result(TestResult::transient_release_failed);
 
@@ -332,8 +320,7 @@ int main() {
     if (executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_OK ||
         !executor.synthetic_input_active() || executor.permission_lost(permission_epoch + 1U) != SACCADE_OK ||
         executor.synthetic_input_active() || sink.events[sink.count - 1U].type != kCGEventLeftMouseUp ||
-        executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) !=
-            SACCADE_ERROR_STALE_HANDLE)
+        executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution) != SACCADE_ERROR_STALE_HANDLE)
         return result(TestResult::permission_loss_failed);
 
     return executor.shutdown() == SACCADE_OK ? result(TestResult::success) : result(TestResult::shutdown_failed);

@@ -1,7 +1,6 @@
 #include <saccade/saccade_backend.h>
 
-extern "C" SaccadeResult SACCADE_CALL enumerate_sources(void* context, uint32_t index,
-                                                        SaccadeCaptureSourceInfo* out_source) {
+extern "C" SaccadeResult SACCADE_CALL enumerate_sources(void* context, uint32_t index, SaccadeCaptureSourceInfo* out_source) {
     (void)context;
     (void)index;
     (void)out_source;

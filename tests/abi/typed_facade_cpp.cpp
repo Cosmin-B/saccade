@@ -7,10 +7,8 @@ static_assert(offsetof(SaccadeIOSurfaceFrameDesc, api_version) == 4, "IOSurface 
 static_assert(offsetof(SaccadeWin32CaptureFrameDesc, struct_size) == 0, "Win32 capture descriptor size prefix");
 static_assert(offsetof(SaccadeWin32CaptureFrameDesc, api_version) == 4, "Win32 capture descriptor version prefix");
 static_assert(offsetof(SaccadeHostFrameDesc, transform_epoch) == 48, "host descriptor transform epoch offset");
-static_assert(offsetof(SaccadeIOSurfaceFrameDesc, transform_epoch) == 40,
-              "IOSurface descriptor transform epoch offset");
-static_assert(offsetof(SaccadeWin32CaptureFrameDesc, transform_epoch) == 40,
-              "Win32 capture descriptor transform epoch offset");
+static_assert(offsetof(SaccadeIOSurfaceFrameDesc, transform_epoch) == 40, "IOSurface descriptor transform epoch offset");
+static_assert(offsetof(SaccadeWin32CaptureFrameDesc, transform_epoch) == 40, "Win32 capture descriptor transform epoch offset");
 static_assert(offsetof(SaccadeWin32CaptureFrameDesc, ready_fence) == 48, "Win32 capture descriptor ready fence offset");
 static_assert(offsetof(SaccadeWin32CaptureFrameDesc, ready_value) == 56, "Win32 capture descriptor ready value offset");
 
@@ -34,8 +32,7 @@ SaccadeHostFrameDesc* next_host_desc() noexcept {
 
 } // namespace
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime,
-                                                                 const SaccadeHostFrameDesc* desc,
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime, const SaccadeHostFrameDesc* desc,
                                                                  SaccadeFrameHandle* out_frame) {
     ++host_calls;
     if ((runtime != expected_runtime) || (desc != &host_desc)) {
@@ -45,8 +42,7 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeH
     return host_result;
 }
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime,
-                                                                      const SaccadeIOSurfaceFrameDesc* desc,
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime, const SaccadeIOSurfaceFrameDesc* desc,
                                                                       SaccadeFrameHandle* out_frame) {
     ++iosurface_calls;
     if ((runtime != expected_runtime) || (desc == nullptr)) {
@@ -95,8 +91,7 @@ int main() {
 
     frame = 0;
     const SaccadeResult win32_capture = saccade_frame_import(expected_runtime, &win32_capture_desc, &frame);
-    if ((win32_capture != win32_capture_result) || (frame != UINT64_C(403)) || (win32_capture_calls != 1) ||
-        (iosurface_calls != 0)) {
+    if ((win32_capture != win32_capture_result) || (frame != UINT64_C(403)) || (win32_capture_calls != 1) || (iosurface_calls != 0)) {
         return 2;
     }
 

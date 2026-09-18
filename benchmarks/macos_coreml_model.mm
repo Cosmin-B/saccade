@@ -29,8 +29,7 @@ constexpr uint32_t default_warmup_runs = 5;
 constexpr uint32_t default_measured_runs = 100;
 constexpr uint32_t maximum_runs = 1000;
 constexpr size_t maximum_packet_bytes =
-    sizeof(SaccadeTargetPacketHeader) +
-    static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
+    sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
 
 enum class ExitCode : int { success, usage, artifact, pixel_buffer, model, warmup, prediction, timing, shutdown };
 
@@ -45,7 +44,8 @@ SaccadeResult accept_lab_signature(void*, const ArtifactView&) noexcept {
 bool parse_count(const char* text, uint32_t* output) noexcept {
     char* end = nullptr;
     const unsigned long value = std::strtoul(text, &end, 10);
-    if (end == text || *end != '\0' || value == 0 || value > maximum_runs) return false;
+    if (end == text || *end != '\0' || value == 0 || value > maximum_runs)
+        return false;
     *output = static_cast<uint32_t>(value);
     return true;
 }
@@ -68,9 +68,10 @@ bool compute_policy(const char* text, CoreMlComputePolicy* output) noexcept {
 CVPixelBufferRef make_pixel_buffer(uint32_t width, uint32_t height) noexcept {
     NSDictionary* attributes = @{(id)kCVPixelBufferIOSurfacePropertiesKey : @{}};
     CVPixelBufferRef buffer = nullptr;
-    const CVReturn created = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
-                                                 (__bridge CFDictionaryRef)attributes, &buffer);
-    if (created != kCVReturnSuccess || buffer == nullptr) return nullptr;
+    const CVReturn created =
+        CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, (__bridge CFDictionaryRef)attributes, &buffer);
+    if (created != kCVReturnSuccess || buffer == nullptr)
+        return nullptr;
 
     if (CVPixelBufferLockBaseAddress(buffer, 0) != kCVReturnSuccess) {
         CVPixelBufferRelease(buffer);
@@ -84,8 +85,7 @@ CVPixelBufferRef make_pixel_buffer(uint32_t width, uint32_t height) noexcept {
 uint64_t resident_bytes() noexcept {
     mach_task_basic_info_data_t info{};
     mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
-    return task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) ==
-                   KERN_SUCCESS
+    return task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS
                ? info.resident_size
                : 0;
 }
@@ -95,8 +95,7 @@ double milliseconds(uint64_t start, uint64_t end, mach_timebase_info_data_t time
     return static_cast<double>(nanoseconds / 1'000'000.0L);
 }
 
-double percentile(const std::array<double, maximum_runs>& values, uint32_t count, uint32_t numerator,
-                  uint32_t denominator) noexcept {
+double percentile(const std::array<double, maximum_runs>& values, uint32_t count, uint32_t numerator, uint32_t denominator) noexcept {
     const uint32_t index = std::min(count - 1U, ((count - 1U) * numerator + denominator / 2U) / denominator);
     return values[index];
 }
@@ -104,7 +103,8 @@ double percentile(const std::array<double, maximum_runs>& values, uint32_t count
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 3 || argc > 6) return exit_code(ExitCode::usage);
+    if (argc < 3 || argc > 6)
+        return exit_code(ExitCode::usage);
 
     CoreMlComputePolicy policy = CoreMlComputePolicy::all;
     uint32_t measured_runs = default_measured_runs;
@@ -121,7 +121,8 @@ int main(int argc, char** argv) {
 
     const ArtifactView& view = artifact.view();
     CVPixelBufferRef pixel_buffer = make_pixel_buffer(view.input_width, view.input_height);
-    if (pixel_buffer == nullptr) return exit_code(ExitCode::pixel_buffer);
+    if (pixel_buffer == nullptr)
+        return exit_code(ExitCode::pixel_buffer);
 
     mach_timebase_info_data_t timebase{};
     if (mach_timebase_info(&timebase) != KERN_SUCCESS) {
@@ -193,10 +194,9 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(view.stable_id), view.input_width, view.input_height,
                 milliseconds(load_start, load_end, timebase), warmup_runs, measured_runs, samples[0],
                 percentile(samples, measured_runs, 50, 100), percentile(samples, measured_runs, 95, 100),
-                percentile(samples, measured_runs, 99, 100), samples[measured_runs - 1U], result.candidate_count,
-                result.target_count, result.byte_size, static_cast<unsigned long long>(resident_before),
-                static_cast<unsigned long long>(resident_loaded), static_cast<unsigned long long>(resident_after),
-                static_cast<unsigned long long>(stats.failures));
+                percentile(samples, measured_runs, 99, 100), samples[measured_runs - 1U], result.candidate_count, result.target_count,
+                result.byte_size, static_cast<unsigned long long>(resident_before), static_cast<unsigned long long>(resident_loaded),
+                static_cast<unsigned long long>(resident_after), static_cast<unsigned long long>(stats.failures));
 
     CVPixelBufferRelease(pixel_buffer);
     if (model.shutdown() != SACCADE_OK || artifact.shutdown() != SACCADE_OK) {

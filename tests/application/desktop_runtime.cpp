@@ -41,7 +41,8 @@ struct Capture {
 
 SaccadeResult execute(void* context, SaccadeSpanU8 bytes, uint32_t, uint64_t) noexcept {
     saccade::input::PlanView plan{};
-    if (saccade::input::validate_plan(bytes, &plan) != SACCADE_OK) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (saccade::input::validate_plan(bytes, &plan) != SACCADE_OK)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     ++static_cast<Capture*>(context)->executions;
     return SACCADE_OK;
 }
@@ -58,8 +59,7 @@ void retire(void* context, SaccadeFrameHandle) noexcept {
     ++static_cast<Capture*>(context)->retirements;
 }
 
-SaccadeResult route_session_command(void* context, saccade::application::Command command,
-                                    uint64_t timestamp_ns) noexcept {
+SaccadeResult route_session_command(void* context, saccade::application::Command command, uint64_t timestamp_ns) noexcept {
     auto* capture = static_cast<Capture*>(context);
     ++capture->session_commands;
     capture->last_session_command = command;
@@ -127,8 +127,7 @@ int main() {
         bounded_trace.record(saccade::application::DebugTraceCode::frame_offered, index + 1U, index);
     const saccade::application::DebugTraceSnapshot bounded_snapshot = bounded_trace.snapshot();
     if (bounded_snapshot.count != saccade::application::debug_trace_capacity || bounded_snapshot.overwritten != 8 ||
-        bounded_snapshot.next_sequence != saccade::application::debug_trace_capacity + 9U ||
-        bounded_snapshot.events[0].sequence != 9 ||
+        bounded_snapshot.next_sequence != saccade::application::debug_trace_capacity + 9U || bounded_snapshot.events[0].sequence != 9 ||
         bounded_snapshot.events[saccade::application::debug_trace_capacity - 1U].sequence !=
             saccade::application::debug_trace_capacity + 8U)
         return result(TestResult::trace_failed);
@@ -140,13 +139,13 @@ int main() {
     inference_config.artifact = {model.data(), model.size()};
     inference_config.model_stable_id = 1;
     inference_config.provider_stable_id = provider.info.stable_id;
-    inference_config.required_capability_bits =
-        SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT;
+    inference_config.required_capability_bits = SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT;
     inference_config.required_format_bits = SACCADE_FORMAT_BGRA8;
     inference_config.required_precision_bits = SACCADE_PRECISION_FP32;
     inference_config.required_import_bits = SACCADE_IMPORT_HOST;
     saccade::application::InferenceRuntime inference;
-    if (inference.initialize(inference_config) != SACCADE_OK) return result(TestResult::session_create_failed);
+    if (inference.initialize(inference_config) != SACCADE_OK)
+        return result(TestResult::session_create_failed);
     const SaccadeRuntimeHandle runtime = inference.runtime();
 
     Capture capture{};
@@ -169,17 +168,18 @@ int main() {
     config.interaction.hints.alphabet_count = static_cast<uint32_t>(alphabet.size());
     config.environment = {nullptr, read_environment};
     saccade::application::DesktopRuntime owner;
-    if (owner.initialize(config, &storage) != SACCADE_OK) return result(TestResult::owner_initialize_failed);
+    if (owner.initialize(config, &storage) != SACCADE_OK)
+        return result(TestResult::owner_initialize_failed);
     capture.runtime = &owner;
     saccade::scene::FusionConfig updated_fusion = config.fusion;
     updated_fusion.iou_threshold_q16 = 40000;
-    if (owner.set_fusion(updated_fusion) != SACCADE_OK) return result(TestResult::fusion_setting_failed);
+    if (owner.set_fusion(updated_fusion) != SACCADE_OK)
+        return result(TestResult::fusion_setting_failed);
     updated_fusion.iou_threshold_q16 = 0;
     if (owner.set_fusion(updated_fusion) != SACCADE_ERROR_INVALID_ARGUMENT)
         return result(TestResult::fusion_setting_failed);
 
-    const std::array<uint8_t, 16> pixels{255, 255, 255, 255, 255, 255, 255, 255,
-                                         255, 255, 255, 255, 255, 255, 255, 255};
+    const std::array<uint8_t, 16> pixels{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255};
     SaccadeHostFrameDesc frame_desc{};
     frame_desc.struct_size = sizeof(frame_desc);
     frame_desc.api_version = SACCADE_API_VERSION;
@@ -205,36 +205,32 @@ int main() {
     offered.source_to_desktop = source_transform();
     offered.retire_context = &capture;
     offered.retire = retire;
-    if (owner.offer(offered) != SACCADE_OK) return result(TestResult::frame_offer_failed);
+    if (owner.offer(offered) != SACCADE_OK)
+        return result(TestResult::frame_offer_failed);
     saccade::application::DesktopRuntimeAdvance advance{};
-    if (owner.advance(1, &advance) != SACCADE_OK || advance.scene.scene_published ||
-        owner.advance(2, &advance) != SACCADE_OK || !advance.scene.scene_published || advance.scene.target_count != 1 ||
-        capture.retirements != 1)
+    if (owner.advance(1, &advance) != SACCADE_OK || advance.scene.scene_published || owner.advance(2, &advance) != SACCADE_OK ||
+        !advance.scene.scene_published || advance.scene.target_count != 1 || capture.retirements != 1)
         return result(TestResult::advance_failed);
     saccade::application::InteractionCommandResult command{};
     saccade::application::SessionKeyRouter keys;
     saccade::application::SessionKeyRoute key_result{};
-    constexpr saccade::application::HotkeyBinding session_binding{saccade::application::Command::edge_snap_right, 0x4f,
-                                                                  0, saccade::application::hotkey_session_only, 0};
-    constexpr saccade::application::HotkeyBinding position_binding{
-        saccade::application::Command::target_position_1, 0x1e, 0, saccade::application::hotkey_session_only, '1'};
-    if (keys.initialize(&owner, {&capture, route_session_command}) != SACCADE_OK ||
-        keys.replace(&session_binding, 1) != SACCADE_OK ||
+    constexpr saccade::application::HotkeyBinding session_binding{saccade::application::Command::edge_snap_right, 0x4f, 0,
+                                                                  saccade::application::hotkey_session_only, 0};
+    constexpr saccade::application::HotkeyBinding position_binding{saccade::application::Command::target_position_1, 0x1e, 0,
+                                                                   saccade::application::hotkey_session_only, '1'};
+    if (keys.initialize(&owner, {&capture, route_session_command}) != SACCADE_OK || keys.replace(&session_binding, 1) != SACCADE_OK ||
         keys.route({3, session_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
-        capture.session_commands != 0 ||
-        owner.dispatch(saccade::application::Command::left_click, 4, &command) != SACCADE_OK || !owner.active() ||
-        keys.route({5, 0x28, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
+        capture.session_commands != 0 || owner.dispatch(saccade::application::Command::left_click, 4, &command) != SACCADE_OK ||
+        !owner.active() || keys.route({5, 0x28, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
         keys.route({6, 0x2a, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
         keys.route({7, 0x29, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
-        keys.route({8, position_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
-        !owner.active() || capture.session_commands != 0 ||
-        keys.route({9, session_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK || !key_result.handled ||
-        key_result.session_ended || capture.session_commands != 1 ||
+        keys.route({8, position_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK || key_result.handled || !owner.active() ||
+        capture.session_commands != 0 || keys.route({9, session_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK ||
+        !key_result.handled || key_result.session_ended || capture.session_commands != 1 ||
         capture.last_session_command != saccade::application::Command::edge_snap_right ||
         keys.route({10, 0x04, 0, 'x'}, &key_result) != SACCADE_OK || !key_result.handled || !key_result.session_ended ||
-        capture.executions != 1 || owner.active() ||
-        keys.route({11, session_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK || key_result.handled ||
-        capture.session_commands != 1)
+        capture.executions != 1 || owner.active() || keys.route({11, session_binding.physical_key, 0, 0}, &key_result) != SACCADE_OK ||
+        key_result.handled || capture.session_commands != 1)
         return result(TestResult::selection_failed);
     saccade::scene::GridSceneConfig grid{};
     grid.scope = {0, 0, 256, 256};
@@ -249,14 +245,13 @@ int main() {
     saccade::application::SceneCoordinatorAdvance grid_scene{};
     const std::array session_bindings{session_binding, position_binding};
     if (keys.replace(session_bindings.data(), static_cast<uint32_t>(session_bindings.size())) != SACCADE_OK ||
-        owner.set_source(saccade::application::SceneSource::grid) != SACCADE_OK ||
-        owner.publish_grid(grid, &grid_scene) != SACCADE_OK || !grid_scene.scene_published ||
-        grid_scene.target_count != 1 ||
+        owner.set_source(saccade::application::SceneSource::grid) != SACCADE_OK || owner.publish_grid(grid, &grid_scene) != SACCADE_OK ||
+        !grid_scene.scene_published || grid_scene.target_count != 1 ||
         owner.dispatch(saccade::application::Command::left_click, 12, &command) != SACCADE_OK || !owner.active() ||
         keys.route({13, position_binding.physical_key, 0, '1'}, &key_result) != SACCADE_OK || !key_result.handled ||
-        key_result.session_ended || capture.last_session_command != saccade::application::Command::target_position_1 ||
-        !owner.active() || keys.route({14, 0x04, 0, 'A'}, &key_result) != SACCADE_OK || !key_result.handled ||
-        !key_result.session_ended || capture.executions != 2 || owner.active())
+        key_result.session_ended || capture.last_session_command != saccade::application::Command::target_position_1 || !owner.active() ||
+        keys.route({14, 0x04, 0, 'A'}, &key_result) != SACCADE_OK || !key_result.handled || !key_result.session_ended ||
+        capture.executions != 2 || owner.active())
         return result(TestResult::grid_failed);
     SaccadeWindowInfo window{};
     window.struct_size = sizeof(window);

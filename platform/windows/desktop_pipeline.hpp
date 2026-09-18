@@ -164,9 +164,7 @@ class DesktopPipeline final {
     SaccadeResult debug_clear() noexcept;
     SaccadeResult shutdown() noexcept;
 
-    [[nodiscard]] bool active() const noexcept {
-        return pending_command_ || runtime_.active() || input_.synthetic_input_active();
-    }
+    [[nodiscard]] bool active() const noexcept { return pending_command_ || runtime_.active() || input_.synthetic_input_active(); }
 
     [[nodiscard]] DesktopPipelineStats stats() const noexcept { return stats_; }
 
@@ -176,9 +174,8 @@ class DesktopPipeline final {
 
   private:
     static constexpr size_t overlay_packet_overhead = sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayStyle);
-    static constexpr size_t overlay_arena_capacity =
-        geometry::display_capacity * overlay_packet_overhead +
-        static_cast<size_t>(SACCADE_OVERLAY_MAX_TARGETS) * sizeof(SaccadeOverlayTarget);
+    static constexpr size_t overlay_arena_capacity = geometry::display_capacity * overlay_packet_overhead +
+                                                     static_cast<size_t>(SACCADE_OVERLAY_MAX_TARGETS) * sizeof(SaccadeOverlayTarget);
 
     struct OverlayFrameSlot {
         size_t offset_ = 0;
@@ -192,11 +189,9 @@ class DesktopPipeline final {
     };
 
     static SaccadeResult execute_plan(void*, SaccadeSpanU8, uint32_t, uint64_t) noexcept;
-    static SaccadeResult preflight_input(void*, const input::PlanView&, uint32_t command_index,
-                                         uint64_t now_ns) noexcept;
+    static SaccadeResult preflight_input(void*, const input::PlanView&, uint32_t command_index, uint64_t now_ns) noexcept;
     static SaccadeResult read_environment(void*, application::InteractionState*) noexcept;
-    static SaccadeResult read_agent_environment(void*, application::InteractionState*) noexcept;
-    static SaccadeResult acquire_agent_scene(void*, scene::PacketView*) noexcept;
+    static SaccadeResult acquire_agent_scene(void*, const SaccadeAgentScope&, scene::PacketView*, application::InteractionState*) noexcept;
     static SaccadeResult read_agent_physical_state(void*, SaccadeAgentPhysicalState*) noexcept;
     static SaccadeResult abort_agent_input(void*) noexcept;
     static SaccadeResult cycle_agent_window(void*, bool backward) noexcept;

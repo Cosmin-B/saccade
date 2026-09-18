@@ -91,12 +91,12 @@ template <class Operation> uint64_t measure_ns(uint32_t iterations, Operation&& 
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
 }
 
-bool append_result(saccade::core::StackStringBuilder<512>* text, uint32_t target_count, const char* operation,
-                   uint32_t iterations, uint64_t elapsed_ns) noexcept {
-    return text->append("targets=") && text->append_unsigned(target_count) && text->append(" operation=") &&
-           text->append(operation) && text->append(" iterations=") && text->append_unsigned(iterations) &&
-           text->append(" total_ns=") && text->append_unsigned(elapsed_ns) && text->append(" ns_per_operation=") &&
-           text->append_unsigned(elapsed_ns / iterations) && text->append('\n');
+bool append_result(saccade::core::StackStringBuilder<512>* text, uint32_t target_count, const char* operation, uint32_t iterations,
+                   uint64_t elapsed_ns) noexcept {
+    return text->append("targets=") && text->append_unsigned(target_count) && text->append(" operation=") && text->append(operation) &&
+           text->append(" iterations=") && text->append_unsigned(iterations) && text->append(" total_ns=") &&
+           text->append_unsigned(elapsed_ns) && text->append(" ns_per_operation=") && text->append_unsigned(elapsed_ns / iterations) &&
+           text->append('\n');
 }
 
 bool run_case(uint32_t target_count, uint32_t iterations, saccade::core::StackStringBuilder<512>* text) noexcept {
@@ -107,8 +107,7 @@ bool run_case(uint32_t target_count, uint32_t iterations, saccade::core::StackSt
     }
 
     size_t output_count = 0;
-    const saccade::overlay::ExpandedInstanceSpan output{rect_storage.data(), metadata_storage.data(),
-                                                        metadata_storage.size()};
+    const saccade::overlay::ExpandedInstanceSpan output{rect_storage.data(), metadata_storage.data(), metadata_storage.size()};
     if (saccade::overlay::expand_static(view, output, &output_count) != SACCADE_OK ||
         output_count != static_cast<size_t>(target_count) * 5U) {
         return false;
@@ -136,7 +135,6 @@ int main() {
     if (!run_case(100, 20000, &text) || !run_case(10000, 250, &text) || text.truncated()) {
         return exit_code(ExitCode::benchmark_failed);
     }
-    return exit_code(std::fwrite(text.view().data(), 1, text.view().size(), stdout) == text.view().size()
-                         ? ExitCode::success
-                         : ExitCode::output_failed);
+    return exit_code(std::fwrite(text.view().data(), 1, text.view().size(), stdout) == text.view().size() ? ExitCode::success
+                                                                                                          : ExitCode::output_failed);
 }

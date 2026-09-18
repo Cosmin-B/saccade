@@ -14,9 +14,12 @@ namespace saccade::apps::model_trust {
 namespace detail {
 
 consteval uint8_t hex_digit(char value) {
-    if (value >= '0' && value <= '9') return static_cast<uint8_t>(value - '0');
-    if (value >= 'a' && value <= 'f') return static_cast<uint8_t>(value - 'a' + 10);
-    if (value >= 'A' && value <= 'F') return static_cast<uint8_t>(value - 'A' + 10);
+    if (value >= '0' && value <= '9')
+        return static_cast<uint8_t>(value - '0');
+    if (value >= 'a' && value <= 'f')
+        return static_cast<uint8_t>(value - 'a' + 10);
+    if (value >= 'A' && value <= 'F')
+        return static_cast<uint8_t>(value - 'A' + 10);
     return UINT8_MAX;
 }
 
@@ -27,7 +30,8 @@ template <size_t Size> consteval model::P256PublicKey parse(const char (&text)[S
         for (size_t index = 0; index < key.xy.size(); ++index) {
             const uint8_t high = hex_digit(text[index * 2U]);
             const uint8_t low = hex_digit(text[index * 2U + 1U]);
-            if (high == UINT8_MAX || low == UINT8_MAX) throw "invalid P-256 key";
+            if (high == UINT8_MAX || low == UINT8_MAX)
+                throw "invalid P-256 key";
             key.xy[index] = static_cast<uint8_t>((high << 4U) | low);
         }
     }

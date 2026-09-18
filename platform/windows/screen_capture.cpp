@@ -69,8 +69,8 @@ template <typename Object> void close_capture_object(Object& object, int32_t* fi
 }
 
 template <typename T> SaccadeResult read_input(const T* input, T* output) noexcept {
-    if (input == nullptr || output == nullptr || input->struct_size < sizeof(uint32_t) * 2U ||
-        input->struct_size > sizeof(T) || input->api_version != SACCADE_API_VERSION) {
+    if (input == nullptr || output == nullptr || input->struct_size < sizeof(uint32_t) * 2U || input->struct_size > sizeof(T) ||
+        input->api_version != SACCADE_API_VERSION) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {};
@@ -244,9 +244,8 @@ struct ScreenCaptureProvider::Impl {
         source.native_ = window;
         source.kind_ = SACCADE_CAPTURE_SOURCE_WINDOW;
         source.bounds_ = {bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top};
-        const int length =
-            WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, title.data(), title_length, source.name_.data(),
-                                static_cast<int>(source.name_.size() - 1U), nullptr, nullptr);
+        const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, title.data(), title_length, source.name_.data(),
+                                               static_cast<int>(source.name_.size() - 1U), nullptr, nullptr);
         source.name_[length > 0 ? static_cast<size_t>(length) : 0] = '\0';
         return TRUE;
     }
@@ -254,8 +253,7 @@ struct ScreenCaptureProvider::Impl {
     SaccadeResult refresh_sources() noexcept {
         source_count_ = 0;
         sources_ = {};
-        if (EnumDisplayMonitors(nullptr, nullptr, collect_monitor, reinterpret_cast<LPARAM>(this)) == FALSE ||
-            source_count_ == 0) {
+        if (EnumDisplayMonitors(nullptr, nullptr, collect_monitor, reinterpret_cast<LPARAM>(this)) == FALSE || source_count_ == 0) {
             return source_count_ == maximum_sources ? SACCADE_ERROR_CAPACITY : SACCADE_ERROR_BACKEND;
         }
         const BOOL windows = EnumWindows(collect_window, reinterpret_cast<LPARAM>(this));
@@ -286,9 +284,7 @@ struct ScreenCaptureProvider::Impl {
 
     const Stream* find_stream(uint64_t handle) const noexcept { return const_cast<Impl*>(this)->find_stream(handle); }
 
-    uint32_t stream_slot(const Stream& stream) const noexcept {
-        return static_cast<uint32_t>(&stream - streams_.data());
-    }
+    uint32_t stream_slot(const Stream& stream) const noexcept { return static_cast<uint32_t>(&stream - streams_.data()); }
 
     void close_lease(Stream& stream, int32_t* first_error) noexcept {
         stream.leased_texture_.Reset();
@@ -303,8 +299,7 @@ struct ScreenCaptureProvider::Impl {
         signal.generation_.store(0, std::memory_order_release);
 
         if (stream.closed_registered_ && stream.item_) {
-            preserve_first_error(invoke_cleanup([&stream] { stream.item_.Closed(stream.closed_token_); }),
-                                 &first_error);
+            preserve_first_error(invoke_cleanup([&stream] { stream.item_.Closed(stream.closed_token_); }), &first_error);
         }
         stream.closed_registered_ = false;
 
@@ -361,8 +356,7 @@ SaccadeResult SACCADE_CALL enumerate_sources(void* context, uint32_t index, Sacc
     return write_output(output, value);
 }
 
-SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStreamDesc* input,
-                                         SaccadeCaptureStreamHandle* output) {
+SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStreamDesc* input, SaccadeCaptureStreamHandle* output) {
     Impl* state = provider(context);
     if (state == nullptr || !state->owns_thread() || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -373,8 +367,8 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
     if (read != SACCADE_OK) {
         return read;
     }
-    if (desc.source_id == 0 || desc.pixel_format != SACCADE_FORMAT_BGRA8 || desc.queue_capacity < 2 ||
-        desc.queue_capacity > 3 || desc.flags != 0) {
+    if (desc.source_id == 0 || desc.pixel_format != SACCADE_FORMAT_BGRA8 || desc.queue_capacity < 2 || desc.queue_capacity > 3 ||
+        desc.flags != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (desc.max_width != 0 || desc.max_height != 0) {
@@ -406,12 +400,10 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
         capture::GraphicsCaptureItem item{nullptr};
         if (source->kind_ == SACCADE_CAPTURE_SOURCE_DISPLAY) {
             winrt::check_hresult(factory->CreateForMonitor(static_cast<HMONITOR>(source->native_),
-                                                           winrt::guid_of<capture::GraphicsCaptureItem>(),
-                                                           winrt::put_abi(item)));
+                                                           winrt::guid_of<capture::GraphicsCaptureItem>(), winrt::put_abi(item)));
         } else {
             winrt::check_hresult(factory->CreateForWindow(static_cast<HWND>(source->native_),
-                                                          winrt::guid_of<capture::GraphicsCaptureItem>(),
-                                                          winrt::put_abi(item)));
+                                                          winrt::guid_of<capture::GraphicsCaptureItem>(), winrt::put_abi(item)));
         }
         const winrt::Windows::Graphics::SizeInt32 size = item.Size();
         if (size.Width <= 0 || size.Height <= 0) {
@@ -485,11 +477,10 @@ SaccadeResult SACCADE_CALL start_stream(void* context, SaccadeCaptureStreamHandl
         return SACCADE_ERROR_ALREADY_EXISTS;
     }
     try {
-        const winrt::Windows::Graphics::SizeInt32 size{static_cast<int32_t>(stream->width_),
-                                                       static_cast<int32_t>(stream->height_)};
-        stream->pool_ = capture::Direct3D11CaptureFramePool::CreateFreeThreaded(
-            state->winrt_device_, directx::DirectXPixelFormat::B8G8R8A8UIntNormalized,
-            static_cast<int32_t>(stream->queue_capacity_), size);
+        const winrt::Windows::Graphics::SizeInt32 size{static_cast<int32_t>(stream->width_), static_cast<int32_t>(stream->height_)};
+        stream->pool_ = capture::Direct3D11CaptureFramePool::CreateFreeThreaded(state->winrt_device_,
+                                                                                directx::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                                                                                static_cast<int32_t>(stream->queue_capacity_), size);
         stream->session_ = stream->pool_.CreateCaptureSession(stream->item_);
         stream->session_.IsCursorCaptureEnabled(false);
         stream->session_.DirtyRegionMode(capture::GraphicsCaptureDirtyRegionMode::ReportOnly);
@@ -552,8 +543,7 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
         return SACCADE_ERROR_STATE;
     }
     Impl::ClosureSignal& signal = state->closure_signals_[stream->slot_];
-    if (signal.generation_.load(std::memory_order_acquire) == stream->generation_ &&
-        signal.closed_.load(std::memory_order_acquire)) {
+    if (signal.generation_.load(std::memory_order_acquire) == stream->generation_ && signal.closed_.load(std::memory_order_acquire)) {
         if (!stream->closed_reported_) {
             stream->closed_reported_ = true;
             stream->stats_.source_closed = 1;
@@ -575,11 +565,9 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
             frame = newer;
             ++stream->stats_.replaced;
         }
-        const auto access =
-            frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
+        const auto access = frame.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         ComPtr<ID3D11Texture2D> texture;
-        winrt::check_hresult(
-            access->GetInterface(__uuidof(ID3D11Texture2D), reinterpret_cast<void**>(texture.GetAddressOf())));
+        winrt::check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D), reinterpret_cast<void**>(texture.GetAddressOf())));
         D3D11_TEXTURE2D_DESC texture_desc{};
         texture->GetDesc(&texture_desc);
         const winrt::Windows::Graphics::SizeInt32 content = frame.ContentSize();
@@ -654,15 +642,14 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
     }
 }
 
-SaccadeResult SACCADE_CALL copy_damage(void* context, SaccadeCaptureStreamHandle handle, SaccadeFrameHandle frame,
-                                       SaccadeRectI32* output, uint32_t capacity, uint32_t* count) {
+SaccadeResult SACCADE_CALL copy_damage(void* context, SaccadeCaptureStreamHandle handle, SaccadeFrameHandle frame, SaccadeRectI32* output,
+                                       uint32_t capacity, uint32_t* count) {
     Impl* state = provider(context);
     if (state == nullptr || !state->owns_thread() || count == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     Impl::Stream* stream = state->find_stream(handle);
-    if (stream == nullptr || !stream->leased_ ||
-        frame != frame_handle(state->stream_slot(*stream), stream->frame_generation_)) {
+    if (stream == nullptr || !stream->leased_ || frame != frame_handle(state->stream_slot(*stream), stream->frame_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     *count = stream->damage_count_;
@@ -684,8 +671,7 @@ SaccadeResult SACCADE_CALL release_frame(void* context, SaccadeCaptureStreamHand
         return SACCADE_ERROR_STATE;
     }
     Impl::Stream* stream = state->find_stream(handle);
-    if (stream == nullptr || !stream->leased_ ||
-        frame != frame_handle(state->stream_slot(*stream), stream->frame_generation_)) {
+    if (stream == nullptr || !stream->leased_ || frame != frame_handle(state->stream_slot(*stream), stream->frame_generation_)) {
         if (stream != nullptr) {
             ++stream->stats_.stale_releases;
         }
@@ -697,8 +683,7 @@ SaccadeResult SACCADE_CALL release_frame(void* context, SaccadeCaptureStreamHand
 
     if (stream->recreate_pending_) {
         try {
-            const winrt::Windows::Graphics::SizeInt32 size{static_cast<int32_t>(stream->width_),
-                                                           static_cast<int32_t>(stream->height_)};
+            const winrt::Windows::Graphics::SizeInt32 size{static_cast<int32_t>(stream->width_), static_cast<int32_t>(stream->height_)};
             stream->pool_.Recreate(state->winrt_device_, directx::DirectXPixelFormat::B8G8R8A8UIntNormalized,
                                    static_cast<int32_t>(stream->queue_capacity_), size);
             stream->recreate_pending_ = false;
@@ -819,19 +804,21 @@ SaccadeResult ScreenCaptureProvider::initialize_impl(ID3D11Device* capture_devic
         ComPtr<IDXGIAdapter1> adapter;
         if (adapter_luid != 0) {
             ComPtr<IDXGIFactory1> factory;
-            if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(factory.GetAddressOf())))) return SACCADE_ERROR_BACKEND;
-            for (UINT index = 0;
-                 factory->EnumAdapters1(index, adapter.ReleaseAndGetAddressOf()) != DXGI_ERROR_NOT_FOUND; ++index) {
+            if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(factory.GetAddressOf()))))
+                return SACCADE_ERROR_BACKEND;
+            for (UINT index = 0; factory->EnumAdapters1(index, adapter.ReleaseAndGetAddressOf()) != DXGI_ERROR_NOT_FOUND; ++index) {
                 DXGI_ADAPTER_DESC1 desc{};
-                if (SUCCEEDED(adapter->GetDesc1(&desc)) && luid_value(desc.AdapterLuid) == adapter_luid) break;
+                if (SUCCEEDED(adapter->GetDesc1(&desc)) && luid_value(desc.AdapterLuid) == adapter_luid)
+                    break;
                 adapter.Reset();
             }
-            if (adapter == nullptr) return SACCADE_ERROR_NOT_FOUND;
+            if (adapter == nullptr)
+                return SACCADE_ERROR_NOT_FOUND;
         }
-        const HRESULT device_result = D3D11CreateDevice(
-            adapter.Get(), adapter == nullptr ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_UNKNOWN, nullptr,
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels.data(), static_cast<UINT>(levels.size()), D3D11_SDK_VERSION,
-            state.d3d_device_.GetAddressOf(), &selected, state.d3d_context_.GetAddressOf());
+        const HRESULT device_result =
+            D3D11CreateDevice(adapter.Get(), adapter == nullptr ? D3D_DRIVER_TYPE_HARDWARE : D3D_DRIVER_TYPE_UNKNOWN, nullptr,
+                              D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels.data(), static_cast<UINT>(levels.size()), D3D11_SDK_VERSION,
+                              state.d3d_device_.GetAddressOf(), &selected, state.d3d_context_.GetAddressOf());
         if (FAILED(device_result)) {
             if (state.ro_initialized_) {
                 RoUninitialize();
@@ -850,8 +837,7 @@ SaccadeResult ScreenCaptureProvider::initialize_impl(ID3D11Device* capture_devic
     }
     ComPtr<IDXGIDevice> dxgi;
     if (FAILED(state.d3d_device_.As(&dxgi)) ||
-        FAILED(CreateDirect3D11DeviceFromDXGIDevice(
-            dxgi.Get(), reinterpret_cast<IInspectable**>(winrt::put_abi(state.winrt_device_))))) {
+        FAILED(CreateDirect3D11DeviceFromDXGIDevice(dxgi.Get(), reinterpret_cast<IInspectable**>(winrt::put_abi(state.winrt_device_))))) {
         state.d3d_context_.Reset();
         state.d3d_device_.Reset();
         if (state.ro_initialized_) {
@@ -911,8 +897,7 @@ SaccadeCaptureProviderDesc ScreenCaptureProvider::descriptor() noexcept {
     return desc;
 }
 
-SaccadeResult ScreenCaptureProvider::read_stats(SaccadeCaptureStreamHandle handle,
-                                                ScreenCaptureStats* output) const noexcept {
+SaccadeResult ScreenCaptureProvider::read_stats(SaccadeCaptureStreamHandle handle, ScreenCaptureStats* output) const noexcept {
     const Impl& state = impl();
     if (!initialized_ || !state.owns_thread() || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -932,8 +917,7 @@ SaccadeResult ScreenCaptureProvider::read_native_frame(SaccadeCaptureStreamHandl
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const Impl::Stream* stream = state.find_stream(handle);
-    if (stream == nullptr || !stream->leased_ ||
-        frame != frame_handle(state.stream_slot(*stream), stream->frame_generation_)) {
+    if (stream == nullptr || !stream->leased_ || frame != frame_handle(state.stream_slot(*stream), stream->frame_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     D3D11_TEXTURE2D_DESC desc{};

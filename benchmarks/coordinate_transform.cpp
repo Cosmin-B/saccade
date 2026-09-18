@@ -30,8 +30,8 @@ constexpr int32_t q8(int32_t value) noexcept {
 
 void build_inputs() noexcept {
     for (uint32_t index = 0; index < rectangle_count; ++index) {
-        inputs[index] = {q8(-1920) + static_cast<int32_t>(index % 100U) * q8(72),
-                         q8(-240) + static_cast<int32_t>(index / 100U) * q8(36), q8(48), q8(24)};
+        inputs[index] = {q8(-1920) + static_cast<int32_t>(index % 100U) * q8(72), q8(-240) + static_cast<int32_t>(index / 100U) * q8(36),
+                         q8(48), q8(24)};
     }
 }
 
@@ -49,19 +49,17 @@ uint64_t measure_batches(const saccade::geometry::CoordinateTransform& transform
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
 }
 
-bool append_result(saccade::core::StackStringBuilder<1024>* text, saccade::geometry::QuarterTurn rotation,
-                   uint32_t iterations, uint64_t elapsed_ns) noexcept {
+bool append_result(saccade::core::StackStringBuilder<1024>* text, saccade::geometry::QuarterTurn rotation, uint32_t iterations,
+                   uint64_t elapsed_ns) noexcept {
     const uint64_t operations = static_cast<uint64_t>(rectangle_count) * iterations;
-    return elapsed_ns != 0 && text->append("rects=") && text->append_unsigned(rectangle_count) &&
-           text->append(" rotation=") && text->append_unsigned(static_cast<uint32_t>(rotation) * 90U) &&
-           text->append(" iterations=") && text->append_unsigned(iterations) && text->append(" total_ns=") &&
-           text->append_unsigned(elapsed_ns) && text->append(" ns_per_batch=") &&
-           text->append_unsigned(elapsed_ns / iterations) && text->append(" ns_per_rect=") &&
+    return elapsed_ns != 0 && text->append("rects=") && text->append_unsigned(rectangle_count) && text->append(" rotation=") &&
+           text->append_unsigned(static_cast<uint32_t>(rotation) * 90U) && text->append(" iterations=") &&
+           text->append_unsigned(iterations) && text->append(" total_ns=") && text->append_unsigned(elapsed_ns) &&
+           text->append(" ns_per_batch=") && text->append_unsigned(elapsed_ns / iterations) && text->append(" ns_per_rect=") &&
            text->append_unsigned(elapsed_ns / operations) && text->append('\n');
 }
 
-bool run_case(saccade::geometry::QuarterTurn rotation, uint32_t iterations,
-              saccade::core::StackStringBuilder<1024>* text) noexcept {
+bool run_case(saccade::geometry::QuarterTurn rotation, uint32_t iterations, saccade::core::StackStringBuilder<1024>* text) noexcept {
     saccade::geometry::TransformDesc desc{};
     desc.source = {q8(-1920), q8(-240), q8(9600), q8(4560)};
     desc.destination = {0, 0, q8(7680), q8(4320)};

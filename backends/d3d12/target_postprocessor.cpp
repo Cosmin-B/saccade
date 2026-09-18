@@ -24,21 +24,12 @@ constexpr uint32_t block_size = 256;
 constexpr size_t parameter_stride = 256;
 constexpr size_t maximum_shader_bytes = 64 * 1024;
 
-enum Pipeline : size_t {
-    pack_normalized,
-    prepare,
-    histogram,
-    scan,
-    scatter,
-    suppression_masks,
-    finalize,
-    pipeline_count
-};
+enum Pipeline : size_t { pack_normalized, prepare, histogram, scan, scatter, suppression_masks, finalize, pipeline_count };
 
-constexpr std::array<const char*, pipeline_count> shader_names{
-    "targets_pack_normalized.dxil", "targets_prepare.dxil",       "targets_radix_histogram.dxil",
-    "targets_radix_scan.dxil",      "targets_radix_scatter.dxil", "targets_suppression_masks.dxil",
-    "targets_finalize.dxil"};
+constexpr std::array<const char*, pipeline_count> shader_names{"targets_pack_normalized.dxil", "targets_prepare.dxil",
+                                                               "targets_radix_histogram.dxil", "targets_radix_scan.dxil",
+                                                               "targets_radix_scatter.dxil",   "targets_suppression_masks.dxil",
+                                                               "targets_finalize.dxil"};
 
 struct alignas(16) Parameters {
     uint32_t candidate_count;
@@ -73,39 +64,40 @@ struct RadixEntry {
 static_assert(sizeof(Parameters) == 112);
 static_assert(sizeof(RadixEntry) == 16);
 
-bool load_shader(const char* directory, const char* name, std::array<std::byte, maximum_shader_bytes>* bytes,
-                 size_t* byte_count) noexcept {
-    if (directory == nullptr || name == nullptr || bytes == nullptr || byte_count == nullptr) return false;
+bool load_shader(const char* directory, const char* name, std::array<std::byte, maximum_shader_bytes>* bytes, size_t* byte_count) noexcept {
+    if (directory == nullptr || name == nullptr || bytes == nullptr || byte_count == nullptr)
+        return false;
     std::array<char, MAX_PATH> path{};
     const size_t directory_length = std::strlen(directory);
     const size_t name_length = std::strlen(name);
-    if (directory_length + name_length + 2U > path.size()) return false;
+    if (directory_length + name_length + 2U > path.size())
+        return false;
     std::memcpy(path.data(), directory, directory_length);
     size_t position = directory_length;
     if (position != 0 && path[position - 1U] != '\\' && path[position - 1U] != '/') {
         path[position++] = '\\';
     }
     std::memcpy(path.data() + position, name, name_length + 1U);
-    const HANDLE file =
-        CreateFileA(path.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
+    const HANDLE file = CreateFileA(path.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
     LARGE_INTEGER size{};
     DWORD read = 0;
-    const bool loaded = GetFileSizeEx(file, &size) != FALSE && size.QuadPart > 0 &&
-                        size.QuadPart <= static_cast<LONGLONG>(bytes->size()) &&
+    const bool loaded = GetFileSizeEx(file, &size) != FALSE && size.QuadPart > 0 && size.QuadPart <= static_cast<LONGLONG>(bytes->size()) &&
                         ReadFile(file, bytes->data(), static_cast<DWORD>(size.QuadPart), &read, nullptr) != FALSE &&
                         read == static_cast<DWORD>(size.QuadPart);
     (void)CloseHandle(file);
-    if (!loaded) return false;
+    if (!loaded)
+        return false;
     *byte_count = read;
     return true;
 }
 
 uint64_t timeout_milliseconds(uint64_t timeout_ns) noexcept {
     constexpr uint64_t nanoseconds_per_millisecond = 1'000'000;
-    if (timeout_ns == 0) return 0;
-    const uint64_t rounded =
-        timeout_ns / nanoseconds_per_millisecond + (timeout_ns % nanoseconds_per_millisecond != 0 ? 1U : 0U);
+    if (timeout_ns == 0)
+        return 0;
+    const uint64_t rounded = timeout_ns / nanoseconds_per_millisecond + (timeout_ns % nanoseconds_per_millisecond != 0 ? 1U : 0U);
     return std::min<uint64_t>(rounded, INFINITE - 1U);
 }
 
@@ -114,13 +106,11 @@ bool config_valid(const kernels::targets::PostprocessConfig& config, const kerne
     return config.maximum_targets != 0 && config.maximum_targets <= target_capacity &&
            (config.coordinate_space == SACCADE_COORDINATE_SPACE_MODEL_Q8 ||
             config.coordinate_space == SACCADE_COORDINATE_SPACE_SOURCE_Q8) &&
-           kernels::targets::confidence_band_valid(config) && config.reserved == 0 && epochs.frame_id != 0 &&
-           epochs.model_epoch != 0 && epochs.session_epoch != 0 && epochs.transform_epoch != 0 &&
-           epochs.topology_epoch != 0 && epochs.source_id != 0;
+           kernels::targets::confidence_band_valid(config) && config.reserved == 0 && epochs.frame_id != 0 && epochs.model_epoch != 0 &&
+           epochs.session_epoch != 0 && epochs.transform_epoch != 0 && epochs.topology_epoch != 0 && epochs.source_id != 0;
 }
 
-D3D12_RESOURCE_BARRIER transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES before,
-                                  D3D12_RESOURCE_STATES after) noexcept {
+D3D12_RESOURCE_BARRIER transition(ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after) noexcept {
     D3D12_RESOURCE_BARRIER value{};
     value.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     value.Transition.pResource = resource;
@@ -166,15 +156,18 @@ struct TargetPostprocessor::Impl {
     [[nodiscard]] bool owns_thread() const noexcept { return owner_thread_ == GetCurrentThreadId(); }
 
     SaccadeResult completion_status() noexcept {
-        if (fence_failed_) return SACCADE_ERROR_BACKEND;
-        if (sequence_ == counted_sequence_) return SACCADE_OK;
+        if (fence_failed_)
+            return SACCADE_ERROR_BACKEND;
+        if (sequence_ == counted_sequence_)
+            return SACCADE_OK;
         const uint64_t completed = fence_->GetCompletedValue();
         if (completed == UINT64_MAX) {
             fence_failed_ = true;
             ++stats_.failures;
             return SACCADE_ERROR_BACKEND;
         }
-        if (completed < sequence_) return SACCADE_ERROR_BUSY;
+        if (completed < sequence_)
+            return SACCADE_ERROR_BUSY;
         counted_sequence_ = sequence_;
         ++stats_.completed;
         return SACCADE_OK;
@@ -185,18 +178,15 @@ struct TargetPostprocessor::Impl {
     }
 
     void bind_resources(uint32_t pass, bool model_rows = false) noexcept {
-        commands_->SetComputeRootConstantBufferView(0, parameters_->GetGPUVirtualAddress() +
-                                                           static_cast<uint64_t>(pass) * parameter_stride);
+        commands_->SetComputeRootConstantBufferView(0,
+                                                    parameters_->GetGPUVirtualAddress() + static_cast<uint64_t>(pass) * parameter_stride);
         commands_->SetComputeRootShaderResourceView(1, model_rows || packed_candidates_ == nullptr
-                                                           ? spec_.candidate_buffer->GetGPUVirtualAddress() +
-                                                                 spec_.candidate_offset
+                                                           ? spec_.candidate_buffer->GetGPUVirtualAddress() + spec_.candidate_offset
                                                            : packed_candidates_->GetGPUVirtualAddress());
-        const std::array<ID3D12Resource*, 8> resources{entries_a_.Get(),   entries_b_.Get(), block_offsets_.Get(),
-                                                       local_ranks_.Get(), masks_.Get(),     suppressed_.Get(),
-                                                       packet_.Get(),      counters_.Get()};
+        const std::array<ID3D12Resource*, 8> resources{entries_a_.Get(), entries_b_.Get(),  block_offsets_.Get(), local_ranks_.Get(),
+                                                       masks_.Get(),     suppressed_.Get(), packet_.Get(),        counters_.Get()};
         for (size_t index = 0; index < resources.size(); ++index) {
-            commands_->SetComputeRootUnorderedAccessView(static_cast<UINT>(index + 2U),
-                                                         resources[index]->GetGPUVirtualAddress());
+            commands_->SetComputeRootUnorderedAccessView(static_cast<UINT>(index + 2U), resources[index]->GetGPUVirtualAddress());
         }
         if (packed_candidates_ != nullptr) {
             commands_->SetComputeRootUnorderedAccessView(10, packed_candidates_->GetGPUVirtualAddress());
@@ -237,19 +227,16 @@ const TargetPostprocessor::Impl& TargetPostprocessor::impl() const noexcept {
     return *std::launder(reinterpret_cast<const Impl*>(storage_.data()));
 }
 
-SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12CommandQueue* queue,
-                                              const char* shader_directory,
+SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12CommandQueue* queue, const char* shader_directory,
                                               const TargetPostprocessorSpec& spec) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (device == nullptr || queue == nullptr || shader_directory == nullptr || spec.candidate_buffer == nullptr ||
-        spec.candidate_capacity == 0 || spec.candidate_capacity > kernels::targets::maximum_candidates ||
-        spec.target_capacity == 0 || spec.target_capacity > SACCADE_TARGET_PACKET_MAX_TARGETS ||
-        spec.target_capacity > spec.candidate_capacity ||
+        spec.candidate_capacity == 0 || spec.candidate_capacity > kernels::targets::maximum_candidates || spec.target_capacity == 0 ||
+        spec.target_capacity > SACCADE_TARGET_PACKET_MAX_TARGETS || spec.target_capacity > spec.candidate_capacity ||
         spec.candidate_offset > spec.candidate_buffer->GetDesc().Width || spec.reserved != 0 ||
-        (spec.candidate_input != CandidateInput::packed_q3 &&
-         spec.candidate_input != CandidateInput::normalized_fp16) ||
-        (spec.candidate_input == CandidateInput::normalized_fp16 &&
-         (spec.model_width == 0 || spec.model_height == 0))) {
+        (spec.candidate_input != CandidateInput::packed_q3 && spec.candidate_input != CandidateInput::normalized_fp16) ||
+        (spec.candidate_input == CandidateInput::normalized_fp16 && (spec.model_width == 0 || spec.model_height == 0))) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const uint64_t candidate_stride =
@@ -281,8 +268,8 @@ SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12Comman
     root_desc.pParameters = root_parameters.data();
     ComPtr<ID3DBlob> root_blob;
     ComPtr<ID3DBlob> root_error;
-    if (FAILED(D3D12SerializeRootSignature(&root_desc, D3D_ROOT_SIGNATURE_VERSION_1, root_blob.GetAddressOf(),
-                                           root_error.GetAddressOf())) ||
+    if (FAILED(
+            D3D12SerializeRootSignature(&root_desc, D3D_ROOT_SIGNATURE_VERSION_1, root_blob.GetAddressOf(), root_error.GetAddressOf())) ||
         FAILED(device->CreateRootSignature(0, root_blob->GetBufferPointer(), root_blob->GetBufferSize(),
                                            IID_PPV_ARGS(state.root_signature_.GetAddressOf())))) {
         return SACCADE_ERROR_BACKEND;
@@ -297,18 +284,16 @@ SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12Comman
         D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline_desc{};
         pipeline_desc.pRootSignature = state.root_signature_.Get();
         pipeline_desc.CS = {shader.data(), shader_size};
-        if (FAILED(device->CreateComputePipelineState(&pipeline_desc,
-                                                      IID_PPV_ARGS(state.pipelines_[index].GetAddressOf())))) {
+        if (FAILED(device->CreateComputePipelineState(&pipeline_desc, IID_PPV_ARGS(state.pipelines_[index].GetAddressOf())))) {
             return SACCADE_ERROR_BACKEND;
         }
     }
 
     const uint64_t block_count = (static_cast<uint64_t>(spec.candidate_capacity) + block_size - 1U) / block_size;
     const uint64_t mask_words = (spec.target_capacity + 31U) / 32U;
-    state.packet_capacity_ =
-        sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(spec.target_capacity) * sizeof(SaccadeTargetRecord);
-    auto create_buffer = [device](uint64_t bytes, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_STATES initial_state,
-                                  D3D12_RESOURCE_FLAGS flags, ID3D12Resource** output) noexcept {
+    state.packet_capacity_ = sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(spec.target_capacity) * sizeof(SaccadeTargetRecord);
+    auto create_buffer = [device](uint64_t bytes, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_STATES initial_state, D3D12_RESOURCE_FLAGS flags,
+                                  ID3D12Resource** output) noexcept {
         D3D12_HEAP_PROPERTIES properties{};
         properties.Type = heap;
         D3D12_RESOURCE_DESC desc{};
@@ -320,21 +305,18 @@ SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12Comman
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         desc.Flags = flags;
-        return device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &desc, initial_state, nullptr,
-                                               IID_PPV_ARGS(output));
+        return device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE, &desc, initial_state, nullptr, IID_PPV_ARGS(output));
     };
     const uint64_t entries_bytes = static_cast<uint64_t>(spec.candidate_capacity) * sizeof(RadixEntry);
     const uint64_t offsets_bytes = block_count * radix_bins * sizeof(uint32_t);
     const uint64_t ranks_bytes = static_cast<uint64_t>(spec.candidate_capacity) * sizeof(uint32_t);
     const uint64_t masks_bytes = static_cast<uint64_t>(spec.target_capacity) * mask_words * sizeof(uint32_t);
     const uint64_t suppressed_bytes = mask_words * sizeof(uint32_t);
-    const uint64_t packed_candidate_bytes =
-        static_cast<uint64_t>(spec.candidate_capacity) * sizeof(kernels::targets::DenseCandidate);
+    const uint64_t packed_candidate_bytes = static_cast<uint64_t>(spec.candidate_capacity) * sizeof(kernels::targets::DenseCandidate);
     constexpr D3D12_RESOURCE_FLAGS uav = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     const bool resources_created =
-        SUCCEEDED(create_buffer(radix_passes * parameter_stride, D3D12_HEAP_TYPE_UPLOAD,
-                                D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_FLAG_NONE,
-                                state.parameters_.GetAddressOf())) &&
+        SUCCEEDED(create_buffer(radix_passes * parameter_stride, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ,
+                                D3D12_RESOURCE_FLAG_NONE, state.parameters_.GetAddressOf())) &&
         SUCCEEDED(create_buffer(entries_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
                                 state.entries_a_.GetAddressOf())) &&
         SUCCEEDED(create_buffer(entries_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
@@ -343,36 +325,34 @@ SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12Comman
                                 state.block_offsets_.GetAddressOf())) &&
         SUCCEEDED(create_buffer(ranks_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
                                 state.local_ranks_.GetAddressOf())) &&
-        SUCCEEDED(create_buffer(masks_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
-                                state.masks_.GetAddressOf())) &&
+        SUCCEEDED(
+            create_buffer(masks_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav, state.masks_.GetAddressOf())) &&
         SUCCEEDED(create_buffer(suppressed_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
                                 state.suppressed_.GetAddressOf())) &&
-        SUCCEEDED(create_buffer(state.packet_capacity_, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                uav, state.packet_.GetAddressOf())) &&
-        SUCCEEDED(create_buffer(16, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
-                                state.counters_.GetAddressOf())) &&
+        SUCCEEDED(create_buffer(state.packet_capacity_, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
+                                state.packet_.GetAddressOf())) &&
+        SUCCEEDED(create_buffer(16, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav, state.counters_.GetAddressOf())) &&
         (spec.candidate_input != CandidateInput::normalized_fp16 ||
-         SUCCEEDED(create_buffer(packed_candidate_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                                 uav, state.packed_candidates_.GetAddressOf()))) &&
-        SUCCEEDED(create_buffer(state.packet_capacity_, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST,
-                                D3D12_RESOURCE_FLAG_NONE, state.readback_.GetAddressOf()));
-    if (!resources_created) return SACCADE_ERROR_BACKEND;
+         SUCCEEDED(create_buffer(packed_candidate_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav,
+                                 state.packed_candidates_.GetAddressOf()))) &&
+        SUCCEEDED(create_buffer(state.packet_capacity_, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_FLAG_NONE,
+                                state.readback_.GetAddressOf()));
+    if (!resources_created)
+        return SACCADE_ERROR_BACKEND;
 
     void* parameter_bytes = nullptr;
     void* readback_bytes = nullptr;
-    if (FAILED(state.parameters_->Map(0, nullptr, &parameter_bytes)) ||
-        FAILED(state.readback_->Map(0, nullptr, &readback_bytes))) {
+    if (FAILED(state.parameters_->Map(0, nullptr, &parameter_bytes)) || FAILED(state.readback_->Map(0, nullptr, &readback_bytes))) {
         return SACCADE_ERROR_BACKEND;
     }
     state.parameter_bytes_ = static_cast<uint8_t*>(parameter_bytes);
     state.readback_bytes_ = static_cast<const uint8_t*>(readback_bytes);
-    state.stats_.workspace_bytes = radix_passes * parameter_stride + entries_bytes * 2U + offsets_bytes + ranks_bytes +
-                                   masks_bytes + suppressed_bytes + state.packet_capacity_ + 16 +
+    state.stats_.workspace_bytes = radix_passes * parameter_stride + entries_bytes * 2U + offsets_bytes + ranks_bytes + masks_bytes +
+                                   suppressed_bytes + state.packet_capacity_ + 16 +
                                    (state.packed_candidates_ == nullptr ? 0 : packed_candidate_bytes);
     state.stats_.packet_readback_bytes = state.packet_capacity_;
 
-    if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                              IID_PPV_ARGS(state.allocator_.GetAddressOf()))) ||
+    if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(state.allocator_.GetAddressOf()))) ||
         FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, state.allocator_.Get(), nullptr,
                                          IID_PPV_ARGS(state.commands_.GetAddressOf()))) ||
         FAILED(state.commands_->Close()) ||
@@ -380,41 +360,40 @@ SaccadeResult TargetPostprocessor::initialize(ID3D12Device* device, ID3D12Comman
         return SACCADE_ERROR_BACKEND;
     }
     state.completion_event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (state.completion_event_ == nullptr) return SACCADE_ERROR_BACKEND;
+    if (state.completion_event_ == nullptr)
+        return SACCADE_ERROR_BACKEND;
     initialized_ = true;
     return SACCADE_OK;
 }
 
 SaccadeResult TargetPostprocessor::submit(uint32_t candidate_count, const kernels::targets::PostprocessConfig& config,
-                                          const kernels::targets::PostprocessEpochs& epochs,
-                                          TargetPostprocessSubmission* output) noexcept {
+                                          const kernels::targets::PostprocessEpochs& epochs, TargetPostprocessSubmission* output) noexcept {
     return submit(candidate_count, 0, 0, config, epochs, output);
 }
 
 SaccadeResult TargetPostprocessor::submit(uint32_t candidate_count, uint32_t source_width, uint32_t source_height,
                                           const kernels::targets::PostprocessConfig& config,
-                                          const kernels::targets::PostprocessEpochs& epochs,
-                                          TargetPostprocessSubmission* output) noexcept {
+                                          const kernels::targets::PostprocessEpochs& epochs, TargetPostprocessSubmission* output) noexcept {
     if (!initialized_ || output == nullptr || candidate_count > impl().spec_.candidate_capacity ||
-        (impl().spec_.candidate_input == CandidateInput::normalized_fp16 &&
-         (source_width == 0 || source_height == 0)) ||
+        (impl().spec_.candidate_input == CandidateInput::normalized_fp16 && (source_width == 0 || source_height == 0)) ||
         !config_valid(config, epochs, impl().spec_.target_capacity)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {};
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
     const SaccadeResult completion = state.completion_status();
     if (completion == SACCADE_ERROR_BUSY) {
         ++state.stats_.busy_submissions;
         return SACCADE_ERROR_BUSY;
     }
-    if (completion != SACCADE_OK) return completion;
+    if (completion != SACCADE_OK)
+        return completion;
     const uint32_t blocks = (candidate_count + block_size - 1U) / block_size;
     const uint32_t words = (config.maximum_targets + 31U) / 32U;
     for (uint32_t pass = 0; pass < radix_passes; ++pass) {
-        auto* parameters =
-            reinterpret_cast<Parameters*>(state.parameter_bytes_ + static_cast<size_t>(pass) * parameter_stride);
+        auto* parameters = reinterpret_cast<Parameters*>(state.parameter_bytes_ + static_cast<size_t>(pass) * parameter_stride);
         *parameters = {candidate_count,
                        config.maximum_targets,
                        blocks,
@@ -507,38 +486,47 @@ SaccadeResult TargetPostprocessor::submit(uint32_t candidate_count, uint32_t sou
 }
 
 SaccadeResult TargetPostprocessor::adopt_current_thread() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
     const SaccadeResult completion = state.completion_status();
-    if (completion != SACCADE_OK) return completion;
+    if (completion != SACCADE_OK)
+        return completion;
     state.owner_thread_ = GetCurrentThreadId();
     return SACCADE_OK;
 }
 
 SaccadeResult TargetPostprocessor::poll(const TargetPostprocessSubmission& submission, bool* complete) noexcept {
-    if (!initialized_ || complete == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || complete == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
-    if (!state.matches(submission)) return SACCADE_ERROR_STALE_HANDLE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (!state.matches(submission))
+        return SACCADE_ERROR_STALE_HANDLE;
     const SaccadeResult completion = state.completion_status();
     *complete = completion == SACCADE_OK;
     return completion == SACCADE_ERROR_BUSY ? SACCADE_OK : completion;
 }
 
 SaccadeResult TargetPostprocessor::wait(const TargetPostprocessSubmission& submission, uint64_t timeout_ns) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
-    if (!state.matches(submission)) return SACCADE_ERROR_STALE_HANDLE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (!state.matches(submission))
+        return SACCADE_ERROR_STALE_HANDLE;
     SaccadeResult completion = state.completion_status();
-    if (completion != SACCADE_ERROR_BUSY) return completion;
+    if (completion != SACCADE_ERROR_BUSY)
+        return completion;
     if (FAILED(state.fence_->SetEventOnCompletion(submission.sequence, state.completion_event_))) {
         ++state.stats_.failures;
         return SACCADE_ERROR_BACKEND;
     }
-    const DWORD waited =
-        WaitForSingleObject(state.completion_event_, static_cast<DWORD>(timeout_milliseconds(timeout_ns)));
-    if (waited == WAIT_TIMEOUT) return SACCADE_ERROR_TIMEOUT;
+    const DWORD waited = WaitForSingleObject(state.completion_event_, static_cast<DWORD>(timeout_milliseconds(timeout_ns)));
+    if (waited == WAIT_TIMEOUT)
+        return SACCADE_ERROR_TIMEOUT;
     if (waited != WAIT_OBJECT_0) {
         ++state.stats_.failures;
         return SACCADE_ERROR_BACKEND;
@@ -547,22 +535,24 @@ SaccadeResult TargetPostprocessor::wait(const TargetPostprocessSubmission& submi
     return completion == SACCADE_ERROR_BUSY ? SACCADE_ERROR_BACKEND : completion;
 }
 
-SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& submission,
-                                          TargetPacketSpan* output) noexcept {
-    if (!initialized_ || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& submission, TargetPacketSpan* output) noexcept {
+    if (!initialized_ || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *output = {};
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
-    if (!state.matches(submission)) return SACCADE_ERROR_STALE_HANDLE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (!state.matches(submission))
+        return SACCADE_ERROR_STALE_HANDLE;
     const SaccadeResult completion = state.completion_status();
-    if (completion != SACCADE_OK) return completion;
+    if (completion != SACCADE_OK)
+        return completion;
     uint32_t structure_size = 0;
     uint32_t target_count = 0;
     uint64_t total_size = 0;
     std::memcpy(&structure_size, state.readback_bytes_, sizeof(structure_size));
     std::memcpy(&target_count, state.readback_bytes_ + 8, sizeof(target_count));
-    std::memcpy(&total_size, state.readback_bytes_ + offsetof(SaccadeTargetPacketHeader, total_size),
-                sizeof(total_size));
+    std::memcpy(&total_size, state.readback_bytes_ + offsetof(SaccadeTargetPacketHeader, total_size), sizeof(total_size));
     if (structure_size != sizeof(SaccadeTargetPacketHeader) || target_count > state.spec_.target_capacity ||
         total_size < sizeof(SaccadeTargetPacketHeader) || total_size > state.packet_capacity_) {
         ++state.stats_.failures;

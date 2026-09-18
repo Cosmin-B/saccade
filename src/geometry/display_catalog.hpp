@@ -66,8 +66,7 @@ class DisplayCatalog final {
     uint64_t next_epoch_ = 1;
 };
 
-SaccadeResult make_desktop_to_surface_transform(const DisplaySurface& display, uint64_t epoch,
-                                                CoordinateTransform* output) noexcept;
+SaccadeResult make_desktop_to_surface_transform(const DisplaySurface& display, uint64_t epoch, CoordinateTransform* output) noexcept;
 
 } // namespace saccade::geometry
 

@@ -89,15 +89,16 @@ bool area_ratio_allowed(uint64_t smaller, uint64_t larger, uint16_t maximum_rati
     const uint64_t quotient = larger / smaller;
     const uint64_t remainder = larger % smaller;
     const uint64_t integer_limit = maximum_ratio_q8 / 256U;
-    if (quotient < integer_limit) return true;
-    if (quotient > integer_limit) return false;
+    if (quotient < integer_limit)
+        return true;
+    if (quotient > integer_limit)
+        return false;
     const uint64_t fraction = maximum_ratio_q8 % 256U;
     const uint64_t allowed_remainder = (smaller / 256U) * fraction + ((smaller % 256U) * fraction) / 256U;
     return remainder <= allowed_remainder;
 }
 
-bool duplicate(const SaccadeTargetRecord& left, const SaccadeTargetRecord& right, const FusionConfig& config,
-               FusionStats* stats) noexcept {
+bool duplicate(const SaccadeTargetRecord& left, const SaccadeTargetRecord& right, const FusionConfig& config, FusionStats* stats) noexcept {
     if (!compatible_role(left, right) || !compatible_window(left, right)) {
         return false;
     }
@@ -125,17 +126,21 @@ bool duplicate(const SaccadeTargetRecord& left, const SaccadeTargetRecord& right
 void merge_target(SaccadeTargetRecord* target, const SaccadeTargetRecord& candidate, FusionStats* stats) noexcept {
     const bool target_semantic =
         (target->source_bits & SACCADE_TARGET_SOURCE_ACCESSIBILITY) != 0 && target->role != SACCADE_TARGET_ROLE_UNKNOWN;
-    const bool candidate_semantic = (candidate.source_bits & SACCADE_TARGET_SOURCE_ACCESSIBILITY) != 0 &&
-                                    candidate.role != SACCADE_TARGET_ROLE_UNKNOWN;
+    const bool candidate_semantic =
+        (candidate.source_bits & SACCADE_TARGET_SOURCE_ACCESSIBILITY) != 0 && candidate.role != SACCADE_TARGET_ROLE_UNKNOWN;
     target->source_bits |= candidate.source_bits;
     target->confidence_q16 = std::max(target->confidence_q16, candidate.confidence_q16);
     if (target->role == SACCADE_TARGET_ROLE_UNKNOWN) {
         target->role = candidate.role;
     }
-    if (target->parent_id == 0) target->parent_id = candidate.parent_id;
-    if (target->window_id == 0) target->window_id = candidate.window_id;
-    if (target->display_id == 0) target->display_id = candidate.display_id;
-    if (target->text.size == 0 && candidate.text.size != 0) target->text = candidate.text;
+    if (target->parent_id == 0)
+        target->parent_id = candidate.parent_id;
+    if (target->window_id == 0)
+        target->window_id = candidate.window_id;
+    if (target->display_id == 0)
+        target->display_id = candidate.display_id;
+    if (target->text.size == 0 && candidate.text.size != 0)
+        target->text = candidate.text;
 
     const uint32_t safety = SACCADE_TARGET_DISABLED | SACCADE_TARGET_SECURE;
     const uint32_t safety_flags = (target->flags | candidate.flags) & safety;
@@ -155,20 +160,20 @@ void merge_target(SaccadeTargetRecord* target, const SaccadeTargetRecord& candid
         } else if (!target_semantic) {
             target->capability_bits |= candidate.capability_bits;
         }
-        target->flags |= candidate.flags & (SACCADE_TARGET_OCCLUDED | SACCADE_TARGET_APPROXIMATE |
-                                            SACCADE_TARGET_TEXT_REDACTED | SACCADE_TARGET_TEXT_TRUNCATED);
-        if (target->capability_bits != 0) target->flags |= SACCADE_TARGET_ACTIONABLE;
+        target->flags |= candidate.flags & (SACCADE_TARGET_OCCLUDED | SACCADE_TARGET_APPROXIMATE | SACCADE_TARGET_TEXT_REDACTED |
+                                            SACCADE_TARGET_TEXT_TRUNCATED);
+        if (target->capability_bits != 0)
+            target->flags |= SACCADE_TARGET_ACTIONABLE;
     }
 }
 
-bool matching_node(const FusionNode& node, int32_t x, int32_t y, uint8_t level,
-                   const SaccadeTargetRecord* output) noexcept {
+bool matching_node(const FusionNode& node, int32_t x, int32_t y, uint8_t level, const SaccadeTargetRecord* output) noexcept {
     return node.level == level && floor_cell(output[node.target_index].safe_x_q8, level) == x &&
            floor_cell(output[node.target_index].safe_y_q8, level) == y;
 }
 
-uint32_t find_duplicate(const SaccadeTargetRecord& candidate, const SaccadeTargetRecord* output,
-                        const FusionConfig& config, const FusionWorkspace& workspace, FusionStats* stats) noexcept {
+uint32_t find_duplicate(const SaccadeTargetRecord& candidate, const SaccadeTargetRecord* output, const FusionConfig& config,
+                        const FusionWorkspace& workspace, FusionStats* stats) noexcept {
     const uint8_t own_level = target_level(candidate);
     const int32_t center_x = floor_cell(candidate.safe_x_q8, own_level);
     const int32_t center_y = floor_cell(candidate.safe_y_q8, own_level);
@@ -178,8 +183,7 @@ uint32_t find_duplicate(const SaccadeTargetRecord& candidate, const SaccadeTarge
             uint32_t node_index = workspace.heads[bucket_for(x, y, own_level)];
             while (node_index != empty_node) {
                 const FusionNode& node = workspace.nodes[node_index];
-                if (matching_node(node, x, y, own_level, output) &&
-                    duplicate(output[node.target_index], candidate, config, stats)) {
+                if (matching_node(node, x, y, own_level, output) && duplicate(output[node.target_index], candidate, config, stats)) {
                     return node.target_index;
                 }
                 node_index = node.next;
@@ -189,10 +193,9 @@ uint32_t find_duplicate(const SaccadeTargetRecord& candidate, const SaccadeTarge
     return empty_node;
 }
 
-void insert_nodes(uint32_t target_index, const SaccadeTargetRecord& target, FusionWorkspace* workspace,
-                  uint32_t* node_count) noexcept {
+void insert_nodes(uint32_t target_index, const SaccadeTargetRecord& target, FusionWorkspace* workspace, uint32_t* node_count) noexcept {
     const uint8_t own_level = target_level(target);
-    const uint8_t first_level = own_level > minimum_level + 1U ? own_level - 2U : minimum_level;
+    const uint8_t first_level = own_level > minimum_level + 1U ? static_cast<uint8_t>(own_level - 2U) : minimum_level;
     const uint8_t last_level = std::min<uint8_t>(own_level + 2U, maximum_level);
     for (uint8_t level = first_level; level <= last_level; ++level) {
         FusionNode& node = workspace->nodes[(*node_count)++];
@@ -208,23 +211,20 @@ void insert_nodes(uint32_t target_index, const SaccadeTargetRecord& target, Fusi
 
 bool epochs_match(const PacketView& packet, const FusionEpochs& epochs) noexcept {
     return packet.header != nullptr && packet.targets != nullptr &&
-           packet.header->coordinate_space == SACCADE_COORDINATE_SPACE_DESKTOP_Q8 &&
-           packet.header->frame_id == epochs.frame_id && packet.header->session_epoch == epochs.session_epoch &&
-           packet.header->transform_epoch == epochs.transform_epoch &&
+           packet.header->coordinate_space == SACCADE_COORDINATE_SPACE_DESKTOP_Q8 && packet.header->frame_id == epochs.frame_id &&
+           packet.header->session_epoch == epochs.session_epoch && packet.header->transform_epoch == epochs.transform_epoch &&
            packet.header->topology_epoch == epochs.topology_epoch;
 }
 
 } // namespace
 
-SaccadeResult fuse(const PacketView* packets, uint32_t packet_count, const FusionConfig& config,
-                   const FusionEpochs& epochs, FusionWorkspace* workspace, SaccadeMutableSpanU8 output,
-                   size_t* required, FusionStats* stats) noexcept {
-    if (packets == nullptr || packet_count == 0 || packet_count > 4 || workspace == nullptr || required == nullptr ||
-        stats == nullptr || config.maximum_targets == 0 || config.maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS ||
-        config.iou_threshold_q16 == 0 || config.containment_threshold_q16 == 0 || config.maximum_area_ratio_q8 < 256 ||
-        config.reserved != 0 || epochs.scene_epoch == 0 || epochs.frame_id == 0 || epochs.model_epoch == 0 ||
-        epochs.session_epoch == 0 || epochs.transform_epoch == 0 || epochs.topology_epoch == 0 ||
-        epochs.source_id == 0) {
+SaccadeResult fuse(const PacketView* packets, uint32_t packet_count, const FusionConfig& config, const FusionEpochs& epochs,
+                   FusionWorkspace* workspace, SaccadeMutableSpanU8 output, size_t* required, FusionStats* stats) noexcept {
+    if (packets == nullptr || packet_count == 0 || packet_count > 4 || workspace == nullptr || required == nullptr || stats == nullptr ||
+        config.maximum_targets == 0 || config.maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS || config.iou_threshold_q16 == 0 ||
+        config.containment_threshold_q16 == 0 || config.maximum_area_ratio_q8 < 256 || config.reserved != 0 || epochs.scene_epoch == 0 ||
+        epochs.frame_id == 0 || epochs.model_epoch == 0 || epochs.session_epoch == 0 || epochs.transform_epoch == 0 ||
+        epochs.topology_epoch == 0 || epochs.source_id == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const size_t maximum_size = sizeof(SaccadeTargetPacketHeader) +
@@ -253,13 +253,11 @@ SaccadeResult fuse(const PacketView* packets, uint32_t packet_count, const Fusio
         ++stats->packets_read;
         for (uint32_t index = 0; index < packet.header->target_count; ++index) {
             SaccadeTargetRecord candidate = packet.targets[index];
-            candidate.text =
-                packet.targets[index].text.size == 0
-                    ? SaccadeTargetTextRef{}
-                    : SaccadeTargetTextRef{static_cast<uint16_t>(packet_index + 1U), static_cast<uint16_t>(index + 1U)};
+            candidate.text = packet.targets[index].text.size == 0
+                                 ? SaccadeTargetTextRef{}
+                                 : SaccadeTargetTextRef{static_cast<uint16_t>(packet_index + 1U), static_cast<uint16_t>(index + 1U)};
             ++stats->candidates_read;
-            const uint32_t match =
-                config.merge_duplicates ? find_duplicate(candidate, targets, config, *workspace, stats) : empty_node;
+            const uint32_t match = config.merge_duplicates ? find_duplicate(candidate, targets, config, *workspace, stats) : empty_node;
             if (match != empty_node) {
                 merge_target(&targets[match], candidate, stats);
                 ++stats->duplicates_merged;
@@ -297,7 +295,8 @@ SaccadeResult fuse(const PacketView* packets, uint32_t packet_count, const Fusio
         SaccadeTargetRecord& target = targets[index];
         const SaccadeTargetTextRef source = target.text;
         target.text = {};
-        if (source.offset == 0 || source.size == 0) continue;
+        if (source.offset == 0 || source.size == 0)
+            continue;
         const PacketView& packet = packets[source.offset - 1U];
         const SaccadeSpanU8 text = packet.target_text(source.size - 1U);
         if (text.size > SACCADE_TARGET_PACKET_MAX_TEXT_BYTES - text_size) {

@@ -27,14 +27,15 @@ int result(TestResult value) noexcept {
     return static_cast<int>(value);
 }
 
-SaccadeResult process_request(void* context, SaccadeSpanU8 input, SaccadeAgentCapabilityBits capabilities,
-                              uint64_t now_ns, SaccadeMutableSpanU8 output, size_t* output_size) noexcept {
+SaccadeResult process_request(void* context, SaccadeSpanU8 input, SaccadeAgentCapabilityBits capabilities, uint64_t now_ns,
+                              SaccadeMutableSpanU8 output, size_t* output_size) noexcept {
     if (input.size != sizeof(SaccadeAgentObserveRequest) || output.size < sizeof(SaccadeAgentObserveCompletion) ||
         capabilities != SACCADE_AGENT_CAPABILITY_OBSERVE || now_ns == 0)
         return SACCADE_ERROR_INVALID_ARGUMENT;
     SaccadeAgentObserveRequest request{};
     std::memcpy(&request, input.data, sizeof(request));
-    if (request.header.message_kind != SACCADE_AGENT_MESSAGE_OBSERVE_REQUEST) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (request.header.message_kind != SACCADE_AGENT_MESSAGE_OBSERVE_REQUEST)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     SaccadeAgentObserveCompletion completion{};
     completion.header.struct_size = static_cast<uint32_t>(sizeof(completion));
     completion.header.api_version = SACCADE_AGENT_API_VERSION;
@@ -52,12 +53,13 @@ SaccadeResult disconnect(void* context) noexcept {
     return SACCADE_OK;
 }
 
-template <typename T>
-bool read_response(saccade::platform::windows::AgentPipe* pipe, HANDLE client, uint64_t* now_ns, T* output) noexcept {
+template <typename T> bool read_response(saccade::platform::windows::AgentPipe* pipe, HANDLE client, uint64_t* now_ns, T* output) noexcept {
     for (uint32_t attempt = 0; attempt < 1000; ++attempt) {
-        if (pipe->advance((*now_ns)++) != SACCADE_OK) return false;
+        if (pipe->advance((*now_ns)++) != SACCADE_OK)
+            return false;
         DWORD available = 0;
-        if (!PeekNamedPipe(client, nullptr, 0, nullptr, &available, nullptr)) return false;
+        if (!PeekNamedPipe(client, nullptr, 0, nullptr, &available, nullptr))
+            return false;
         if (available == 0) {
             Sleep(1);
             continue;
@@ -78,15 +80,17 @@ int main() {
     RequestSink sink{};
     saccade::platform::windows::AgentPipe pipe;
     static saccade::platform::windows::AgentPipeStorage storage;
-    if (pipe.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE},
-                        &storage) != SACCADE_OK)
+    if (pipe.initialize({&sink, process_request, disconnect, endpoint.data(), SACCADE_AGENT_CAPABILITY_OBSERVE}, &storage) != SACCADE_OK)
         return result(TestResult::initialization_failed);
     HANDLE client = CreateFileW(endpoint.data(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (client == INVALID_HANDLE_VALUE) return result(TestResult::connection_failed);
+    if (client == INVALID_HANDLE_VALUE)
+        return result(TestResult::connection_failed);
     DWORD mode = PIPE_READMODE_MESSAGE;
-    if (!SetNamedPipeHandleState(client, &mode, nullptr, nullptr)) return result(TestResult::connection_failed);
+    if (!SetNamedPipeHandleState(client, &mode, nullptr, nullptr))
+        return result(TestResult::connection_failed);
     uint64_t now_ns = 1;
-    if (pipe.advance(now_ns++) != SACCADE_OK) return result(TestResult::connection_failed);
+    if (pipe.advance(now_ns++) != SACCADE_OK)
+        return result(TestResult::connection_failed);
 
     SaccadeAgentHelloRequest hello{};
     hello.header.struct_size = static_cast<uint32_t>(sizeof(hello));
@@ -99,11 +103,11 @@ int main() {
         return result(TestResult::hello_write_failed);
     SaccadeAgentHelloCompletion hello_completion{};
     if (!read_response(&pipe, client, &now_ns, &hello_completion) || hello_completion.request_id != hello.request_id ||
-        hello_completion.result != SACCADE_AGENT_OK ||
-        hello_completion.granted_capability_bits != SACCADE_AGENT_CAPABILITY_OBSERVE)
+        hello_completion.result != SACCADE_AGENT_OK || hello_completion.granted_capability_bits != SACCADE_AGENT_CAPABILITY_OBSERVE)
         return result(TestResult::hello_read_failed);
 
-    if (pipe.advance(now_ns++) != SACCADE_OK) return result(TestResult::request_write_failed);
+    if (pipe.advance(now_ns++) != SACCADE_OK)
+        return result(TestResult::request_write_failed);
     SaccadeAgentObserveRequest request{};
     request.header.struct_size = static_cast<uint32_t>(sizeof(request));
     request.header.api_version = SACCADE_AGENT_API_VERSION;
@@ -118,6 +122,7 @@ int main() {
         return result(TestResult::request_read_failed);
 
     CloseHandle(client);
-    if (pipe.shutdown() != SACCADE_OK || sink.disconnects != 1) return result(TestResult::shutdown_failed);
+    if (pipe.shutdown() != SACCADE_OK || sink.disconnects != 1)
+        return result(TestResult::shutdown_failed);
     return result(TestResult::success);
 }

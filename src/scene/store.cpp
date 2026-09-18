@@ -59,8 +59,8 @@ SaccadeResult SceneStore::abort_write(const MutableScenePacket& packet) noexcept
 }
 
 SaccadeResult SceneStore::commit(const MutableScenePacket& packet, size_t byte_size, bool checked) noexcept {
-    if (!initialized_ || packet.slot == 0 || packet.slot != writing_slot_ ||
-        byte_size < sizeof(SaccadeTargetPacketHeader) || byte_size > target_packet_max_bytes) {
+    if (!initialized_ || packet.slot == 0 || packet.slot != writing_slot_ || byte_size < sizeof(SaccadeTargetPacketHeader) ||
+        byte_size > target_packet_max_bytes) {
         return SACCADE_ERROR_STATE;
     }
     if (checked) {
@@ -136,6 +136,10 @@ SaccadeResult SceneStore::acquire_latest(PacketView* output) noexcept {
     output->header = reinterpret_cast<const SaccadeTargetPacketHeader*>(slot.bytes.data());
     output->targets = reinterpret_cast<const SaccadeTargetRecord*>(slot.bytes.data() + output->header->targets_offset);
     output->byte_size = slot.byte_size;
+    const size_t text_offset =
+        output->header->targets_offset + static_cast<size_t>(output->header->target_count) * output->header->target_stride;
+    output->text = slot.bytes.data() + text_offset;
+    output->text_size = static_cast<uint32_t>(slot.byte_size - text_offset);
     return SACCADE_OK;
 }
 

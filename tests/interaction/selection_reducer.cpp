@@ -71,8 +71,7 @@ int main() {
     static saccade::interaction::SelectionStorage selection_storage;
     make_scene(&scene_storage);
     saccade::scene::PacketView scene{};
-    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) !=
-        SACCADE_OK) {
+    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) != SACCADE_OK) {
         return to_process_exit_code(ExitCode::invalid_scene);
     }
 
@@ -103,9 +102,9 @@ int main() {
         reducer.select(106) != SACCADE_OK || reducer.select(104) != SACCADE_OK ||
         reducer.view().state != saccade::interaction::SelectionState::collecting || reducer.select(102) != SACCADE_OK ||
         reducer.confirm() != SACCADE_OK || reducer.view().state != saccade::interaction::SelectionState::complete ||
-        reducer.view().target_count != 5 || reducer.view().target_ids[0] != 106 ||
-        reducer.view().target_ids[1] != 105 || reducer.view().target_ids[2] != 104 ||
-        reducer.view().target_ids[3] != 103 || reducer.view().target_ids[4] != 102 || reducer.reset() != SACCADE_OK) {
+        reducer.view().target_count != 5 || reducer.view().target_ids[0] != 106 || reducer.view().target_ids[1] != 105 ||
+        reducer.view().target_ids[2] != 104 || reducer.view().target_ids[3] != 103 || reducer.view().target_ids[4] != 102 ||
+        reducer.reset() != SACCADE_OK) {
         return to_process_exit_code(ExitCode::path_selection);
     }
 
@@ -116,8 +115,7 @@ int main() {
     current.focus_id = 10;
     if (reducer.validate(current, 100) != SACCADE_ERROR_STALE_HANDLE ||
         reducer.view().state != saccade::interaction::SelectionState::cancelled ||
-        reducer.view().cancel_reason != saccade::interaction::SelectionCancelReason::focus_changed ||
-        reducer.reset() != SACCADE_OK) {
+        reducer.view().cancel_reason != saccade::interaction::SelectionCancelReason::focus_changed || reducer.reset() != SACCADE_OK) {
         return to_process_exit_code(ExitCode::focus_changed);
     }
 

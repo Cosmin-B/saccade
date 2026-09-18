@@ -85,8 +85,7 @@ bool run_shape(TargetPostprocessor* postprocessor, uint32_t candidate_count, uin
 bool run_path(id<MTLDevice> device, const char* metallib, void* buffer, PathPreference preference) {
     TargetPostprocessor postprocessor;
     if (postprocessor.initialize((__bridge void*)device, metallib, preference,
-                                 {saccade::kernels::targets::maximum_candidates, target_capacity, buffer, 0}) !=
-        SACCADE_OK) {
+                                 {saccade::kernels::targets::maximum_candidates, target_capacity, buffer, 0}) != SACCADE_OK) {
         return false;
     }
     const auto stats = postprocessor.stats();
@@ -100,8 +99,7 @@ bool run_path(id<MTLDevice> device, const char* metallib, void* buffer, PathPref
         }
     }
     const auto final_stats = postprocessor.stats();
-    std::printf("command_allocator=%.2fMiB\n",
-                static_cast<double>(final_stats.command_allocator_bytes) / (1024.0 * 1024.0));
+    std::printf("command_allocator=%.2fMiB\n", static_cast<double>(final_stats.command_allocator_bytes) / (1024.0 * 1024.0));
     return true;
 }
 
@@ -116,10 +114,9 @@ int main(int argc, char** argv) {
         return exit_code(ExitCode::unsupported);
     }
     make_candidates();
-    id<MTLBuffer> candidate_buffer =
-        [device newBufferWithBytes:candidates.data()
-                            length:sizeof(candidates)
-                           options:MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked];
+    id<MTLBuffer> candidate_buffer = [device newBufferWithBytes:candidates.data()
+                                                         length:sizeof(candidates)
+                                                        options:MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked];
     if (candidate_buffer == nil) {
         return exit_code(ExitCode::candidate_buffer_failed);
     }

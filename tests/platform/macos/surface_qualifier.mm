@@ -23,7 +23,8 @@ struct Fixture final {
 bool session(void* context, SessionEvidence* output) noexcept {
     auto* fixture = static_cast<Fixture*>(context);
     ++fixture->calls;
-    if (!fixture->session_succeeds) return false;
+    if (!fixture->session_succeeds)
+        return false;
     *output = fixture->session;
     return true;
 }
@@ -31,7 +32,8 @@ bool session(void* context, SessionEvidence* output) noexcept {
 bool frontmost(void* context, uint64_t* output) noexcept {
     auto* fixture = static_cast<Fixture*>(context);
     ++fixture->calls;
-    if (!fixture->frontmost_succeeds) return false;
+    if (!fixture->frontmost_succeeds)
+        return false;
     *output = fixture->frontmost_pid;
     return true;
 }
@@ -39,7 +41,8 @@ bool frontmost(void* context, uint64_t* output) noexcept {
 bool accessibility(void* context, uint64_t, AccessibilityEvidence* output) noexcept {
     auto* fixture = static_cast<Fixture*>(context);
     ++fixture->calls;
-    if (!fixture->accessibility_succeeds) return false;
+    if (!fixture->accessibility_succeeds)
+        return false;
     *output = fixture->accessibility;
     return true;
 }
@@ -47,7 +50,8 @@ bool accessibility(void* context, uint64_t, AccessibilityEvidence* output) noexc
 bool secure_input(void* context, bool* output) noexcept {
     auto* fixture = static_cast<Fixture*>(context);
     ++fixture->calls;
-    if (!fixture->secure_input_succeeds) return false;
+    if (!fixture->secure_input_succeeds)
+        return false;
     *output = fixture->secure_input;
     return true;
 }
@@ -55,13 +59,15 @@ bool secure_input(void* context, bool* output) noexcept {
 bool time(void* context, uint64_t* output) noexcept {
     auto* fixture = static_cast<Fixture*>(context);
     ++fixture->calls;
-    if (!fixture->time_succeeds) return false;
+    if (!fixture->time_succeeds)
+        return false;
     *output = fixture->sampled_time;
     return true;
 }
 
 void require(bool condition) noexcept {
-    if (!condition) std::abort();
+    if (!condition)
+        std::abort();
 }
 
 Fixture qualified_fixture() noexcept {
@@ -91,8 +97,8 @@ void test_qualified_and_hot_read() noexcept {
     require(qualifier.cached().disposition == SurfaceDisposition::unknown);
     require(qualifier.refresh());
     const auto first = qualifier.cached();
-    require(first.disposition == SurfaceDisposition::qualified && first.epoch == 1 && first.sampled_time == 99 &&
-            first.focus_pid == 42 && first.reason_bits == surface_reason_none);
+    require(first.disposition == SurfaceDisposition::qualified && first.epoch == 1 && first.sampled_time == 99 && first.focus_pid == 42 &&
+            first.reason_bits == surface_reason_none);
     const uint32_t calls = fixture.calls;
     require(qualifier.cached().disposition == SurfaceDisposition::qualified);
     require(fixture.calls == calls);

@@ -60,8 +60,7 @@ int main() {
     if (table.get(0) != nullptr || table.emplace(nullptr, 1) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 1;
     }
-    if (table.emplace(&first, 1) != SACCADE_OK || first == 0 || table.emplace(&second, 2) != SACCADE_OK ||
-        second == 0) {
+    if (table.emplace(&first, 1) != SACCADE_OK || first == 0 || table.emplace(&second, 2) != SACCADE_OK || second == 0) {
         return 2;
     }
     if (table.emplace(&third, 3) != SACCADE_ERROR_CAPACITY || third != 0) {
@@ -81,12 +80,10 @@ int main() {
         return 4;
     }
 
-    if (table.erase(first) != SACCADE_OK || table.get(first) != nullptr ||
-        table.erase(first) != SACCADE_ERROR_STALE_HANDLE) {
+    if (table.erase(first) != SACCADE_OK || table.get(first) != nullptr || table.erase(first) != SACCADE_ERROR_STALE_HANDLE) {
         return 5;
     }
-    if (table.emplace(&third, 3) != SACCADE_OK || third == first ||
-        static_cast<uint32_t>(third) != static_cast<uint32_t>(first)) {
+    if (table.emplace(&third, 3) != SACCADE_OK || third == first || static_cast<uint32_t>(third) != static_cast<uint32_t>(first)) {
         return 6;
     }
 
@@ -106,8 +103,8 @@ int main() {
     std::array<int, 2> destruction{};
     size_t destruction_size = 0;
     table.clear_reverse([&](uint64_t, Item& item) noexcept { destruction[destruction_size++] = item.id; });
-    if (destruction_size != 2 || destruction[0] != 3 || destruction[1] != 2 || table.size() != 0 ||
-        table.get(second) != nullptr || table.get(third) != nullptr) {
+    if (destruction_size != 2 || destruction[0] != 3 || destruction[1] != 2 || table.size() != 0 || table.get(second) != nullptr ||
+        table.get(third) != nullptr) {
         return 9;
     }
 
@@ -119,8 +116,7 @@ int main() {
     }
     first_generation_handle = current_handle;
     for (uint32_t generation = 1; generation <= UINT8_MAX; ++generation) {
-        if (static_cast<uint32_t>(current_handle >> 32U) != generation ||
-            saturating_table.erase(current_handle) != SACCADE_OK) {
+        if (static_cast<uint32_t>(current_handle >> 32U) != generation || saturating_table.erase(current_handle) != SACCADE_OK) {
             return 11;
         }
         if (generation != UINT8_MAX && saturating_table.emplace(&current_handle, 1) != SACCADE_OK) {

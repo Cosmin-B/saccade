@@ -12,8 +12,7 @@
 namespace saccade::kernels::image::detail {
 namespace {
 
-template <bool Rgba>
-void convert_neon_format(const InterleavedU8View& source, const PlaneU8View& destination) noexcept {
+template <bool Rgba> void convert_neon_format(const InterleavedU8View& source, const PlaneU8View& destination) noexcept {
     constexpr uint32_t vector_width = 16;
     const uint8x8_t red_weight = vdup_n_u8(UINT8_C(77));
     const uint8x8_t green_weight = vdup_n_u8(UINT8_C(150));

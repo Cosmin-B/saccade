@@ -62,8 +62,7 @@ class RuntimeState final {
         inference_tickets_.clear_reverse([this](uint64_t, InferenceTicket& ticket) noexcept {
             InferenceSession* session = inference_sessions_.get(ticket.session);
             if (session != nullptr && ticket.provider_ticket != 0) {
-                (void)session->ops.cancel(session->provider_context, session->provider_context_handle,
-                                          ticket.provider_ticket);
+                (void)session->ops.cancel(session->provider_context, session->provider_context_handle, ticket.provider_ticket);
             }
             (void)frames_.release_owner(ticket.frame, FrameLeaseOwner::worker);
         });
@@ -86,9 +85,7 @@ class RuntimeState final {
 
     [[nodiscard]] backend::ProviderRegistry& providers() noexcept { return providers_; }
 
-    [[nodiscard]] static constexpr uint32_t maximum_frame_domain() noexcept {
-        return FrameLeasePool<frame_capacity>::maximum_domain();
-    }
+    [[nodiscard]] static constexpr uint32_t maximum_frame_domain() noexcept { return FrameLeasePool<frame_capacity>::maximum_domain(); }
 
     SaccadeResult import_host(const SaccadeHostFrameDesc& desc, SaccadeFrameHandle* out_frame) noexcept {
         const SaccadeResult import_result = frames_.import_host(desc, out_frame);
@@ -148,8 +145,7 @@ class RuntimeState final {
         return frames_.release_owner(frame, FrameLeaseOwner::caller);
     }
 
-    SaccadeResult create_inference_session(const SaccadeInferenceSessionDesc& desc,
-                                           SaccadeExecutionContextHandle* out_session,
+    SaccadeResult create_inference_session(const SaccadeInferenceSessionDesc& desc, SaccadeExecutionContextHandle* out_session,
                                            SaccadeInferenceSessionInfo* out_info) noexcept {
         if (out_session == nullptr || out_info == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -160,9 +156,8 @@ class RuntimeState final {
             return SACCADE_ERROR_STATE;
         }
 
-        if (desc.model_bytes.data == nullptr || desc.model_bytes.size == 0 || desc.queue_capacity == 0 ||
-            desc.max_in_flight == 0 || desc.max_in_flight > desc.queue_capacity || desc.reserved32 != 0 ||
-            desc.flags != 0) {
+        if (desc.model_bytes.data == nullptr || desc.model_bytes.size == 0 || desc.queue_capacity == 0 || desc.max_in_flight == 0 ||
+            desc.max_in_flight > desc.queue_capacity || desc.reserved32 != 0 || desc.flags != 0) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
 
@@ -291,8 +286,7 @@ class RuntimeState final {
         if (session->active_tickets != 0) {
             return SACCADE_ERROR_BUSY;
         }
-        SaccadeResult result =
-            session->ops.destroy_context(session->provider_context, session->provider_context_handle);
+        SaccadeResult result = session->ops.destroy_context(session->provider_context, session->provider_context_handle);
         if (result != SACCADE_OK) {
             return result;
         }
@@ -314,11 +308,10 @@ class RuntimeState final {
         if (session == nullptr || frame == nullptr) {
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        if (desc.scope.x < 0 || desc.scope.y < 0 || desc.scope.width <= 0 || desc.scope.height <= 0 ||
-            desc.model_epoch == 0 || desc.session_epoch == 0 || desc.transform_epoch == 0 || desc.topology_epoch == 0 ||
-            desc.source_id == 0 || desc.flags != 0 || desc.output_capacity < session->model.max_output_bytes ||
-            (desc.priority_region_count != 0 && desc.priority_regions == nullptr) ||
-            frame->transform_epoch() != desc.transform_epoch) {
+        if (desc.scope.x < 0 || desc.scope.y < 0 || desc.scope.width <= 0 || desc.scope.height <= 0 || desc.model_epoch == 0 ||
+            desc.session_epoch == 0 || desc.transform_epoch == 0 || desc.topology_epoch == 0 || desc.source_id == 0 || desc.flags != 0 ||
+            desc.output_capacity < session->model.max_output_bytes ||
+            (desc.priority_region_count != 0 && desc.priority_regions == nullptr) || frame->transform_epoch() != desc.transform_epoch) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         const int64_t scope_right = static_cast<int64_t>(desc.scope.x) + desc.scope.width;
@@ -360,8 +353,7 @@ class RuntimeState final {
         dispatch.source_id = desc.source_id;
         dispatch.flags = desc.flags;
         SaccadeTicketHandle provider_ticket = 0;
-        result = session->ops.submit(session->provider_context, session->provider_context_handle, &dispatch,
-                                     &provider_ticket);
+        result = session->ops.submit(session->provider_context, session->provider_context_handle, &dispatch, &provider_ticket);
         if (result != SACCADE_OK) {
             --session->active_tickets;
             (void)inference_tickets_.erase(runtime_ticket);
@@ -373,8 +365,8 @@ class RuntimeState final {
         return SACCADE_OK;
     }
 
-    SaccadeResult inference_status(SaccadeExecutionContextHandle session_handle, SaccadeTicketHandle ticket_handle,
-                                   uint64_t timeout_ns, bool wait, SaccadeInferenceStatus* output) noexcept {
+    SaccadeResult inference_status(SaccadeExecutionContextHandle session_handle, SaccadeTicketHandle ticket_handle, uint64_t timeout_ns,
+                                   bool wait, SaccadeInferenceStatus* output) noexcept {
         InferenceSession* session = inference_sessions_.get(session_handle);
         InferenceTicket* ticket = inference_tickets_.get(ticket_handle);
         if (session == nullptr || ticket == nullptr || ticket->session != session_handle) {
@@ -384,10 +376,9 @@ class RuntimeState final {
         status.struct_size = sizeof(status);
         status.api_version = SACCADE_API_VERSION;
         const SaccadeResult result =
-            wait ? session->ops.wait(session->provider_context, session->provider_context_handle,
-                                     ticket->provider_ticket, timeout_ns, &status)
-                 : session->ops.poll(session->provider_context, session->provider_context_handle,
-                                     ticket->provider_ticket, &status);
+            wait ? session->ops.wait(session->provider_context, session->provider_context_handle, ticket->provider_ticket, timeout_ns,
+                                     &status)
+                 : session->ops.poll(session->provider_context, session->provider_context_handle, ticket->provider_ticket, &status);
         if (result == SACCADE_OK || result == SACCADE_ERROR_TIMEOUT || result == SACCADE_ERROR_BUSY) {
             status.ticket = ticket_handle;
             *output = status;
@@ -402,8 +393,8 @@ class RuntimeState final {
         if (session == nullptr || ticket == nullptr || ticket->session != session_handle) {
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        const SaccadeResult result = session->ops.collect(session->provider_context, session->provider_context_handle,
-                                                          ticket->provider_ticket, output, required);
+        const SaccadeResult result =
+            session->ops.collect(session->provider_context, session->provider_context_handle, ticket->provider_ticket, output, required);
         if (result == SACCADE_ERROR_BUSY || result == SACCADE_ERROR_CAPACITY || result == SACCADE_ERROR_TIMEOUT) {
             return result;
         }
@@ -414,15 +405,13 @@ class RuntimeState final {
         return released == SACCADE_OK ? result : released;
     }
 
-    SaccadeResult cancel_inference(SaccadeExecutionContextHandle session_handle,
-                                   SaccadeTicketHandle ticket_handle) noexcept {
+    SaccadeResult cancel_inference(SaccadeExecutionContextHandle session_handle, SaccadeTicketHandle ticket_handle) noexcept {
         InferenceSession* session = inference_sessions_.get(session_handle);
         InferenceTicket* ticket = inference_tickets_.get(ticket_handle);
         if (session == nullptr || ticket == nullptr || ticket->session != session_handle) {
             return SACCADE_ERROR_STALE_HANDLE;
         }
-        return session->ops.cancel(session->provider_context, session->provider_context_handle,
-                                   ticket->provider_ticket);
+        return session->ops.cancel(session->provider_context, session->provider_context_handle, ticket->provider_ticket);
     }
 
     SaccadeResult reset_inference(SaccadeExecutionContextHandle session_handle) noexcept {
@@ -453,17 +442,14 @@ class RuntimeState final {
 
     SaccadeResult synchronize_inference(SaccadeExecutionContextHandle session_handle, uint64_t timeout_ns) noexcept {
         InferenceSession* session = inference_sessions_.get(session_handle);
-        return session == nullptr
-                   ? SACCADE_ERROR_STALE_HANDLE
-                   : session->ops.synchronize(session->provider_context, session->provider_context_handle, timeout_ns);
+        return session == nullptr ? SACCADE_ERROR_STALE_HANDLE
+                                  : session->ops.synchronize(session->provider_context, session->provider_context_handle, timeout_ns);
     }
 
-    SaccadeResult inference_memory_stats(SaccadeExecutionContextHandle session_handle,
-                                         SaccadeMemoryStats* output) noexcept {
+    SaccadeResult inference_memory_stats(SaccadeExecutionContextHandle session_handle, SaccadeMemoryStats* output) noexcept {
         InferenceSession* session = inference_sessions_.get(session_handle);
-        return session == nullptr
-                   ? SACCADE_ERROR_STALE_HANDLE
-                   : session->ops.memory_stats(session->provider_context, session->provider_context_handle, output);
+        return session == nullptr ? SACCADE_ERROR_STALE_HANDLE
+                                  : session->ops.memory_stats(session->provider_context, session->provider_context_handle, output);
     }
 
   private:
@@ -555,8 +541,7 @@ bool reserved_is_zero(const void* object, uint32_t struct_size, size_t reserved_
     return true;
 }
 
-template <typename Descriptor>
-SaccadeResult copy_and_validate_descriptor(const Descriptor* desc, Descriptor* out_desc) noexcept {
+template <typename Descriptor> SaccadeResult copy_and_validate_descriptor(const Descriptor* desc, Descriptor* out_desc) noexcept {
     if (desc == nullptr || out_desc == nullptr) {
         set_last_error("descriptor is null or smaller than its required prefix");
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -591,8 +576,7 @@ template <typename Structure> bool valid_output_structure(const Structure* outpu
     uint32_t version = 0;
     std::memcpy(&size, output, sizeof(size));
     std::memcpy(&version, reinterpret_cast<const uint8_t*>(output) + offsetof(Structure, api_version), sizeof(version));
-    return static_cast<size_t>(size) >= offsetof(Structure, reserved) &&
-           api_major(version) == api_major(SACCADE_API_VERSION);
+    return static_cast<size_t>(size) >= offsetof(Structure, reserved) && api_major(version) == api_major(SACCADE_API_VERSION);
 }
 
 template <typename Structure> SaccadeResult write_output_structure(Structure* output, Structure value) noexcept {
@@ -650,8 +634,8 @@ SaccadeResult register_provider(SaccadeRuntimeHandle runtime, const Descriptor* 
 }
 
 template <typename Descriptor, typename Validate, typename Import>
-SaccadeResult import_frame(SaccadeRuntimeHandle runtime, const Descriptor* desc, SaccadeFrameHandle* out_frame,
-                           Validate&& validate, Import&& import) noexcept {
+SaccadeResult import_frame(SaccadeRuntimeHandle runtime, const Descriptor* desc, SaccadeFrameHandle* out_frame, Validate&& validate,
+                           Import&& import) noexcept {
     return abi_guard([&]() -> SaccadeResult {
         if (out_frame == nullptr) {
             set_last_error("frame output pointer is null");
@@ -689,8 +673,7 @@ SaccadeResult import_frame(SaccadeRuntimeHandle runtime, const Descriptor* desc,
 } // namespace
 } // namespace saccade::core
 
-extern "C" SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc,
-                                                             SaccadeRuntimeHandle* out_runtime) {
+extern "C" SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc, SaccadeRuntimeHandle* out_runtime) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         if (out_runtime == nullptr) {
             saccade::core::set_last_error("runtime output pointer is null");
@@ -758,37 +741,32 @@ extern "C" SaccadeResult SACCADE_CALL saccade_register_overlay_provider(SaccadeR
     return saccade::core::register_provider(runtime, desc, &saccade::backend::ProviderRegistry::register_overlay);
 }
 
-extern "C" SaccadeResult SACCADE_CALL
-saccade_register_accessibility_provider(SaccadeRuntimeHandle runtime, const SaccadeAccessibilityProviderDesc* desc) {
+extern "C" SaccadeResult SACCADE_CALL saccade_register_accessibility_provider(SaccadeRuntimeHandle runtime,
+                                                                              const SaccadeAccessibilityProviderDesc* desc) {
     return saccade::core::register_provider(runtime, desc, &saccade::backend::ProviderRegistry::register_accessibility);
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_register_input_provider(SaccadeRuntimeHandle runtime,
-                                                                      const SaccadeInputProviderDesc* desc) {
+extern "C" SaccadeResult SACCADE_CALL saccade_register_input_provider(SaccadeRuntimeHandle runtime, const SaccadeInputProviderDesc* desc) {
     return saccade::core::register_provider(runtime, desc, &saccade::backend::ProviderRegistry::register_input);
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime,
-                                                                const SaccadeHostFrameDesc* desc,
+extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime, const SaccadeHostFrameDesc* desc,
                                                                 SaccadeFrameHandle* out_frame) {
     return saccade::core::import_frame(
-        runtime, desc, out_frame,
-        [](const SaccadeHostFrameDesc& value) noexcept { return saccade::core::valid_host_frame(value); },
+        runtime, desc, out_frame, [](const SaccadeHostFrameDesc& value) noexcept { return saccade::core::valid_host_frame(value); },
         [](saccade::core::RuntimeState& state, const SaccadeHostFrameDesc& value, SaccadeFrameHandle* out) noexcept {
             return state.import_host(value, out);
         });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime,
-                                                                     const SaccadeIOSurfaceFrameDesc* desc,
+extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime, const SaccadeIOSurfaceFrameDesc* desc,
                                                                      SaccadeFrameHandle* out_frame) {
     return saccade::core::import_frame(
         runtime, desc, out_frame,
         [](const SaccadeIOSurfaceFrameDesc& value) noexcept {
             return value.iosurface_id != 0 && value.width != 0 && value.height != 0 && value.pixel_format != 0;
         },
-        [](saccade::core::RuntimeState& state, const SaccadeIOSurfaceFrameDesc& value,
-           SaccadeFrameHandle* out) noexcept -> SaccadeResult {
+        [](saccade::core::RuntimeState& state, const SaccadeIOSurfaceFrameDesc& value, SaccadeFrameHandle* out) noexcept -> SaccadeResult {
 #if defined(__APPLE__)
             IOSurfaceRef surface = IOSurfaceLookup(static_cast<IOSurfaceID>(value.iosurface_id));
             if (surface == nullptr) {
@@ -796,12 +774,9 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRunt
             }
             const size_t plane_count = IOSurfaceGetPlaneCount(surface);
             const bool planar = plane_count != 0;
-            const bool valid_plane =
-                planar ? static_cast<size_t>(value.plane_index) < plane_count : value.plane_index == 0;
-            const size_t width =
-                planar ? IOSurfaceGetWidthOfPlane(surface, value.plane_index) : IOSurfaceGetWidth(surface);
-            const size_t height =
-                planar ? IOSurfaceGetHeightOfPlane(surface, value.plane_index) : IOSurfaceGetHeight(surface);
+            const bool valid_plane = planar ? static_cast<size_t>(value.plane_index) < plane_count : value.plane_index == 0;
+            const size_t width = planar ? IOSurfaceGetWidthOfPlane(surface, value.plane_index) : IOSurfaceGetWidth(surface);
+            const size_t height = planar ? IOSurfaceGetHeightOfPlane(surface, value.plane_index) : IOSurfaceGetHeight(surface);
             if (!valid_plane || width != value.width || height != value.height) {
                 CFRelease(surface);
                 return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -846,7 +821,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_win32_capture(Saccade
             IUnknown* texture = static_cast<IUnknown*>(value.texture);
             texture->AddRef();
             IUnknown* ready_fence = static_cast<IUnknown*>(value.ready_fence);
-            if (ready_fence != nullptr) ready_fence->AddRef();
+            if (ready_fence != nullptr)
+                ready_fence->AddRef();
             saccade::core::NativeFrameResource resource{};
             resource.resource = texture;
             resource.release = +[](void* object) noexcept { static_cast<IUnknown*>(object)->Release(); };
@@ -863,7 +839,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_frame_import_win32_capture(Saccade
             resource.storage = saccade::core::FrameStorage::win32_capture;
             const SaccadeResult result = state.import_native(resource, out);
             if (result != SACCADE_OK) {
-                if (ready_fence != nullptr) ready_fence->Release();
+                if (ready_fence != nullptr)
+                    ready_fence->Release();
                 texture->Release();
             }
             return result;
@@ -941,10 +918,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_inference_session_destroy(SaccadeR
     });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_submit(SaccadeRuntimeHandle runtime,
-                                                               SaccadeExecutionContextHandle session,
-                                                               const SaccadeInferenceSubmitDesc* desc,
-                                                               SaccadeTicketHandle* out_ticket) {
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_submit(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
+                                                               const SaccadeInferenceSubmitDesc* desc, SaccadeTicketHandle* out_ticket) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         if (out_ticket == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -962,9 +937,8 @@ extern "C" SaccadeResult SACCADE_CALL saccade_inference_submit(SaccadeRuntimeHan
 
 namespace {
 
-SaccadeResult inference_status_call(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
-                                    SaccadeTicketHandle ticket, uint64_t timeout_ns, bool wait,
-                                    SaccadeInferenceStatus* output) noexcept {
+SaccadeResult inference_status_call(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session, SaccadeTicketHandle ticket,
+                                    uint64_t timeout_ns, bool wait, SaccadeInferenceStatus* output) noexcept {
     if (!saccade::core::valid_output_structure(output)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -985,38 +959,30 @@ SaccadeResult inference_status_call(SaccadeRuntimeHandle runtime, SaccadeExecuti
 
 } // namespace
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_poll(SaccadeRuntimeHandle runtime,
-                                                             SaccadeExecutionContextHandle session,
-                                                             SaccadeTicketHandle ticket,
-                                                             SaccadeInferenceStatus* output) {
-    return saccade::core::abi_guard(
-        [&]() -> SaccadeResult { return inference_status_call(runtime, session, ticket, 0, false, output); });
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_poll(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
+                                                             SaccadeTicketHandle ticket, SaccadeInferenceStatus* output) {
+    return saccade::core::abi_guard([&]() -> SaccadeResult { return inference_status_call(runtime, session, ticket, 0, false, output); });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_wait(SaccadeRuntimeHandle runtime,
-                                                             SaccadeExecutionContextHandle session,
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_wait(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
                                                              SaccadeTicketHandle ticket, uint64_t timeout_ns,
                                                              SaccadeInferenceStatus* output) {
     return saccade::core::abi_guard(
         [&]() -> SaccadeResult { return inference_status_call(runtime, session, ticket, timeout_ns, true, output); });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_collect(SaccadeRuntimeHandle runtime,
-                                                                SaccadeExecutionContextHandle session,
-                                                                SaccadeTicketHandle ticket, SaccadeMutableSpanU8 output,
-                                                                size_t* required) {
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_collect(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
+                                                                SaccadeTicketHandle ticket, SaccadeMutableSpanU8 output, size_t* required) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         if (required == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         saccade::core::RuntimeState* state = saccade::core::runtime_store().resolve_hot(runtime);
-        return state == nullptr ? SACCADE_ERROR_STALE_HANDLE
-                                : state->collect_inference(session, ticket, output, required);
+        return state == nullptr ? SACCADE_ERROR_STALE_HANDLE : state->collect_inference(session, ticket, output, required);
     });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_cancel(SaccadeRuntimeHandle runtime,
-                                                               SaccadeExecutionContextHandle session,
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_cancel(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
                                                                SaccadeTicketHandle ticket) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeState* state = saccade::core::runtime_store().resolve_hot(runtime);
@@ -1024,16 +990,14 @@ extern "C" SaccadeResult SACCADE_CALL saccade_inference_cancel(SaccadeRuntimeHan
     });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_reset(SaccadeRuntimeHandle runtime,
-                                                              SaccadeExecutionContextHandle session) {
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_reset(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeState* state = saccade::core::runtime_store().resolve_hot(runtime);
         return state == nullptr ? SACCADE_ERROR_STALE_HANDLE : state->reset_inference(session);
     });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_synchronize(SaccadeRuntimeHandle runtime,
-                                                                    SaccadeExecutionContextHandle session,
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_synchronize(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
                                                                     uint64_t timeout_ns) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeState* state = saccade::core::runtime_store().resolve_hot(runtime);
@@ -1041,8 +1005,7 @@ extern "C" SaccadeResult SACCADE_CALL saccade_inference_synchronize(SaccadeRunti
     });
 }
 
-extern "C" SaccadeResult SACCADE_CALL saccade_inference_memory_stats(SaccadeRuntimeHandle runtime,
-                                                                     SaccadeExecutionContextHandle session,
+extern "C" SaccadeResult SACCADE_CALL saccade_inference_memory_stats(SaccadeRuntimeHandle runtime, SaccadeExecutionContextHandle session,
                                                                      SaccadeMemoryStats* output) {
     return saccade::core::abi_guard([&]() -> SaccadeResult {
         saccade::core::RuntimeState* state = saccade::core::runtime_store().resolve_hot(runtime);

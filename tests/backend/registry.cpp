@@ -17,8 +17,7 @@ SaccadeSpanU8 text_span(const char* text) {
     return {reinterpret_cast<const uint8_t*>(text), std::strlen(text)};
 }
 
-SaccadeProviderInfo provider_info(uint32_t family, uint64_t stable_id, uint32_t capabilities,
-                                  const char* name = "provider") {
+SaccadeProviderInfo provider_info(uint32_t family, uint64_t stable_id, uint32_t capabilities, const char* name = "provider") {
     SaccadeProviderInfo info{};
     info.struct_size = static_cast<uint32_t>(sizeof(info));
     info.api_version = SACCADE_API_VERSION;
@@ -37,22 +36,24 @@ SaccadeInferenceOps inference_ops() {
     ops.query_model = +[](void*, SaccadeSpanU8, SaccadeModelInfo*) -> SaccadeResult { return SACCADE_OK; };
     ops.create_model = +[](void*, const SaccadeModelDesc*, SaccadeModelHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy_model = +[](void*, SaccadeModelHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.create_context = +[](void*, const SaccadeExecutionContextDesc*,
-                             SaccadeExecutionContextHandle*) -> SaccadeResult { return SACCADE_OK; };
+    ops.create_context =
+        +[](void*, const SaccadeExecutionContextDesc*, SaccadeExecutionContextHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy_context = +[](void*, SaccadeExecutionContextHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.submit = +[](void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*,
-                     SaccadeTicketHandle*) -> SaccadeResult { return SACCADE_OK; };
-    ops.poll = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                   SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.wait = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t,
-                   SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.collect = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8,
-                      size_t*) -> SaccadeResult { return SACCADE_OK; };
+    ops.submit = +[](void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*, SaccadeTicketHandle*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
+    ops.poll =
+        +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
+    ops.wait = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t, SaccadeInferenceStatus*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
+    ops.collect = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
     ops.cancel = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.reset = +[](void*, SaccadeExecutionContextHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.synchronize = +[](void*, SaccadeExecutionContextHandle, uint64_t) -> SaccadeResult { return SACCADE_OK; };
-    ops.memory_stats =
-        +[](void*, SaccadeExecutionContextHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
+    ops.memory_stats = +[](void*, SaccadeExecutionContextHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
     return ops;
 }
 
@@ -61,20 +62,17 @@ SaccadeCaptureOps capture_ops() {
     ops.struct_size = static_cast<uint32_t>(sizeof(ops));
     ops.api_version = SACCADE_API_VERSION;
     ops.enumerate_sources = +[](void*, uint32_t, SaccadeCaptureSourceInfo*) -> SaccadeResult { return SACCADE_OK; };
-    ops.create = +[](void*, const SaccadeCaptureStreamDesc*, SaccadeCaptureStreamHandle*) -> SaccadeResult {
-        return SACCADE_OK;
-    };
+    ops.create = +[](void*, const SaccadeCaptureStreamDesc*, SaccadeCaptureStreamHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy = +[](void*, SaccadeCaptureStreamHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.start = +[](void*, SaccadeCaptureStreamHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.stop = +[](void*, SaccadeCaptureStreamHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.acquire =
-        +[](void*, SaccadeCaptureStreamHandle, uint64_t, SaccadeCapturedFrame*) -> SaccadeResult { return SACCADE_OK; };
-    ops.copy_damage = +[](void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle, SaccadeRectI32*, uint32_t,
-                          uint32_t*) -> SaccadeResult { return SACCADE_OK; };
+    ops.acquire = +[](void*, SaccadeCaptureStreamHandle, uint64_t, SaccadeCapturedFrame*) -> SaccadeResult { return SACCADE_OK; };
+    ops.copy_damage = +[](void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle, SaccadeRectI32*, uint32_t, uint32_t*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
     ops.release = +[](void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.synchronize = +[](void*, SaccadeCaptureStreamHandle, uint64_t) -> SaccadeResult { return SACCADE_OK; };
-    ops.memory_stats =
-        +[](void*, SaccadeCaptureStreamHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
+    ops.memory_stats = +[](void*, SaccadeCaptureStreamHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
     return ops;
 }
 
@@ -84,8 +82,7 @@ SaccadeOverlayOps overlay_ops() {
     ops.api_version = SACCADE_API_VERSION;
     ops.create = +[](void*, const SaccadeOverlayDesc*, SaccadeOverlayHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy = +[](void*, SaccadeOverlayHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.submit =
-        +[](void*, SaccadeOverlayHandle, const SaccadeOverlayFrameDesc*) -> SaccadeResult { return SACCADE_OK; };
+    ops.submit = +[](void*, SaccadeOverlayHandle, const SaccadeOverlayFrameDesc*) -> SaccadeResult { return SACCADE_OK; };
     ops.set_visible = +[](void*, SaccadeOverlayHandle, uint32_t) -> SaccadeResult { return SACCADE_OK; };
     ops.synchronize = +[](void*, SaccadeOverlayHandle, uint64_t) -> SaccadeResult { return SACCADE_OK; };
     ops.memory_stats = +[](void*, SaccadeOverlayHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
@@ -98,13 +95,10 @@ SaccadeAccessibilityOps accessibility_ops() {
     ops.struct_size = static_cast<uint32_t>(sizeof(ops));
     ops.api_version = SACCADE_API_VERSION;
     ops.enumerate_windows = +[](void*, uint32_t, SaccadeWindowInfo*) -> SaccadeResult { return SACCADE_OK; };
-    ops.request =
-        +[](void*, const SaccadeAccessibilityQueryDesc*, SaccadeTicketHandle*) -> SaccadeResult { return SACCADE_OK; };
+    ops.request = +[](void*, const SaccadeAccessibilityQueryDesc*, SaccadeTicketHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.poll = +[](void*, SaccadeTicketHandle, SaccadeAccessibilityStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.wait =
-        +[](void*, SaccadeTicketHandle, uint64_t, SaccadeAccessibilityStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.collect =
-        +[](void*, SaccadeSnapshotHandle, SaccadeMutableSpanU8, size_t*) -> SaccadeResult { return SACCADE_OK; };
+    ops.wait = +[](void*, SaccadeTicketHandle, uint64_t, SaccadeAccessibilityStatus*) -> SaccadeResult { return SACCADE_OK; };
+    ops.collect = +[](void*, SaccadeSnapshotHandle, SaccadeMutableSpanU8, size_t*) -> SaccadeResult { return SACCADE_OK; };
     ops.cancel = +[](void*, SaccadeTicketHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.release = +[](void*, SaccadeSnapshotHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.synchronize = +[](void*, uint64_t) -> SaccadeResult { return SACCADE_OK; };
@@ -215,17 +209,14 @@ int main() {
     }
 
     SaccadeProviderHandle gpu_handle = 0;
-    SaccadeInferenceProviderDesc gpu =
-        inference_provider(11, SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_GPU, "gpu");
+    SaccadeInferenceProviderDesc gpu = inference_provider(11, SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_GPU, "gpu");
     if (registry.register_inference(&gpu, &gpu_handle) != SACCADE_OK) {
         return 4;
     }
 
     ProviderSelection selection{};
-    if (registry.select_inference(SACCADE_PROVIDER_CAPABILITY_CPU, SACCADE_PROVIDER_CAPABILITY_GPU, &selection) !=
-            SACCADE_OK ||
-        selection.handle != gpu_handle || selection.stable_id != 11 ||
-        selection.reason != SelectionReason::preferred_capability) {
+    if (registry.select_inference(SACCADE_PROVIDER_CAPABILITY_CPU, SACCADE_PROVIDER_CAPABILITY_GPU, &selection) != SACCADE_OK ||
+        selection.handle != gpu_handle || selection.stable_id != 11 || selection.reason != SelectionReason::preferred_capability) {
         return 5;
     }
     if (registry.select_inference_by_id(10, &selection) != SACCADE_OK || selection.handle != cpu_handle ||
@@ -240,10 +231,8 @@ int main() {
     SaccadeOverlayProviderDesc overlay = overlay_provider(30);
     SaccadeAccessibilityProviderDesc accessibility = accessibility_provider(40);
     SaccadeInputProviderDesc input = input_provider(50);
-    if (registry.register_capture(&capture, nullptr) != SACCADE_OK ||
-        registry.register_overlay(&overlay, nullptr) != SACCADE_OK ||
-        registry.register_accessibility(&accessibility, nullptr) != SACCADE_OK ||
-        registry.register_input(&input, nullptr) != SACCADE_OK) {
+    if (registry.register_capture(&capture, nullptr) != SACCADE_OK || registry.register_overlay(&overlay, nullptr) != SACCADE_OK ||
+        registry.register_accessibility(&accessibility, nullptr) != SACCADE_OK || registry.register_input(&input, nullptr) != SACCADE_OK) {
         return 8;
     }
 
@@ -342,8 +331,7 @@ int main() {
 
     ProviderRegistry capacity_registry;
     for (size_t index = 0; index < ProviderRegistry::capacity_per_family; ++index) {
-        SaccadeInferenceProviderDesc item =
-            inference_provider(300 + static_cast<uint64_t>(index), SACCADE_PROVIDER_CAPABILITY_CPU);
+        SaccadeInferenceProviderDesc item = inference_provider(300 + static_cast<uint64_t>(index), SACCADE_PROVIDER_CAPABILITY_CPU);
         if (capacity_registry.register_inference(&item, nullptr) != SACCADE_OK) {
             return 24;
         }
@@ -363,8 +351,7 @@ int main() {
     count_allocations.store(true, std::memory_order_relaxed);
     for (int index = 0; index < 1000; ++index) {
         ProviderSelection measured{};
-        if (registry.select_inference(SACCADE_PROVIDER_CAPABILITY_CPU, SACCADE_PROVIDER_CAPABILITY_GPU, &measured) !=
-                SACCADE_OK ||
+        if (registry.select_inference(SACCADE_PROVIDER_CAPABILITY_CPU, SACCADE_PROVIDER_CAPABILITY_GPU, &measured) != SACCADE_OK ||
             registry.inference(measured.handle) == nullptr) {
             return 27;
         }
@@ -377,8 +364,8 @@ int main() {
     ProviderRegistry foreign_registry;
     SaccadeInferenceProviderDesc foreign_provider = inference_provider(600, SACCADE_PROVIDER_CAPABILITY_CPU);
     SaccadeProviderHandle foreign_handle = 0;
-    if (foreign_registry.register_inference(&foreign_provider, &foreign_handle) != SACCADE_OK ||
-        foreign_handle == cpu_handle || foreign_registry.inference(cpu_handle) != nullptr) {
+    if (foreign_registry.register_inference(&foreign_provider, &foreign_handle) != SACCADE_OK || foreign_handle == cpu_handle ||
+        foreign_registry.inference(cpu_handle) != nullptr) {
         return 29;
     }
 

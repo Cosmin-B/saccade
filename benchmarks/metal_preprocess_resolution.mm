@@ -86,22 +86,20 @@ id<MTLTexture> make_texture(id<MTLDevice> device, Resolution resolution) {
     return [device newTextureWithDescriptor:descriptor];
 }
 
-bool run_once(ImagePreprocessor* preprocessor, id<MTLTexture> texture, Resolution resolution,
-              uint64_t frame_id) noexcept {
+bool run_once(ImagePreprocessor* preprocessor, id<MTLTexture> texture, Resolution resolution, uint64_t frame_id) noexcept {
     PreprocessSubmission submission{};
-    return preprocessor->submit((__bridge void*)texture, resolution.width, resolution.height, {}, frame_id, 1,
-                                &submission) == SACCADE_OK &&
+    return preprocessor->submit((__bridge void*)texture, resolution.width, resolution.height, {}, frame_id, 1, &submission) == SACCADE_OK &&
            preprocessor->wait(submission, wait_timeout_ns) == SACCADE_OK;
 }
 
-bool append_unsigned(StackStringBuilder<4096>* output, std::string_view name, uint64_t value,
-                     bool comma = true) noexcept {
+bool append_unsigned(StackStringBuilder<4096>* output, std::string_view name, uint64_t value, bool comma = true) noexcept {
     return output->append('"') && output->append(name) && output->append("\":") && output->append_unsigned(value) &&
            (!comma || output->append(','));
 }
 
 bool path_preference(const char* text, PathPreference* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const std::string_view value{text};
     if (value == "automatic") {
         *output = PathPreference::automatic;
@@ -119,8 +117,10 @@ bool path_preference(const char* text, PathPreference* output) noexcept {
 }
 
 std::string_view path_name(Path path) noexcept {
-    if (path == Path::metal4) return "metal4";
-    if (path == Path::metal3) return "metal3";
+    if (path == Path::metal4)
+        return "metal4";
+    if (path == Path::metal3)
+        return "metal3";
     return "unavailable";
 }
 
@@ -128,12 +128,14 @@ std::string_view path_name(Path path) noexcept {
 
 int main(int argc, char** argv) {
     @autoreleasepool {
-        if (argc < 2 || argc > 3) return to_process_exit_code(ExitCode::invalid_arguments);
+        if (argc < 2 || argc > 3)
+            return to_process_exit_code(ExitCode::invalid_arguments);
         PathPreference preference = PathPreference::automatic;
         if (argc == 3 && !path_preference(argv[2], &preference))
             return to_process_exit_code(ExitCode::invalid_arguments);
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-        if (device == nil) return to_process_exit_code(ExitCode::device_failure);
+        if (device == nil)
+            return to_process_exit_code(ExitCode::device_failure);
 
         TensorSpec spec{};
         spec.width = input_width;
@@ -151,7 +153,8 @@ int main(int argc, char** argv) {
         for (uint32_t resolution_index = 0; resolution_index < resolutions.size(); ++resolution_index) {
             const Resolution resolution = resolutions[resolution_index];
             id<MTLTexture> texture = make_texture(device, resolution);
-            if (texture == nil) return to_process_exit_code(ExitCode::texture_failure);
+            if (texture == nil)
+                return to_process_exit_code(ExitCode::texture_failure);
 
             for (uint32_t warmup = 0; warmup < warmup_count; ++warmup)
                 if (!run_once(&preprocessor, texture, resolution, frame_id++))
@@ -183,28 +186,22 @@ int main(int argc, char** argv) {
         StackStringBuilder<4096> output;
         const std::string_view selected_path = path_name(preprocessor.stats().path);
         bool written = output.append("{\"path\":\"") && output.append(selected_path) && output.append("\",") &&
-                       append_unsigned(&output, "input_width", input_width) &&
-                       append_unsigned(&output, "input_height", input_height) &&
-                       append_unsigned(&output, "warmups", warmup_count) &&
-                       append_unsigned(&output, "samples", sample_count) &&
+                       append_unsigned(&output, "input_width", input_width) && append_unsigned(&output, "input_height", input_height) &&
+                       append_unsigned(&output, "warmups", warmup_count) && append_unsigned(&output, "samples", sample_count) &&
                        append_unsigned(&output, "maximum_p95_ns", maximum_p95_ns) &&
-                       append_unsigned(&output, "preprocess_high_water", memory.high_water_bytes) &&
-                       output.append("\"resolutions\":[");
+                       append_unsigned(&output, "preprocess_high_water", memory.high_water_bytes) && output.append("\"resolutions\":[");
         for (uint32_t index = 0; written && index < results.size(); ++index) {
             const Result& result = results[index];
             written = output.append('{') && append_unsigned(&output, "width", result.source.width) &&
                       append_unsigned(&output, "height", result.source.height) &&
-                      append_unsigned(&output, "source_bytes", result.source_bytes) &&
-                      append_unsigned(&output, "p50_ns", result.p50_ns) &&
-                      append_unsigned(&output, "p95_ns", result.p95_ns) &&
-                      append_unsigned(&output, "p99_ns", result.p99_ns, false) && output.append('}') &&
-                      (index + 1U == results.size() || output.append(','));
+                      append_unsigned(&output, "source_bytes", result.source_bytes) && append_unsigned(&output, "p50_ns", result.p50_ns) &&
+                      append_unsigned(&output, "p95_ns", result.p95_ns) && append_unsigned(&output, "p99_ns", result.p99_ns, false) &&
+                      output.append('}') && (index + 1U == results.size() || output.append(','));
         }
-        written = written && output.append("],") && append_unsigned(&output, "qualified", qualified ? 1U : 0U, false) &&
-                  output.append("}\n");
+        written =
+            written && output.append("],") && append_unsigned(&output, "qualified", qualified ? 1U : 0U, false) && output.append("}\n");
         if (!written || output.truncated() ||
-            write(STDOUT_FILENO, output.view().data(), output.view().size()) !=
-                static_cast<ssize_t>(output.view().size())) {
+            write(STDOUT_FILENO, output.view().data(), output.view().size()) != static_cast<ssize_t>(output.view().size())) {
             return to_process_exit_code(ExitCode::output_failure);
         }
         return to_process_exit_code(qualified ? ExitCode::success : ExitCode::performance_failure);

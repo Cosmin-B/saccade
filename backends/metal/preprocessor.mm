@@ -74,14 +74,12 @@ bool required_output_bytes(const TensorSpec& spec, size_t* output) noexcept {
     if (output == nullptr || spec.format == TensorFormat::direct_texture) {
         return false;
     }
-    const size_t element_bytes =
-        spec.format == TensorFormat::planar_fp16 ? 2U : (spec.format == TensorFormat::image_bgra8 ? 4U : 1U);
+    const size_t element_bytes = spec.format == TensorFormat::planar_fp16 ? 2U : (spec.format == TensorFormat::image_bgra8 ? 4U : 1U);
     const size_t width = spec.width;
     const size_t height = spec.height;
     const size_t channels = spec.format == TensorFormat::image_bgra8 ? 1U : 3U;
     const size_t maximum = std::numeric_limits<size_t>::max();
-    if (width > maximum / height || width * height > maximum / channels ||
-        width * height * channels > maximum / element_bytes) {
+    if (width > maximum / height || width * height > maximum / channels || width * height * channels > maximum / element_bytes) {
         return false;
     }
 
@@ -182,27 +180,28 @@ struct ImagePreprocessor::Impl {
         }
         NSString* name = spec_.format == TensorFormat::planar_fp16
                              ? @"saccade_preprocess_fp16"
-                             : (spec_.format == TensorFormat::planar_int8 ? @"saccade_preprocess_int8"
-                                                                          : @"saccade_preprocess_bgra8");
+                             : (spec_.format == TensorFormat::planar_int8 ? @"saccade_preprocess_int8" : @"saccade_preprocess_bgra8");
         id<MTLFunction> function = [library_ newFunctionWithName:name];
         if (function == nil) {
             return false;
         }
         pipeline_ = [device_ newComputePipelineStateWithFunction:function error:&error];
-        if (pipeline_ == nil) return false;
-        if (spec_.format != TensorFormat::image_bgra8) return true;
+        if (pipeline_ == nil)
+            return false;
+        if (spec_.format != TensorFormat::image_bgra8)
+            return true;
 
         id<MTLFunction> clear_function = [library_ newFunctionWithName:@"saccade_preprocess_clear_bgra8"];
         id<MTLFunction> atlas_function = [library_ newFunctionWithName:@"saccade_preprocess_atlas_bgra8"];
-        if (clear_function == nil || atlas_function == nil) return false;
+        if (clear_function == nil || atlas_function == nil)
+            return false;
         atlas_clear_pipeline_ = [device_ newComputePipelineStateWithFunction:clear_function error:&error];
         atlas_pipeline_ = [device_ newComputePipelineStateWithFunction:atlas_function error:&error];
         return atlas_clear_pipeline_ != nil && atlas_pipeline_ != nil;
     }
 
     bool create_output_image() noexcept {
-        if (CVMetalTextureCacheCreate(kCFAllocatorDefault, nullptr, device_, nullptr, &texture_cache_) !=
-            kCVReturnSuccess) {
+        if (CVMetalTextureCacheCreate(kCFAllocatorDefault, nullptr, device_, nullptr, &texture_cache_) != kCVReturnSuccess) {
             return false;
         }
         NSDictionary* pixel_attributes = @{
@@ -210,31 +209,31 @@ struct ImagePreprocessor::Impl {
             (__bridge NSString*)kCVPixelBufferMetalCompatibilityKey : @YES
         };
         if (CVPixelBufferCreate(kCFAllocatorDefault, spec_.width, spec_.height, kCVPixelFormatType_32BGRA,
-                                (__bridge CFDictionaryRef)pixel_attributes,
-                                &output_pixel_buffer_) != kCVReturnSuccess) {
+                                (__bridge CFDictionaryRef)pixel_attributes, &output_pixel_buffer_) != kCVReturnSuccess) {
             return false;
         }
         NSDictionary* texture_attributes =
             @{(__bridge NSString*)kCVMetalTextureUsage : @(MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite)};
-        if (CVMetalTextureCacheCreateTextureFromImage(
-                kCFAllocatorDefault, texture_cache_, output_pixel_buffer_, (__bridge CFDictionaryRef)texture_attributes,
-                MTLPixelFormatBGRA8Unorm, spec_.width, spec_.height, 0, &output_cv_texture_) != kCVReturnSuccess ||
+        if (CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, texture_cache_, output_pixel_buffer_,
+                                                      (__bridge CFDictionaryRef)texture_attributes, MTLPixelFormatBGRA8Unorm, spec_.width,
+                                                      spec_.height, 0, &output_cv_texture_) != kCVReturnSuccess ||
             output_cv_texture_ == nullptr) {
             return false;
         }
         output_texture_ = CVMetalTextureGetTexture(output_cv_texture_);
         IOSurfaceRef surface = CVPixelBufferGetIOSurface(output_pixel_buffer_);
-        if (output_texture_ == nil || surface == nullptr) return false;
+        if (output_texture_ == nil || surface == nullptr)
+            return false;
         output_bytes_ = IOSurfaceGetAllocSize(surface);
         return output_bytes_ != 0;
     }
 
     bool create_resources() noexcept {
         constexpr MTLResourceOptions options = MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked;
-        const size_t parameter_bytes =
-            spec_.format == TensorFormat::image_bgra8 ? atlas_parameter_bytes : sizeof(PreprocessParameters);
+        const size_t parameter_bytes = spec_.format == TensorFormat::image_bgra8 ? atlas_parameter_bytes : sizeof(PreprocessParameters);
         parameters_ = [device_ newBufferWithLength:parameter_bytes options:options];
-        if (parameters_ == nil) return false;
+        if (parameters_ == nil)
+            return false;
         if (spec_.format == TensorFormat::image_bgra8) {
             return create_output_image();
         }
@@ -257,7 +256,8 @@ struct ImagePreprocessor::Impl {
         if (spec_.format == TensorFormat::image_bgra8) {
             for (uint32_t index = 0; index < atlas_argument_tables4_.size(); ++index) {
                 atlas_argument_tables4_[index] = [device_ newArgumentTableWithDescriptor:table_descriptor error:nil];
-                if (atlas_argument_tables4_[index] == nil) return false;
+                if (atlas_argument_tables4_[index] == nil)
+                    return false;
             }
         }
         allocator4_ = [device_ newCommandAllocator];
@@ -265,8 +265,7 @@ struct ImagePreprocessor::Impl {
         MTLResidencySetDescriptor* residency_descriptor = [[MTLResidencySetDescriptor alloc] init];
         residency_descriptor.initialCapacity = atlas_source_capacity + 2U;
         residency_set4_ = [device_ newResidencySetWithDescriptor:residency_descriptor error:nil];
-        if (queue4_ == nil || argument_table4_ == nil || allocator4_ == nil || command_buffer4_ == nil ||
-            residency_set4_ == nil) {
+        if (queue4_ == nil || argument_table4_ == nil || allocator4_ == nil || command_buffer4_ == nil || residency_set4_ == nil) {
             return false;
         }
         [residency_set4_ addAllocation:parameters_];
@@ -288,10 +287,8 @@ struct ImagePreprocessor::Impl {
             [clear_table setAddress:parameters_.gpuAddress + atlas_clear_parameter_offset atIndex:0];
             [clear_table setTexture:output_texture_.gpuResourceID atIndex:1];
             for (uint32_t index = 0; index < atlas_source_capacity; ++index) {
-                id<MTL4ArgumentTable> atlas_table =
-                    static_cast<id<MTL4ArgumentTable>>(atlas_argument_tables4_[index + 1U]);
-                [atlas_table setAddress:parameters_.gpuAddress + atlas_parameter_offset + index * parameter_stride
-                                atIndex:0];
+                id<MTL4ArgumentTable> atlas_table = static_cast<id<MTL4ArgumentTable>>(atlas_argument_tables4_[index + 1U]);
+                [atlas_table setAddress:parameters_.gpuAddress + atlas_parameter_offset + index * parameter_stride atIndex:0];
                 [atlas_table setTexture:output_texture_.gpuResourceID atIndex:1];
             }
         }
@@ -318,8 +315,7 @@ struct ImagePreprocessor::Impl {
 
     bool idle() const noexcept { return sequence_ == 0 || completion_event_.signaledValue >= sequence_; }
 
-    PreprocessParameters make_parameters(uint32_t source_width, uint32_t source_height,
-                                         SourceRegion region) const noexcept {
+    PreprocessParameters make_parameters(uint32_t source_width, uint32_t source_height, SourceRegion region) const noexcept {
         if (region.width == 0 || region.height == 0) {
             region = {0, 0, source_width, source_height};
         }
@@ -332,8 +328,8 @@ struct ImagePreprocessor::Impl {
         const float content_height = std::max(1.0F, std::floor(region_height * scale));
         PreprocessParameters result{};
         result.source_rect = {static_cast<float>(region.x), static_cast<float>(region.y), region_width, region_height};
-        result.content_rect = {std::floor((output_width - content_width) * 0.5F),
-                               std::floor((output_height - content_height) * 0.5F), content_width, content_height};
+        result.content_rect = {std::floor((output_width - content_width) * 0.5F), std::floor((output_height - content_height) * 0.5F),
+                               content_width, content_height};
         result.channel_scale = {spec_.channel_scale[0], spec_.channel_scale[1], spec_.channel_scale[2], 0.0F};
         result.channel_bias = {spec_.channel_bias[0], spec_.channel_bias[1], spec_.channel_bias[2], 0.0F};
         result.letterbox_rgb = {spec_.letterbox_rgb[0], spec_.letterbox_rgb[1], spec_.letterbox_rgb[2], 0.0F};
@@ -344,8 +340,8 @@ struct ImagePreprocessor::Impl {
     AtlasClearParameters make_atlas_clear_parameters() const noexcept {
         AtlasClearParameters result{};
         for (uint32_t channel = 0; channel < 3; ++channel) {
-            result.color[channel] = std::clamp(
-                spec_.letterbox_rgb[channel] * spec_.channel_scale[channel] + spec_.channel_bias[channel], 0.0F, 1.0F);
+            result.color[channel] =
+                std::clamp(spec_.letterbox_rgb[channel] * spec_.channel_scale[channel] + spec_.channel_bias[channel], 0.0F, 1.0F);
         }
         result.color[3] = 1.0F;
         result.output_size = {spec_.width, spec_.height};
@@ -358,13 +354,11 @@ struct ImagePreprocessor::Impl {
                               static_cast<float>(source.source.width), static_cast<float>(source.source.height)};
         result.channel_scale = {spec_.channel_scale[0], spec_.channel_scale[1], spec_.channel_scale[2], 0.0F};
         result.channel_bias = {spec_.channel_bias[0], spec_.channel_bias[1], spec_.channel_bias[2], 0.0F};
-        result.destination_rect = {source.destination.x, source.destination.y, source.destination.width,
-                                   source.destination.height};
+        result.destination_rect = {source.destination.x, source.destination.y, source.destination.width, source.destination.height};
         return result;
     }
 
-    bool replace_resident_sources4(id<MTLTexture> __strong const* textures, uint32_t count) noexcept
-        API_AVAILABLE(macos(26.0)) {
+    bool replace_resident_sources4(id<MTLTexture> __strong const* textures, uint32_t count) noexcept API_AVAILABLE(macos(26.0)) {
         for (uint32_t index = 0; index < source_texture_count_; ++index) {
             id<MTLTexture> texture = source_textures_[index];
             if (texture != nil && [residency_set4_ containsAllocation:texture]) {
@@ -423,8 +417,7 @@ struct ImagePreprocessor::Impl {
         id<MTL4ComputeCommandEncoder> encoder = [command_buffer computeCommandEncoder];
         [encoder setArgumentTable:argument_table4_];
         [encoder setComputePipelineState:pipeline_];
-        [encoder dispatchThreads:MTLSizeMake(spec_.width, spec_.height, 1)
-            threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+        [encoder dispatchThreads:MTLSizeMake(spec_.width, spec_.height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
         [encoder endEncoding];
         [command_buffer endCommandBuffer];
         id<MTL4CommandBuffer> buffers[] = {command_buffer};
@@ -435,9 +428,11 @@ struct ImagePreprocessor::Impl {
 
     bool encode_atlas_metal3(const AtlasSource* sources, uint32_t source_count, AtlasLoad load) noexcept {
         command_buffer3_ = [queue3_ commandBuffer];
-        if (command_buffer3_ == nil) return false;
+        if (command_buffer3_ == nil)
+            return false;
         id<MTLComputeCommandEncoder> encoder = [command_buffer3_ computeCommandEncoder];
-        if (encoder == nil) return false;
+        if (encoder == nil)
+            return false;
 
         const MTLSize threads = MTLSizeMake(16, 16, 1);
         [encoder setTexture:output_texture_ atIndex:1];
@@ -465,8 +460,7 @@ struct ImagePreprocessor::Impl {
         return true;
     }
 
-    bool encode_atlas_metal4(const AtlasSource* sources, uint32_t source_count, AtlasLoad load) noexcept
-        API_AVAILABLE(macos(26.0)) {
+    bool encode_atlas_metal4(const AtlasSource* sources, uint32_t source_count, AtlasLoad load) noexcept API_AVAILABLE(macos(26.0)) {
         std::array<id<MTLTexture>, atlas_source_capacity> textures{};
         for (uint32_t index = 0; index < source_count; ++index) {
             textures[index] = (__bridge id<MTLTexture>)sources[index].texture;
@@ -474,7 +468,8 @@ struct ImagePreprocessor::Impl {
             [table setTexture:textures[index].gpuResourceID atIndex:0];
         }
         replace_resident_sources4(textures.data(), source_count);
-        if (sequence_ > 1) [allocator4_ reset];
+        if (sequence_ > 1)
+            [allocator4_ reset];
 
         id<MTL4CommandBuffer> command_buffer = static_cast<id<MTL4CommandBuffer>>(command_buffer4_);
         [command_buffer beginCommandBufferWithAllocator:allocator4_];
@@ -538,8 +533,7 @@ SaccadeResult ImagePreprocessor::initialize(void* metal_device, const char* meta
                                             const TensorSpec& spec) noexcept {
     Impl& state = impl();
     if (metal_device == nullptr || !tensor_spec_valid(spec) ||
-        (preference != PathPreference::automatic && preference != PathPreference::metal3 &&
-         preference != PathPreference::metal4)) {
+        (preference != PathPreference::automatic && preference != PathPreference::metal3 && preference != PathPreference::metal4)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (state.initialized_) {
@@ -555,8 +549,7 @@ SaccadeResult ImagePreprocessor::initialize(void* metal_device, const char* meta
         if (preference == PathPreference::metal4 && !supports_metal4) {
             return SACCADE_ERROR_UNSUPPORTED;
         }
-        state.stats_.path =
-            preference == PathPreference::metal3 ? Path::metal3 : (supports_metal4 ? Path::metal4 : Path::metal3);
+        state.stats_.path = preference == PathPreference::metal3 ? Path::metal3 : (supports_metal4 ? Path::metal4 : Path::metal3);
         state.initialized_ = true;
         return SACCADE_OK;
     }
@@ -570,8 +563,7 @@ SaccadeResult ImagePreprocessor::initialize(void* metal_device, const char* meta
     if (!state.create_resources() || !state.create_pipeline(metallib_path)) {
         return SACCADE_ERROR_BACKEND;
     }
-    const bool use_metal4 =
-        preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
+    const bool use_metal4 = preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
     if (use_metal4) {
         if (@available(macOS 26.0, *)) {
             if (!state.create_metal4()) {
@@ -607,8 +599,7 @@ SaccadeResult ImagePreprocessor::initialize(void* metal_device, const char* meta
 SaccadeResult ImagePreprocessor::direct_texture(void* texture_pointer, uint32_t width, uint32_t height,
                                                 DirectTextureView* output) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || state.spec_.format != TensorFormat::direct_texture || output == nullptr ||
-        texture_pointer == nullptr) {
+    if (!state.initialized_ || state.spec_.format != TensorFormat::direct_texture || output == nullptr || texture_pointer == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     id<MTLTexture> texture = (__bridge id<MTLTexture>)texture_pointer;
@@ -620,12 +611,11 @@ SaccadeResult ImagePreprocessor::direct_texture(void* texture_pointer, uint32_t 
     return SACCADE_OK;
 }
 
-SaccadeResult ImagePreprocessor::submit(void* texture_pointer, uint32_t width, uint32_t height, SourceRegion region,
-                                        uint64_t frame_id, uint64_t transform_epoch,
-                                        PreprocessSubmission* output) noexcept {
+SaccadeResult ImagePreprocessor::submit(void* texture_pointer, uint32_t width, uint32_t height, SourceRegion region, uint64_t frame_id,
+                                        uint64_t transform_epoch, PreprocessSubmission* output) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || state.spec_.format == TensorFormat::direct_texture || texture_pointer == nullptr ||
-        output == nullptr || frame_id == 0 || transform_epoch == 0) {
+    if (!state.initialized_ || state.spec_.format == TensorFormat::direct_texture || texture_pointer == nullptr || output == nullptr ||
+        frame_id == 0 || transform_epoch == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     id<MTLTexture> texture = (__bridge id<MTLTexture>)texture_pointer;
@@ -649,11 +639,9 @@ SaccadeResult ImagePreprocessor::submit(void* texture_pointer, uint32_t width, u
         return SACCADE_ERROR_CAPACITY;
     }
     const PreprocessParameters parameters = state.make_parameters(width, height, region);
-    state.content_region_ = {
-        static_cast<uint32_t>(parameters.content_rect[0]), static_cast<uint32_t>(parameters.content_rect[1]),
-        static_cast<uint32_t>(parameters.content_rect[2]), static_cast<uint32_t>(parameters.content_rect[3])};
-    std::memcpy(static_cast<std::byte*>(state.parameters_.contents) + preprocess_parameter_offset, &parameters,
-                sizeof(parameters));
+    state.content_region_ = {static_cast<uint32_t>(parameters.content_rect[0]), static_cast<uint32_t>(parameters.content_rect[1]),
+                             static_cast<uint32_t>(parameters.content_rect[2]), static_cast<uint32_t>(parameters.content_rect[3])};
+    std::memcpy(static_cast<std::byte*>(state.parameters_.contents) + preprocess_parameter_offset, &parameters, sizeof(parameters));
     ++state.sequence_;
     state.frame_id_ = frame_id;
     state.transform_epoch_ = transform_epoch;
@@ -680,14 +668,12 @@ SaccadeResult ImagePreprocessor::submit(void* texture_pointer, uint32_t width, u
     return SACCADE_OK;
 }
 
-SaccadeResult ImagePreprocessor::submit_atlas(const AtlasSource* sources, uint32_t source_count, SourceRegion content,
-                                              AtlasLoad load, uint64_t frame_id, uint64_t transform_epoch,
-                                              PreprocessSubmission* output) noexcept {
+SaccadeResult ImagePreprocessor::submit_atlas(const AtlasSource* sources, uint32_t source_count, SourceRegion content, AtlasLoad load,
+                                              uint64_t frame_id, uint64_t transform_epoch, PreprocessSubmission* output) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || state.spec_.format != TensorFormat::image_bgra8 || sources == nullptr ||
-        source_count == 0 || source_count > atlas_source_capacity || output == nullptr || frame_id == 0 ||
-        transform_epoch == 0 || (load != AtlasLoad::clear && load != AtlasLoad::preserve) ||
-        !region_valid(content, state.spec_.width, state.spec_.height)) {
+    if (!state.initialized_ || state.spec_.format != TensorFormat::image_bgra8 || sources == nullptr || source_count == 0 ||
+        source_count > atlas_source_capacity || output == nullptr || frame_id == 0 || transform_epoch == 0 ||
+        (load != AtlasLoad::clear && load != AtlasLoad::preserve) || !region_valid(content, state.spec_.width, state.spec_.height)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
@@ -700,9 +686,8 @@ SaccadeResult ImagePreprocessor::submit_atlas(const AtlasSource* sources, uint32
         const uint64_t destination_bottom = static_cast<uint64_t>(source.destination.y) + source.destination.height;
         if (!state.texture_valid(texture, source.texture_width, source.texture_height) ||
             !region_valid(source.source, source.texture_width, source.texture_height) ||
-            !region_valid(source.destination, state.spec_.width, state.spec_.height) ||
-            source.destination.x < content.x || source.destination.y < content.y || destination_right > content_right ||
-            destination_bottom > content_bottom) {
+            !region_valid(source.destination, state.spec_.width, state.spec_.height) || source.destination.x < content.x ||
+            source.destination.y < content.y || destination_right > content_right || destination_bottom > content_bottom) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
     }
@@ -712,15 +697,15 @@ SaccadeResult ImagePreprocessor::submit_atlas(const AtlasSource* sources, uint32
         ++state.stats_.busy_submissions;
         return SACCADE_ERROR_BUSY;
     }
-    if (state.sequence_ == std::numeric_limits<uint64_t>::max()) return SACCADE_ERROR_CAPACITY;
+    if (state.sequence_ == std::numeric_limits<uint64_t>::max())
+        return SACCADE_ERROR_CAPACITY;
 
     auto* parameter_bytes = static_cast<std::byte*>(state.parameters_.contents);
     const AtlasClearParameters clear_parameters = state.make_atlas_clear_parameters();
     std::memcpy(parameter_bytes + atlas_clear_parameter_offset, &clear_parameters, sizeof(clear_parameters));
     for (uint32_t index = 0; index < source_count; ++index) {
         const AtlasParameters parameters = state.make_atlas_parameters(sources[index]);
-        std::memcpy(parameter_bytes + atlas_parameter_offset + index * parameter_stride, &parameters,
-                    sizeof(parameters));
+        std::memcpy(parameter_bytes + atlas_parameter_offset + index * parameter_stride, &parameters, sizeof(parameters));
     }
 
     state.content_region_ = content;
@@ -782,8 +767,7 @@ SaccadeResult ImagePreprocessor::wait(const PreprocessSubmission& submission, ui
         if (timeout_ns == 0) {
             return SACCADE_ERROR_TIMEOUT;
         }
-        const auto elapsed =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin);
+        const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin);
         if (static_cast<uint64_t>(elapsed.count()) >= timeout_ns) {
             return SACCADE_ERROR_TIMEOUT;
         }
@@ -806,13 +790,8 @@ SaccadeResult ImagePreprocessor::tensor(const PreprocessSubmission& submission, 
     }
     const size_t element_bytes = state.spec_.format == TensorFormat::planar_fp16 ? 2U : 1U;
     const size_t plane_stride = static_cast<size_t>(state.spec_.width) * state.spec_.height * element_bytes;
-    *output = {(__bridge void*)state.output_,
-               state.output_bytes_,
-               plane_stride,
-               state.spec_.width,
-               state.spec_.height,
-               state.spec_.format,
-               3};
+    *output =
+        {(__bridge void*)state.output_, state.output_bytes_, plane_stride, state.spec_.width, state.spec_.height, state.spec_.format, 3};
     return SACCADE_OK;
 }
 
@@ -823,10 +802,13 @@ SaccadeResult ImagePreprocessor::image(const PreprocessSubmission& submission, I
     }
     bool complete = false;
     const SaccadeResult result = poll(submission, &complete);
-    if (result != SACCADE_OK) return result;
-    if (!complete) return SACCADE_ERROR_BUSY;
+    if (result != SACCADE_OK)
+        return result;
+    if (!complete)
+        return SACCADE_ERROR_BUSY;
     IOSurfaceRef surface = CVPixelBufferGetIOSurface(state.output_pixel_buffer_);
-    if (surface == nullptr) return SACCADE_ERROR_BACKEND;
+    if (surface == nullptr)
+        return SACCADE_ERROR_BACKEND;
     *output = {state.output_pixel_buffer_,
                (__bridge void*)state.output_texture_,
                IOSurfaceGetID(surface),

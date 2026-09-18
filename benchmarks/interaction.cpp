@@ -64,8 +64,8 @@ void make_scene(SceneStorage* storage) noexcept {
         target.safe_y_q8 = target.y_q8 + 96;
         target.confidence_q16 = UINT16_MAX;
         target.source_bits = SACCADE_TARGET_SOURCE_NEURAL;
-        target.capability_bits = SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
-                                 SACCADE_TARGET_CAPABILITY_SCROLL;
+        target.capability_bits =
+            SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_SCROLL;
         target.flags = SACCADE_TARGET_ACTIONABLE;
         target.order = index;
     }
@@ -77,8 +77,7 @@ template <typename Operation> uint64_t measure(uint32_t iterations, Operation op
         benchmark_sink += operation();
     }
     const auto end = std::chrono::steady_clock::now();
-    const uint64_t elapsed =
-        static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+    const uint64_t elapsed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
     return elapsed / iterations;
 }
 
@@ -96,8 +95,7 @@ int main() {
     static saccade::interaction::ActionPlanStorage plan_storage;
     make_scene(&scene_storage);
     saccade::scene::PacketView scene{};
-    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) !=
-        SACCADE_OK) {
+    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) != SACCADE_OK) {
         return to_process_exit_code(ExitCode::packet_failure);
     }
 
@@ -134,8 +132,7 @@ int main() {
     saccade::interaction::SelectionContext selection_context{1, 5, 6, 1, 1000};
     saccade::interaction::SelectionReducer selection;
     const uint64_t path_ns = measure(10000, [&]() noexcept -> uint64_t {
-        if (selection.begin(scene, saccade::interaction::SelectionMode::path, selection_context, &selection_storage) !=
-                SACCADE_OK ||
+        if (selection.begin(scene, saccade::interaction::SelectionMode::path, selection_context, &selection_storage) != SACCADE_OK ||
             selection.select(1) != SACCADE_OK || selection.select(64) != SACCADE_OK) {
             return 0;
         }

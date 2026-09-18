@@ -8,8 +8,7 @@
 namespace {
 
 constexpr uint32_t target_count = saccade::application::maximum_debug_target_samples + 1U;
-constexpr size_t packet_size =
-    sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(target_count) * sizeof(SaccadeTargetRecord);
+constexpr size_t packet_size = sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(target_count) * sizeof(SaccadeTargetRecord);
 
 enum ExitCode : int {
     initialize_failed = 1,
@@ -82,7 +81,8 @@ int main() {
     std::array<uint8_t, packet_size> bytes{};
     make_scene(&bytes);
     saccade::scene::PacketView scene{};
-    if (saccade::scene::validate_packet({bytes.data(), bytes.size()}, &scene) != SACCADE_OK) return capture_failed;
+    if (saccade::scene::validate_packet({bytes.data(), bytes.size()}, &scene) != SACCADE_OK)
+        return capture_failed;
 
     saccade::application::DebuggerTransformRecord transform{};
     transform.source_id = 17;
@@ -108,8 +108,10 @@ int main() {
     saccade::test::begin_allocation_tracking();
     const SaccadeResult captured = debugger.capture_scene(scene, capture);
     const size_t capture_allocations = saccade::test::end_allocation_tracking();
-    if (captured != SACCADE_OK) return capture_failed;
-    if (capture_allocations != 0) return capture_allocated;
+    if (captured != SACCADE_OK)
+        return capture_failed;
+    if (capture_allocations != 0)
+        return capture_allocated;
 
     const saccade::application::DebuggerFramesTransformsView frame_view = debugger.frames_transforms();
     if (frame_view.frame.scene.frame_id != 12 || frame_view.frame.scene.target_count != target_count ||
@@ -124,14 +126,12 @@ int main() {
     if (scene_view.scene.scene_epoch != 11 || scene_view.timestamp_ns != capture.timestamp_ns ||
         scene_view.targets.target_count != target_count || scene_view.targets.actionable != target_count - 1U ||
         scene_view.targets.disabled != 1 || scene_view.targets.occluded != 1 || scene_view.targets.secure != 1 ||
-        scene_view.targets.approximate != 1 || scene_view.targets.neural != target_count - 1U ||
-        scene_view.targets.accessibility != 2 || scene_view.targets.fused != 1 ||
-        scene_view.targets.roles[SACCADE_TARGET_ROLE_BUTTON] != target_count - 2U ||
-        scene_view.sample_count != saccade::application::maximum_debug_target_samples ||
-        scene_view.samples_omitted != 1 || scene_view.samples[0].target_id != 101 ||
+        scene_view.targets.approximate != 1 || scene_view.targets.neural != target_count - 1U || scene_view.targets.accessibility != 2 ||
+        scene_view.targets.fused != 1 || scene_view.targets.roles[SACCADE_TARGET_ROLE_BUTTON] != target_count - 2U ||
+        scene_view.sample_count != saccade::application::maximum_debug_target_samples || scene_view.samples_omitted != 1 ||
+        scene_view.samples[0].target_id != 101 ||
         scene_view.samples.back().target_id != 101U + saccade::application::maximum_debug_target_samples - 1U ||
-        scene_view.fusion_input_count != 2 || scene_view.fusion.packets_read != 2 ||
-        scene_view.fusion.targets_written != target_count) {
+        scene_view.fusion_input_count != 2 || scene_view.fusion.packets_read != 2 || scene_view.fusion.targets_written != target_count) {
         return scene_view_failed;
     }
 
@@ -173,21 +173,21 @@ int main() {
         dry_run.plan.header->command_count != 1 || dry_run.plan.commands[0].target_id != target_id)
         return dry_run_failed;
     const size_t allocation_count = saccade::test::end_allocation_tracking();
-    if (allocation_count != 0) return dry_run_allocated;
+    if (allocation_count != 0)
+        return dry_run_allocated;
 
     saccade::application::DebuggerPlanView replay{};
     if (debugger.replay(&replay) != SACCADE_OK || replay.bytes.size != dry_run.bytes.size ||
         std::memcmp(replay.bytes.data, dry_run.bytes.data, replay.bytes.size) != 0)
         return replay_failed;
     const saccade::application::DebuggerStats stats = debugger.stats();
-    if (stats.scenes_captured != 1 || stats.scene_bytes_copied != bytes.size() || stats.dry_runs != 1 ||
-        stats.replays != 1 || stats.replay_mismatches != 0 ||
+    if (stats.scenes_captured != 1 || stats.scene_bytes_copied != bytes.size() || stats.dry_runs != 1 || stats.replays != 1 ||
+        stats.replay_mismatches != 0 ||
         debugger.arm_fault(saccade::application::DebugFaultPoint::capture, 2, SACCADE_ERROR_BACKEND) != SACCADE_OK ||
         debugger.consume_fault(saccade::application::DebugFaultPoint::capture) != SACCADE_ERROR_BACKEND ||
         debugger.consume_fault(saccade::application::DebugFaultPoint::capture) != SACCADE_ERROR_BACKEND ||
         debugger.consume_fault(saccade::application::DebugFaultPoint::capture) != SACCADE_OK ||
-        debugger.arm_fault(saccade::application::DebugFaultPoint::capture, 17, SACCADE_ERROR_BACKEND) !=
-            SACCADE_ERROR_INVALID_ARGUMENT ||
+        debugger.arm_fault(saccade::application::DebugFaultPoint::capture, 17, SACCADE_ERROR_BACKEND) != SACCADE_ERROR_INVALID_ARGUMENT ||
         debugger.clear() != SACCADE_OK || debugger.has_scene() || debugger.has_plan() ||
         debugger.frames_transforms().frame.scene.struct_size != 0 || debugger.scene_fusion().scene.struct_size != 0)
         return final_state_failed;

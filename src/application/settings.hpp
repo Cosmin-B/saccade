@@ -29,22 +29,8 @@ enum class HintSorting : uint32_t { sorted = 0, randomized = 1 };
 enum class MergePolicy : uint32_t { balanced = 0, text_first = 1, controls_first = 2, disabled = 3 };
 enum class FinalPointerPosition : uint32_t { target = 0, original = 1, anchor = 2 };
 enum class Theme : uint32_t { system = 0, high_contrast = 1, light = 2, dark = 3, custom = 4 };
-enum class ComputePolicy : uint32_t {
-    automatic = 0,
-    cpu_only = 1,
-    cpu_and_gpu = 2,
-    cpu_and_accelerator = 3,
-    named_device = 4
-};
-enum class SettingsPage : uint32_t {
-    bindings = 0,
-    hints = 1,
-    detector = 2,
-    scope = 3,
-    pointer = 4,
-    appearance = 5,
-    compute = 6
-};
+enum class ComputePolicy : uint32_t { automatic = 0, cpu_only = 1, cpu_and_gpu = 2, cpu_and_accelerator = 3, named_device = 4 };
+enum class SettingsPage : uint32_t { bindings = 0, hints = 1, detector = 2, scope = 3, pointer = 4, appearance = 5, compute = 6 };
 
 enum : uint32_t { settings_animate_overlay = UINT32_C(1) << 0, settings_reduced_motion = UINT32_C(1) << 1 };
 
@@ -128,11 +114,10 @@ struct SettingsDocument {
 };
 
 SettingsDocument default_settings() noexcept;
-SaccadeOverlayStyle resolve_overlay_style(const AppearanceSettings&, uint32_t settings_flags,
-                                          bool dark_system_theme) noexcept;
-InteractionProfile make_interaction_profile(const SettingsDocument&, const HintSettings& resolved_hints,
-                                            int32_t pointer_x_q8, int32_t pointer_y_q8, int32_t scope_center_x_q8,
-                                            int32_t scope_center_y_q8, uint64_t random_seed) noexcept;
+SaccadeOverlayStyle resolve_overlay_style(const AppearanceSettings&, uint32_t settings_flags, bool dark_system_theme) noexcept;
+InteractionProfile make_interaction_profile(const SettingsDocument&, const HintSettings& resolved_hints, int32_t pointer_x_q8,
+                                            int32_t pointer_y_q8, int32_t scope_center_x_q8, int32_t scope_center_y_q8,
+                                            uint64_t random_seed) noexcept;
 SaccadeResult resolve_hint_alphabet(const HintSettings&, const uint16_t* translated_symbols, HintSettings*) noexcept;
 SaccadeResult set_hint_alphabet(HintSettings*, const uint16_t* symbols, uint32_t symbol_count) noexcept;
 SaccadeResult validate_settings(const SettingsDocument&) noexcept;

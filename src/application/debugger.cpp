@@ -6,12 +6,11 @@
 namespace saccade::application {
 namespace {
 
-constexpr uint16_t target_source_mask = SACCADE_TARGET_SOURCE_NEURAL | SACCADE_TARGET_SOURCE_ACCESSIBILITY |
-                                        SACCADE_TARGET_SOURCE_PIXEL | SACCADE_TARGET_SOURCE_GRID;
+constexpr uint16_t target_source_mask =
+    SACCADE_TARGET_SOURCE_NEURAL | SACCADE_TARGET_SOURCE_ACCESSIBILITY | SACCADE_TARGET_SOURCE_PIXEL | SACCADE_TARGET_SOURCE_GRID;
 
 bool capture_context_valid(const DebuggerCaptureContext& context, uint64_t transform_epoch) noexcept {
-    if ((context.transform_count == 0) != (context.transforms == nullptr) ||
-        context.transform_count > maximum_debug_transforms ||
+    if ((context.transform_count == 0) != (context.transforms == nullptr) || context.transform_count > maximum_debug_transforms ||
         (context.fusion_input_count == 0) != (context.fusion == nullptr) || context.fusion_input_count > 4) {
         return false;
     }
@@ -74,8 +73,10 @@ SaccadeResult Debugger::reject(SaccadeResult result) noexcept {
 }
 
 SaccadeResult Debugger::initialize(DebuggerStorage* storage) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (storage == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (storage == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     storage_ = storage;
     initialized_ = true;
     return SACCADE_OK;
@@ -86,7 +87,8 @@ SaccadeResult Debugger::capture_scene(const scene::PacketView& source) noexcept 
 }
 
 SaccadeResult Debugger::capture_scene(const scene::PacketView& source, const DebuggerCaptureContext& context) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     if (source.header == nullptr || source.targets == nullptr || source.byte_size < sizeof(SaccadeTargetPacketHeader) ||
         source.byte_size > storage_->scene.size() || !capture_context_valid(context, source.header->transform_epoch)) {
         return reject(SACCADE_ERROR_INVALID_ARGUMENT);
@@ -95,7 +97,8 @@ SaccadeResult Debugger::capture_scene(const scene::PacketView& source, const Deb
     std::memcpy(storage_->scene.data(), source.header, source.byte_size);
     scene::PacketView captured{};
     const SaccadeResult result = scene::validate_packet({storage_->scene.data(), source.byte_size}, &captured);
-    if (result != SACCADE_OK) return reject(result);
+    if (result != SACCADE_OK)
+        return reject(result);
 
     DebuggerFramesTransformsView frames_transforms{};
     frames_transforms.frame.scene = *captured.header;
@@ -109,15 +112,16 @@ SaccadeResult Debugger::capture_scene(const scene::PacketView& source, const Deb
     scene_fusion.scene = *captured.header;
     scene_fusion.timestamp_ns = context.timestamp_ns;
     scene_fusion.fusion_input_count = context.fusion_input_count;
-    if (context.fusion != nullptr) scene_fusion.fusion = *context.fusion;
-    scene_fusion.sample_count = captured.header->target_count > maximum_debug_target_samples
-                                    ? maximum_debug_target_samples
-                                    : captured.header->target_count;
+    if (context.fusion != nullptr)
+        scene_fusion.fusion = *context.fusion;
+    scene_fusion.sample_count =
+        captured.header->target_count > maximum_debug_target_samples ? maximum_debug_target_samples : captured.header->target_count;
     scene_fusion.samples_omitted = captured.header->target_count - scene_fusion.sample_count;
     for (uint32_t index = 0; index < captured.header->target_count; ++index) {
         const SaccadeTargetRecord& target = captured.targets[index];
         count_target(target, &scene_fusion.targets);
-        if (index < scene_fusion.sample_count) scene_fusion.samples[index] = target_sample(target);
+        if (index < scene_fusion.sample_count)
+            scene_fusion.samples[index] = target_sample(target);
     }
 
     scene_ = captured;
@@ -130,10 +134,9 @@ SaccadeResult Debugger::capture_scene(const scene::PacketView& source, const Deb
 }
 
 SaccadeResult Debugger::copy_request(const interaction::ActionRequest& source) noexcept {
-    if (source.target_count > interaction::maximum_action_targets ||
-        (source.target_count != 0 && source.target_ids == nullptr) ||
-        (source.target_point_count != 0 && source.target_points == nullptr) ||
-        source.text.size > storage_->text.size() || (source.text.size != 0 && source.text.data == nullptr))
+    if (source.target_count > interaction::maximum_action_targets || (source.target_count != 0 && source.target_ids == nullptr) ||
+        (source.target_point_count != 0 && source.target_points == nullptr) || source.text.size > storage_->text.size() ||
+        (source.text.size != 0 && source.text.data == nullptr))
         return SACCADE_ERROR_INVALID_ARGUMENT;
 
     request_ = source;
@@ -142,8 +145,7 @@ SaccadeResult Debugger::copy_request(const interaction::ActionRequest& source) n
         request_.target_ids = storage_->target_ids.data();
     }
     if (source.target_point_count != 0) {
-        std::memcpy(storage_->target_points.data(), source.target_points,
-                    source.target_point_count * sizeof(geometry::PointQ8));
+        std::memcpy(storage_->target_points.data(), source.target_points, source.target_point_count * sizeof(geometry::PointQ8));
         request_.target_points = storage_->target_points.data();
     }
     if (source.text.size != 0) {
@@ -155,20 +157,25 @@ SaccadeResult Debugger::copy_request(const interaction::ActionRequest& source) n
 
 SaccadeResult Debugger::dry_run(const interaction::ActionContext& context, const interaction::ActionRequest& request,
                                 DebuggerPlanView* output) noexcept {
-    if (!initialized_ || !has_scene()) return SACCADE_ERROR_STATE;
-    if (output == nullptr) return reject(SACCADE_ERROR_INVALID_ARGUMENT);
+    if (!initialized_ || !has_scene())
+        return SACCADE_ERROR_STATE;
+    if (output == nullptr)
+        return reject(SACCADE_ERROR_INVALID_ARGUMENT);
     *output = {};
 
     const SaccadeResult copied = copy_request(request);
-    if (copied != SACCADE_OK) return reject(copied);
+    if (copied != SACCADE_OK)
+        return reject(copied);
     context_ = context;
 
     SaccadeSpanU8 bytes{};
     const SaccadeResult built = planner_.build(scene_, context_, request_, &storage_->plan, &bytes);
-    if (built != SACCADE_OK) return reject(built);
+    if (built != SACCADE_OK)
+        return reject(built);
     input::PlanView plan{};
     const SaccadeResult validated = input::validate_plan(bytes, &plan);
-    if (validated != SACCADE_OK) return reject(validated);
+    if (validated != SACCADE_OK)
+        return reject(validated);
 
     plan_size_ = bytes.size;
     *output = {bytes, plan};
@@ -177,8 +184,10 @@ SaccadeResult Debugger::dry_run(const interaction::ActionContext& context, const
 }
 
 SaccadeResult Debugger::dry_run_first_click(uint64_t now_ns, DebuggerPlanView* output) noexcept {
-    if (!initialized_ || !has_scene()) return SACCADE_ERROR_STATE;
-    if (now_ns == 0 || now_ns > UINT64_MAX - UINT64_C(1'000'000'000)) return reject(SACCADE_ERROR_INVALID_ARGUMENT);
+    if (!initialized_ || !has_scene())
+        return SACCADE_ERROR_STATE;
+    if (now_ns == 0 || now_ns > UINT64_MAX - UINT64_C(1'000'000'000))
+        return reject(SACCADE_ERROR_INVALID_ARGUMENT);
 
     const SaccadeTargetRecord* target = nullptr;
     for (uint32_t index = 0; index < scene_.header->target_count; ++index) {
@@ -190,7 +199,8 @@ SaccadeResult Debugger::dry_run_first_click(uint64_t now_ns, DebuggerPlanView* o
             break;
         }
     }
-    if (target == nullptr) return reject(SACCADE_ERROR_NOT_FOUND);
+    if (target == nullptr)
+        return reject(SACCADE_ERROR_NOT_FOUND);
 
     interaction::ActionContext context{};
     context.plan_id = next_plan_id_++;
@@ -210,20 +220,24 @@ SaccadeResult Debugger::dry_run_first_click(uint64_t now_ns, DebuggerPlanView* o
 }
 
 SaccadeResult Debugger::replay(DebuggerPlanView* output) noexcept {
-    if (!initialized_ || !has_plan()) return SACCADE_ERROR_STATE;
-    if (output == nullptr) return reject(SACCADE_ERROR_INVALID_ARGUMENT);
+    if (!initialized_ || !has_plan())
+        return SACCADE_ERROR_STATE;
+    if (output == nullptr)
+        return reject(SACCADE_ERROR_INVALID_ARGUMENT);
     *output = {};
 
     SaccadeSpanU8 bytes{};
     const SaccadeResult built = planner_.build(scene_, context_, request_, &storage_->replay, &bytes);
-    if (built != SACCADE_OK) return reject(built);
+    if (built != SACCADE_OK)
+        return reject(built);
     if (bytes.size != plan_size_ || std::memcmp(storage_->plan.bytes.data(), bytes.data, plan_size_) != 0) {
         ++stats_.replay_mismatches;
         return SACCADE_ERROR_STATE;
     }
     input::PlanView plan{};
     const SaccadeResult validated = input::validate_plan(bytes, &plan);
-    if (validated != SACCADE_OK) return reject(validated);
+    if (validated != SACCADE_OK)
+        return reject(validated);
 
     *output = {bytes, plan};
     ++stats_.replays;
@@ -231,7 +245,8 @@ SaccadeResult Debugger::replay(DebuggerPlanView* output) noexcept {
 }
 
 SaccadeResult Debugger::arm_fault(DebugFaultPoint point, uint32_t count, SaccadeResult result) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     const uint32_t index = static_cast<uint32_t>(point);
     if (index >= debug_fault_point_count || count == 0 || count > maximum_debug_fault_injections ||
         (result != SACCADE_ERROR_BACKEND && result != SACCADE_ERROR_TIMEOUT && result != SACCADE_ERROR_CANCELLED &&
@@ -244,16 +259,19 @@ SaccadeResult Debugger::arm_fault(DebugFaultPoint point, uint32_t count, Saccade
 }
 
 SaccadeResult Debugger::consume_fault(DebugFaultPoint point) noexcept {
-    if (!initialized_) return SACCADE_OK;
+    if (!initialized_)
+        return SACCADE_OK;
     const uint32_t index = static_cast<uint32_t>(point);
-    if (index >= debug_fault_point_count || fault_remaining_[index] == 0) return SACCADE_OK;
+    if (index >= debug_fault_point_count || fault_remaining_[index] == 0)
+        return SACCADE_OK;
     --fault_remaining_[index];
     ++stats_.faults_injected;
     return fault_results_[index];
 }
 
 SaccadeResult Debugger::clear() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     scene_ = {};
     context_ = {};
     request_ = {};

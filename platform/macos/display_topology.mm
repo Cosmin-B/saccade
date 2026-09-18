@@ -163,8 +163,7 @@ SaccadeResult DisplayCollector::refresh(geometry::DisplayCatalog* catalog) noexc
         }
 
         const uint64_t previous_epoch = catalog->snapshot().epoch;
-        const uint32_t topology_flags =
-            NSScreen.screensHaveSeparateSpaces ? geometry::display_topology_separate_spaces : 0U;
+        const uint32_t topology_flags = NSScreen.screensHaveSeparateSpaces ? geometry::display_topology_separate_spaces : 0U;
         const SaccadeResult result = catalog->publish(displays.data(), static_cast<uint32_t>(count), topology_flags);
         if (result != SACCADE_OK) {
             ++stats_.failures;

@@ -35,7 +35,8 @@ struct P256ArtifactVerifier::Impl {
 
     static SaccadeResult verify(void* context, const ArtifactView& artifact) noexcept {
         auto* owner = static_cast<P256ArtifactVerifier*>(context);
-        if (owner == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (owner == nullptr)
+            return SACCADE_ERROR_INVALID_ARGUMENT;
         Impl& self = owner->impl();
         if (!self.initialized_ || artifact.signed_message.data == nullptr || artifact.signed_message.size == 0 ||
             artifact.signed_message.size > UINT32_MAX || artifact.signature.data == nullptr ||
@@ -44,12 +45,11 @@ struct P256ArtifactVerifier::Impl {
         }
         std::array<uint8_t, 32> digest{};
         NTSTATUS status = BCryptHash(self.sha256_, nullptr, 0, const_cast<PUCHAR>(artifact.signed_message.data),
-                                     static_cast<ULONG>(artifact.signed_message.size), digest.data(),
-                                     static_cast<ULONG>(digest.size()));
-        if (!success(status)) return SACCADE_ERROR_BACKEND;
+                                     static_cast<ULONG>(artifact.signed_message.size), digest.data(), static_cast<ULONG>(digest.size()));
+        if (!success(status))
+            return SACCADE_ERROR_BACKEND;
         status = BCryptVerifySignature(self.key_, nullptr, digest.data(), static_cast<ULONG>(digest.size()),
-                                       const_cast<PUCHAR>(artifact.signature.data),
-                                       static_cast<ULONG>(artifact.signature.size), 0);
+                                       const_cast<PUCHAR>(artifact.signature.data), static_cast<ULONG>(artifact.signature.size), 0);
         return success(status) ? SACCADE_OK : SACCADE_ERROR_PERMISSION;
     }
 
@@ -80,8 +80,10 @@ const P256ArtifactVerifier::Impl& P256ArtifactVerifier::impl() const noexcept {
 
 SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) noexcept {
     Impl& self = impl();
-    if (self.initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (!key_valid(public_key)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (self.initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (!key_valid(public_key))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     NTSTATUS status = BCryptOpenAlgorithmProvider(&self.ecdsa_, BCRYPT_ECDSA_P256_ALGORITHM, nullptr, 0);
     if (success(status)) {
         status = BCryptOpenAlgorithmProvider(&self.sha256_, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
@@ -91,8 +93,8 @@ SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) 
     blob.header_.cbKey = 32;
     blob.xy_ = public_key.xy;
     if (success(status)) {
-        status = BCryptImportKeyPair(self.ecdsa_, nullptr, BCRYPT_ECCPUBLIC_BLOB, &self.key_,
-                                     reinterpret_cast<PUCHAR>(&blob), sizeof(blob), 0);
+        status =
+            BCryptImportKeyPair(self.ecdsa_, nullptr, BCRYPT_ECCPUBLIC_BLOB, &self.key_, reinterpret_cast<PUCHAR>(&blob), sizeof(blob), 0);
     }
     if (!success(status)) {
         (void)shutdown();
@@ -104,9 +106,12 @@ SaccadeResult P256ArtifactVerifier::initialize(const P256PublicKey& public_key) 
 
 SaccadeResult P256ArtifactVerifier::shutdown() noexcept {
     Impl& self = impl();
-    if (self.key_ != nullptr) (void)BCryptDestroyKey(self.key_);
-    if (self.sha256_ != nullptr) (void)BCryptCloseAlgorithmProvider(self.sha256_, 0);
-    if (self.ecdsa_ != nullptr) (void)BCryptCloseAlgorithmProvider(self.ecdsa_, 0);
+    if (self.key_ != nullptr)
+        (void)BCryptDestroyKey(self.key_);
+    if (self.sha256_ != nullptr)
+        (void)BCryptCloseAlgorithmProvider(self.sha256_, 0);
+    if (self.ecdsa_ != nullptr)
+        (void)BCryptCloseAlgorithmProvider(self.ecdsa_, 0);
     self.key_ = nullptr;
     self.sha256_ = nullptr;
     self.ecdsa_ = nullptr;

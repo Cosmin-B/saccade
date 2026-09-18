@@ -83,8 +83,7 @@ class DesktopRuntime final {
     SaccadeResult set_source(SceneSource) noexcept;
     SaccadeResult set_scope(const geometry::RectQ8*) noexcept;
     SaccadeResult publish_grid(scene::GridSceneConfig, SceneCoordinatorAdvance*) noexcept;
-    SaccadeResult publish_windows(scene::WindowSceneConfig, const SaccadeWindowInfo*, uint32_t,
-                                  SceneCoordinatorAdvance*) noexcept;
+    SaccadeResult publish_windows(scene::WindowSceneConfig, const SaccadeWindowInfo*, uint32_t, SceneCoordinatorAdvance*) noexcept;
     SaccadeResult advance(uint64_t now_ns, DesktopRuntimeAdvance*) noexcept;
     SaccadeResult dispatch(Command, uint64_t now_ns, InteractionCommandResult*) noexcept;
     SaccadeResult enter_symbol(uint16_t, uint64_t now_ns, SessionEvent*) noexcept;

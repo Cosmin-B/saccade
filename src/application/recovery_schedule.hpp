@@ -40,8 +40,7 @@ class RecoverySchedule final {
   private:
     void schedule(uint64_t now_ns) noexcept {
         const uint64_t delay = std::min(recovery_initial_delay_ns << attempt_, recovery_maximum_delay_ns);
-        next_attempt_ns_ = now_ns > std::numeric_limits<uint64_t>::max() - delay ? std::numeric_limits<uint64_t>::max()
-                                                                                 : now_ns + delay;
+        next_attempt_ns_ = now_ns > std::numeric_limits<uint64_t>::max() - delay ? std::numeric_limits<uint64_t>::max() : now_ns + delay;
         pending_ = true;
     }
 

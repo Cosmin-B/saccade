@@ -106,9 +106,9 @@ typedef struct SaccadeWin32CaptureFrameDesc {
     uint64_t reserved[1];
 } SaccadeWin32CaptureFrameDesc;
 
-#define SACCADE_DETAIL_FRAME_IMPORT_TYPES(FIRST, NEXT)                                                                 \
-    FIRST(SaccadeHostFrameDesc, saccade_frame_import_host)                                                             \
-    NEXT(SaccadeIOSurfaceFrameDesc, saccade_frame_import_iosurface)                                                    \
+#define SACCADE_DETAIL_FRAME_IMPORT_TYPES(FIRST, NEXT)                                                                                     \
+    FIRST(SaccadeHostFrameDesc, saccade_frame_import_host)                                                                                 \
+    NEXT(SaccadeIOSurfaceFrameDesc, saccade_frame_import_iosurface)                                                                        \
     NEXT(SaccadeWin32CaptureFrameDesc, saccade_frame_import_win32_capture)
 
 #ifdef __cplusplus
@@ -124,8 +124,7 @@ SACCADE_API SaccadeSpanU8 SACCADE_CALL saccade_last_error(void);
 /* Creates a runtime and writes its owned handle to out_runtime. Both pointers are
    required. On failure, out_runtime remains zero. The returned runtime may be
    used from multiple threads as documented by each operation. */
-SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc,
-                                                              SaccadeRuntimeHandle* out_runtime);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_create(const SaccadeRuntimeDesc* desc, SaccadeRuntimeHandle* out_runtime);
 /* Freezing is one-way: register providers before this call, create inference
    sessions after it. Doing either in the wrong order fails with
    SACCADE_ERROR_STATE. There is no unfreeze and no unregister, because the
@@ -140,12 +139,10 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_runtime_destroy(SaccadeRuntimeHan
    For host frames, desc->data must remain valid until saccade_frame_release
    returns for this frame. Release removes a pending frame from the
    newest-frame mailbox before returning buffer ownership to the caller. */
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime,
-                                                                 const SaccadeHostFrameDesc* desc,
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_host(SaccadeRuntimeHandle runtime, const SaccadeHostFrameDesc* desc,
                                                                  SaccadeFrameHandle* out_frame);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime,
-                                                                      const SaccadeIOSurfaceFrameDesc* desc,
+SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_iosurface(SaccadeRuntimeHandle runtime, const SaccadeIOSurfaceFrameDesc* desc,
                                                                       SaccadeFrameHandle* out_frame);
 
 SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_import_win32_capture(SaccadeRuntimeHandle runtime,
@@ -160,10 +157,9 @@ SACCADE_API SaccadeResult SACCADE_CALL saccade_frame_release(SaccadeRuntimeHandl
 #ifdef __cplusplus
 }
 
-#define SACCADE_DETAIL_IMPORT_OVERLOAD(type, function)                                                                 \
-    inline SaccadeResult saccade_frame_import(SaccadeRuntimeHandle runtime, const type* desc,                          \
-                                              SaccadeFrameHandle* out_frame) noexcept {                                \
-        return function(runtime, desc, out_frame);                                                                     \
+#define SACCADE_DETAIL_IMPORT_OVERLOAD(type, function)                                                                                     \
+    inline SaccadeResult saccade_frame_import(SaccadeRuntimeHandle runtime, const type* desc, SaccadeFrameHandle* out_frame) noexcept {    \
+        return function(runtime, desc, out_frame);                                                                                         \
     }
 
 SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_OVERLOAD, SACCADE_DETAIL_IMPORT_OVERLOAD)
@@ -173,9 +169,9 @@ SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_OVERLOAD, SACCADE_DETAIL
 #define SACCADE_DETAIL_IMPORT_FIRST(type, function) type* : function, const type* : function
 #define SACCADE_DETAIL_IMPORT_NEXT(type, function) , type* : function, const type* : function
 
-#define saccade_frame_import(runtime, desc, out_frame)                                                                 \
-    _Generic((desc), SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_FIRST, SACCADE_DETAIL_IMPORT_NEXT))(      \
-        (runtime), (desc), (out_frame))
+#define saccade_frame_import(runtime, desc, out_frame)                                                                                     \
+    _Generic((desc), SACCADE_DETAIL_FRAME_IMPORT_TYPES(SACCADE_DETAIL_IMPORT_FIRST, SACCADE_DETAIL_IMPORT_NEXT))((runtime), (desc),        \
+                                                                                                                 (out_frame))
 #endif
 
 #endif

@@ -38,6 +38,15 @@ target_link_libraries(saccade_benchmark_scene_fusion PRIVATE
     saccade_core
     saccade_build_settings)
 
+add_executable(saccade_benchmark_scene_temporal scene_temporal.cpp)
+target_include_directories(saccade_benchmark_scene_temporal PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(saccade_benchmark_scene_temporal PRIVATE
+    saccade_core
+    saccade_build_settings)
+
 if(TARGET saccade_platform_macos)
     add_executable(saccade_benchmark_macos_display_stimulus
         macos_display_stimulus.mm)

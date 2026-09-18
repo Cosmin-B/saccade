@@ -123,8 +123,7 @@ class Debugger final {
     SaccadeResult initialize(DebuggerStorage*) noexcept;
     SaccadeResult capture_scene(const scene::PacketView&) noexcept;
     SaccadeResult capture_scene(const scene::PacketView&, const DebuggerCaptureContext&) noexcept;
-    SaccadeResult dry_run(const interaction::ActionContext&, const interaction::ActionRequest&,
-                          DebuggerPlanView*) noexcept;
+    SaccadeResult dry_run(const interaction::ActionContext&, const interaction::ActionRequest&, DebuggerPlanView*) noexcept;
     SaccadeResult dry_run_first_click(uint64_t now_ns, DebuggerPlanView*) noexcept;
     SaccadeResult replay(DebuggerPlanView*) noexcept;
     SaccadeResult arm_fault(DebugFaultPoint, uint32_t count, SaccadeResult result) noexcept;

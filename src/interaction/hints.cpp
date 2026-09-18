@@ -12,8 +12,7 @@ uint16_t canonical_symbol(uint16_t symbol) noexcept {
 }
 
 bool config_valid(const HintConfig& config) noexcept {
-    if (config.alphabet_count < 2 || config.alphabet_count > maximum_hint_alphabet ||
-        config.priority > HintPriority::randomized) {
+    if (config.alphabet_count < 2 || config.alphabet_count > maximum_hint_alphabet || config.priority > HintPriority::randomized) {
         return false;
     }
 
@@ -57,8 +56,8 @@ void encode_ordinal(uint64_t ordinal, uint32_t length, const HintConfig& config,
     }
 }
 
-void assign_label(uint32_t rank, uint32_t target_index, const scene::PacketView& scene, const HintConfig& config,
-                  uint32_t depth, uint64_t shortest_count, uint32_t partial_children, HintLabel* output) noexcept {
+void assign_label(uint32_t rank, uint32_t target_index, const scene::PacketView& scene, const HintConfig& config, uint32_t depth,
+                  uint64_t shortest_count, uint32_t partial_children, HintLabel* output) noexcept {
     *output = {};
     output->target_id = scene.targets[target_index].target_id;
     output->target_index = target_index;
@@ -94,8 +93,7 @@ void assign_label(uint32_t rank, uint32_t target_index, const scene::PacketView&
     output->symbol_count = static_cast<uint16_t>(depth + 1U);
 }
 
-bool prefix_matches(const HintLabel& label, const uint16_t* symbols, uint32_t symbol_count,
-                    uint64_t* comparisons) noexcept {
+bool prefix_matches(const HintLabel& label, const uint16_t* symbols, uint32_t symbol_count, uint64_t* comparisons) noexcept {
     if (symbol_count > label.symbol_count) {
         return false;
     }
@@ -113,17 +111,18 @@ bool prefix_matches(const HintLabel& label, const uint16_t* symbols, uint32_t sy
 } // namespace
 
 uint16_t symbol_for_physical_key(const HintConfig& config, uint32_t physical_key) noexcept {
-    if (physical_key == 0) return 0;
+    if (physical_key == 0)
+        return 0;
 
     for (uint32_t index = 0; index < config.alphabet_count; ++index) {
-        if (config.physical_keys[index] == physical_key) return config.alphabet[index];
+        if (config.physical_keys[index] == physical_key)
+            return config.alphabet[index];
     }
 
     return 0;
 }
 
-SaccadeResult HintSession::freeze(const scene::PacketView& scene, const HintConfig& config,
-                                  HintSessionStorage* storage) noexcept {
+SaccadeResult HintSession::freeze(const scene::PacketView& scene, const HintConfig& config, HintSessionStorage* storage) noexcept {
     if (frozen_) {
         return SACCADE_ERROR_STATE;
     }
@@ -140,31 +139,27 @@ SaccadeResult HintSession::freeze(const scene::PacketView& scene, const HintConf
         storage->target_indices[index] = index;
     }
 
-    const int32_t priority_x =
-        config.priority == HintPriority::pointer ? config.pointer_x_q8 : config.scope_center_x_q8;
-    const int32_t priority_y =
-        config.priority == HintPriority::pointer ? config.pointer_y_q8 : config.scope_center_y_q8;
-    std::sort(storage->target_indices.begin(), storage->target_indices.begin() + count,
-              [&](uint32_t left, uint32_t right) noexcept {
-                  const SaccadeTargetRecord& a = scene.targets[left];
-                  const SaccadeTargetRecord& b = scene.targets[right];
-                  uint64_t a_priority = a.order;
-                  uint64_t b_priority = b.order;
-                  if (config.priority == HintPriority::pointer || config.priority == HintPriority::scope_center) {
-                      a_priority = distance(a, priority_x, priority_y);
-                      b_priority = distance(b, priority_x, priority_y);
-                  } else if (config.priority == HintPriority::randomized) {
-                      a_priority = splitmix64(a.target_id ^ config.random_seed);
-                      b_priority = splitmix64(b.target_id ^ config.random_seed);
-                  }
-                  return a_priority != b_priority ? a_priority < b_priority : a.target_id < b.target_id;
-              });
+    const int32_t priority_x = config.priority == HintPriority::pointer ? config.pointer_x_q8 : config.scope_center_x_q8;
+    const int32_t priority_y = config.priority == HintPriority::pointer ? config.pointer_y_q8 : config.scope_center_y_q8;
+    std::sort(storage->target_indices.begin(), storage->target_indices.begin() + count, [&](uint32_t left, uint32_t right) noexcept {
+        const SaccadeTargetRecord& a = scene.targets[left];
+        const SaccadeTargetRecord& b = scene.targets[right];
+        uint64_t a_priority = a.order;
+        uint64_t b_priority = b.order;
+        if (config.priority == HintPriority::pointer || config.priority == HintPriority::scope_center) {
+            a_priority = distance(a, priority_x, priority_y);
+            b_priority = distance(b, priority_x, priority_y);
+        } else if (config.priority == HintPriority::randomized) {
+            a_priority = splitmix64(a.target_id ^ config.random_seed);
+            b_priority = splitmix64(b.target_id ^ config.random_seed);
+        }
+        return a_priority != b_priority ? a_priority < b_priority : a.target_id < b.target_id;
+    });
 
     uint32_t depth = 1;
     uint64_t capacity = config.alphabet_count;
 
-    while (capacity <= std::numeric_limits<uint64_t>::max() / config.alphabet_count &&
-           capacity * config.alphabet_count <= count) {
+    while (capacity <= std::numeric_limits<uint64_t>::max() / config.alphabet_count && capacity * config.alphabet_count <= count) {
         capacity *= config.alphabet_count;
         ++depth;
     }
@@ -177,8 +172,7 @@ SaccadeResult HintSession::freeze(const scene::PacketView& scene, const HintConf
     const uint32_t partial_children = remainder == 0 ? 0 : remainder + 1U;
 
     for (uint32_t rank = 0; rank < count; ++rank) {
-        assign_label(rank, storage->target_indices[rank], scene, config, depth, shortest_count, partial_children,
-                     &storage->labels[rank]);
+        assign_label(rank, storage->target_indices[rank], scene, config, depth, shortest_count, partial_children, &storage->labels[rank]);
     }
 
     storage_ = storage;
@@ -196,9 +190,8 @@ SaccadeResult HintSession::freeze(const scene::PacketView& scene, const HintConf
 
 SaccadeResult HintSession::refresh_scene(const scene::PacketView& scene) noexcept {
     if (!frozen_ || scene.header == nullptr || scene.targets == nullptr ||
-        scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
-        scene.header->scene_epoch <= scene_epoch_ || scene.header->transform_epoch != transform_epoch_ ||
-        scene.header->topology_epoch != topology_epoch_) {
+        scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 || scene.header->scene_epoch <= scene_epoch_ ||
+        scene.header->transform_epoch != transform_epoch_ || scene.header->topology_epoch != topology_epoch_) {
         ++stats_.refresh_failures;
         return SACCADE_ERROR_STALE_HANDLE;
     }
@@ -217,8 +210,7 @@ SaccadeResult HintSession::refresh_scene(const scene::PacketView& scene) noexcep
     for (uint32_t label_index = 0; label_index < label_count_; ++label_index) {
         const uint64_t target_id = storage_->labels[label_index].target_id;
         uint32_t slot = static_cast<uint32_t>(splitmix64(target_id)) & binding_mask;
-        while (storage_->target_bindings[slot].target_id != 0 &&
-               storage_->target_bindings[slot].target_id != target_id) {
+        while (storage_->target_bindings[slot].target_id != 0 && storage_->target_bindings[slot].target_id != target_id) {
             slot = (slot + 1U) & binding_mask;
         }
         if (storage_->target_bindings[slot].target_id == 0) {
@@ -236,8 +228,7 @@ SaccadeResult HintSession::refresh_scene(const scene::PacketView& scene) noexcep
 }
 
 SaccadeResult HintSession::resolve_prefix(const uint16_t* symbols, uint32_t symbol_count, HintMatch* output) noexcept {
-    if (!frozen_ || symbols == nullptr || symbol_count == 0 || symbol_count > maximum_hint_symbols ||
-        output == nullptr) {
+    if (!frozen_ || symbols == nullptr || symbol_count == 0 || symbol_count > maximum_hint_symbols || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
