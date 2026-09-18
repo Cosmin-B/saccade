@@ -44,11 +44,10 @@ class ImagePreprocessor final {
     ImagePreprocessor(ImagePreprocessor&&) = delete;
     ImagePreprocessor& operator=(ImagePreprocessor&&) = delete;
 
-    SaccadeResult initialize(ID3D12Device*, ID3D12CommandQueue*, const char* shader_directory,
-                             const TensorSpec&) noexcept;
+    SaccadeResult initialize(ID3D12Device*, ID3D12CommandQueue*, const char* shader_directory, const TensorSpec&) noexcept;
     SaccadeResult adopt_current_thread() noexcept;
-    SaccadeResult submit(ID3D12Resource*, uint32_t source_width, uint32_t source_height, SourceRegion,
-                         uint64_t frame_id, uint64_t transform_epoch, PreprocessSubmission*) noexcept;
+    SaccadeResult submit(ID3D12Resource*, uint32_t source_width, uint32_t source_height, SourceRegion, uint64_t frame_id,
+                         uint64_t transform_epoch, PreprocessSubmission*) noexcept;
     SaccadeResult poll(const PreprocessSubmission*) noexcept;
     SaccadeResult wait(const PreprocessSubmission*, uint64_t timeout_ns) noexcept;
     SaccadeResult tensor(const PreprocessSubmission*, TensorView*) noexcept;

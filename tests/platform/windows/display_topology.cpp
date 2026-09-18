@@ -31,8 +31,8 @@ int main() {
         }
     }
     saccade::platform::windows::DisplayCollectorStats stats{};
-    if (primary_count != 1 || collector.read_stats(&stats) != SACCADE_OK || stats.refresh_attempts != 2 ||
-        stats.topology_changes != 1 || stats.last_display_count != catalog.snapshot().count) {
+    if (primary_count != 1 || collector.read_stats(&stats) != SACCADE_OK || stats.refresh_attempts != 2 || stats.topology_changes != 1 ||
+        stats.last_display_count != catalog.snapshot().count) {
         return 5;
     }
     (void)SetThreadDpiAwarenessContext(previous);

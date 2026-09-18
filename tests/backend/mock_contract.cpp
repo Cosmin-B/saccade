@@ -52,13 +52,11 @@ SaccadeInferenceDispatchDesc inference_dispatch(uint64_t frame_id, uint32_t widt
     return value;
 }
 
-template <class Record, size_t Size>
-void store_record(std::array<uint8_t, Size>* bytes, size_t offset, const Record& record) noexcept {
+template <class Record, size_t Size> void store_record(std::array<uint8_t, Size>* bytes, size_t offset, const Record& record) noexcept {
     std::memcpy(bytes->data() + offset, &record, sizeof(record));
 }
 
-constexpr size_t overlay_packet_size =
-    sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
+constexpr size_t overlay_packet_size = sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 using OverlayPacket = std::array<uint8_t, overlay_packet_size>;
 
 OverlayPacket overlay_packet(uint64_t scene_epoch, uint64_t transform_epoch) noexcept {
@@ -144,8 +142,7 @@ bool output_prefixes_are_bounded(SaccadeEnumerateDevicesFn enumerate, void* cont
     extended.current.struct_size = static_cast<uint32_t>(sizeof(extended));
     extended.current.api_version = SACCADE_API_VERSION;
     extended.future.fill(UINT64_C(0xA5A5A5A5A5A5A5A5));
-    if (enumerate(context, 0, &extended.current) != SACCADE_OK ||
-        extended.current.struct_size != sizeof(SaccadeDeviceInfo) ||
+    if (enumerate(context, 0, &extended.current) != SACCADE_OK || extended.current.struct_size != sizeof(SaccadeDeviceInfo) ||
         extended.future[0] != UINT64_C(0xA5A5A5A5A5A5A5A5) || extended.future[1] != UINT64_C(0xA5A5A5A5A5A5A5A5)) {
         return false;
     }
@@ -204,17 +201,14 @@ bool max_in_flight_is_enforced() {
         provider.ops.poll(provider.context, execution, first, &first_status) != SACCADE_OK ||
         first_status.state != SACCADE_TICKET_COMPLETE ||
         provider.ops.poll(provider.context, execution, second, &second_status) != SACCADE_OK ||
-        second_status.state != SACCADE_TICKET_RUNNING ||
-        provider.ops.cancel(provider.context, execution, second) != SACCADE_OK) {
+        second_status.state != SACCADE_TICKET_RUNNING || provider.ops.cancel(provider.context, execution, second) != SACCADE_OK) {
         return false;
     }
 
     std::array<uint8_t, 32> output{};
     size_t required = 0;
-    if (provider.ops.collect(provider.context, execution, first, {output.data(), output.size()}, &required) !=
-            SACCADE_OK ||
-        provider.ops.collect(provider.context, execution, second, {output.data(), output.size()}, &required) !=
-            SACCADE_ERROR_CANCELLED) {
+    if (provider.ops.collect(provider.context, execution, first, {output.data(), output.size()}, &required) != SACCADE_OK ||
+        provider.ops.collect(provider.context, execution, second, {output.data(), output.size()}, &required) != SACCADE_ERROR_CANCELLED) {
         return false;
     }
 
@@ -224,8 +218,7 @@ bool max_in_flight_is_enforced() {
         first_status.state != SACCADE_TICKET_RUNNING || provider.ops.reset(provider.context, execution) != SACCADE_OK ||
         provider.ops.submit(provider.context, execution, &submit, &reset_ticket) != SACCADE_OK ||
         provider.ops.poll(provider.context, execution, reset_ticket, &first_status) != SACCADE_OK ||
-        first_status.state != SACCADE_TICKET_RUNNING ||
-        provider.ops.cancel(provider.context, execution, reset_ticket) != SACCADE_OK ||
+        first_status.state != SACCADE_TICKET_RUNNING || provider.ops.cancel(provider.context, execution, reset_ticket) != SACCADE_OK ||
         provider.ops.collect(provider.context, execution, reset_ticket, {output.data(), output.size()}, &required) !=
             SACCADE_ERROR_CANCELLED) {
         return false;
@@ -236,16 +229,13 @@ bool max_in_flight_is_enforced() {
     if (provider.ops.submit(provider.context, execution, &submit, &queued) != SACCADE_OK ||
         provider.ops.submit(provider.context, execution, &submit, &running) != SACCADE_OK ||
         provider.ops.poll(provider.context, execution, running, &second_status) != SACCADE_OK ||
-        second_status.state != SACCADE_TICKET_RUNNING ||
-        provider.ops.synchronize(provider.context, execution, 1) != SACCADE_OK ||
+        second_status.state != SACCADE_TICKET_RUNNING || provider.ops.synchronize(provider.context, execution, 1) != SACCADE_OK ||
         provider.ops.poll(provider.context, execution, queued, &first_status) != SACCADE_OK ||
         first_status.state != SACCADE_TICKET_COMPLETE ||
         provider.ops.poll(provider.context, execution, running, &second_status) != SACCADE_OK ||
         second_status.state != SACCADE_TICKET_COMPLETE ||
-        provider.ops.collect(provider.context, execution, queued, {output.data(), output.size()}, &required) !=
-            SACCADE_OK ||
-        provider.ops.collect(provider.context, execution, running, {output.data(), output.size()}, &required) !=
-            SACCADE_OK ||
+        provider.ops.collect(provider.context, execution, queued, {output.data(), output.size()}, &required) != SACCADE_OK ||
+        provider.ops.collect(provider.context, execution, running, {output.data(), output.size()}, &required) != SACCADE_OK ||
         provider.ops.destroy_context(provider.context, execution) != SACCADE_OK ||
         provider.ops.destroy_model(provider.context, model) != SACCADE_OK) {
         return false;
@@ -269,8 +259,7 @@ bool input_tickets_are_reclaimed() {
     for (uint32_t index = 0; index < 12; ++index) {
         SaccadeTicketHandle ticket = 0;
         if (provider.ops.execute(provider.context, &plan, &ticket) != SACCADE_OK ||
-            provider.ops.wait(provider.context, ticket, 1, &status) != SACCADE_OK ||
-            status.state != SACCADE_TICKET_COMPLETE ||
+            provider.ops.wait(provider.context, ticket, 1, &status) != SACCADE_OK || status.state != SACCADE_TICKET_COMPLETE ||
             provider.ops.poll(provider.context, ticket, &status) != SACCADE_ERROR_STALE_HANDLE) {
             return false;
         }
@@ -279,8 +268,7 @@ bool input_tickets_are_reclaimed() {
         SaccadeTicketHandle ticket = 0;
         if (provider.ops.execute(provider.context, &plan, &ticket) != SACCADE_OK ||
             provider.ops.cancel(provider.context, ticket) != SACCADE_OK ||
-            provider.ops.poll(provider.context, ticket, &status) != SACCADE_OK ||
-            status.state != SACCADE_TICKET_CANCELLED ||
+            provider.ops.poll(provider.context, ticket, &status) != SACCADE_OK || status.state != SACCADE_TICKET_CANCELLED ||
             provider.ops.poll(provider.context, ticket, &status) != SACCADE_ERROR_STALE_HANDLE) {
             return false;
         }
@@ -322,10 +310,8 @@ int main() {
     ProviderRegistry registry;
     SaccadeProviderHandle inference_handle = 0;
     if (registry.register_inference(&inference, &inference_handle) != SACCADE_OK ||
-        registry.register_capture(&capture, nullptr) != SACCADE_OK ||
-        registry.register_overlay(&overlay, nullptr) != SACCADE_OK ||
-        registry.register_accessibility(&accessibility, nullptr) != SACCADE_OK ||
-        registry.register_input(&input, nullptr) != SACCADE_OK) {
+        registry.register_capture(&capture, nullptr) != SACCADE_OK || registry.register_overlay(&overlay, nullptr) != SACCADE_OK ||
+        registry.register_accessibility(&accessibility, nullptr) != SACCADE_OK || registry.register_input(&input, nullptr) != SACCADE_OK) {
         return 1;
     }
     SaccadeDeviceInfo device = backend.device_info();
@@ -388,8 +374,8 @@ int main() {
     if (inference.ops.poll(inference.context, context, inference_ticket, &inference_status) != SACCADE_OK ||
         inference_status.state != SACCADE_TICKET_RUNNING ||
         inference.ops.poll(inference.context, context, inference_ticket, &inference_status) != SACCADE_OK ||
-        inference_status.state != SACCADE_TICKET_COMPLETE || inference_status.model_epoch != 7 ||
-        inference_status.session_epoch != 8 || inference_status.transform_epoch != 9) {
+        inference_status.state != SACCADE_TICKET_COMPLETE || inference_status.model_epoch != 7 || inference_status.session_epoch != 8 ||
+        inference_status.transform_epoch != 9) {
         return 8;
     }
 
@@ -398,8 +384,8 @@ int main() {
     if (inference.ops.collect(inference.context, context, inference_ticket, {inference_output.data(), 8}, &required) !=
             SACCADE_ERROR_CAPACITY ||
         required != inference_output.size() ||
-        inference.ops.collect(inference.context, context, inference_ticket,
-                              {inference_output.data(), inference_output.size()}, &required) != SACCADE_OK ||
+        inference.ops.collect(inference.context, context, inference_ticket, {inference_output.data(), inference_output.size()},
+                              &required) != SACCADE_OK ||
         read_u64_le(inference_output.data()) != 42 || read_u64_le(inference_output.data() + 8) != 7 ||
         read_u64_le(inference_output.data() + 16) != 8 || read_u64_le(inference_output.data() + 24) != 9) {
         return 9;
@@ -409,15 +395,14 @@ int main() {
         inference.ops.cancel(inference.context, context, inference_ticket) != SACCADE_OK ||
         inference.ops.poll(inference.context, context, inference_ticket, &inference_status) != SACCADE_OK ||
         inference_status.state != SACCADE_TICKET_CANCELLED ||
-        inference.ops.collect(inference.context, context, inference_ticket,
-                              {inference_output.data(), inference_output.size()},
+        inference.ops.collect(inference.context, context, inference_ticket, {inference_output.data(), inference_output.size()},
                               &required) != SACCADE_ERROR_CANCELLED) {
         return 30;
     }
 
     SaccadeMemoryStats memory = output_structure<SaccadeMemoryStats>();
-    if (inference.ops.memory_stats(inference.context, context, &memory) != SACCADE_OK ||
-        memory.host_committed != 1234 || memory.device_imported != 5678 || memory.high_water_bytes != 9012) {
+    if (inference.ops.memory_stats(inference.context, context, &memory) != SACCADE_OK || memory.host_committed != 1234 ||
+        memory.device_imported != 5678 || memory.high_water_bytes != 9012) {
         return 10;
     }
     backend.set_fault(FaultPoint::inference_synchronize, SACCADE_ERROR_BACKEND);
@@ -454,8 +439,7 @@ int main() {
         return 15;
     }
     uint32_t damage_count = 0;
-    if (capture.ops.copy_damage(capture.context, stream, captured.frame, nullptr, 0, &damage_count) !=
-            SACCADE_ERROR_CAPACITY ||
+    if (capture.ops.copy_damage(capture.context, stream, captured.frame, nullptr, 0, &damage_count) != SACCADE_ERROR_CAPACITY ||
         damage_count != 1) {
         return 16;
     }
@@ -476,8 +460,7 @@ int main() {
     }
     backend.set_fault(FaultPoint::capture_synchronize, SACCADE_ERROR_BACKEND);
     if (capture.ops.synchronize(capture.context, stream, 1) != SACCADE_ERROR_BACKEND ||
-        capture.ops.synchronize(capture.context, stream, 1) != SACCADE_OK ||
-        capture.ops.stop(capture.context, stream) != SACCADE_OK ||
+        capture.ops.synchronize(capture.context, stream, 1) != SACCADE_OK || capture.ops.stop(capture.context, stream) != SACCADE_OK ||
         capture.ops.destroy(capture.context, stream) != SACCADE_OK) {
         return 33;
     }
@@ -530,8 +513,8 @@ int main() {
         return 20;
     }
     memory = output_structure<SaccadeMemoryStats>();
-    if (overlay.ops.memory_stats(overlay.context, overlay_handle, &memory) != SACCADE_OK ||
-        memory.host_committed != 1234 || memory.device_imported != 5678) {
+    if (overlay.ops.memory_stats(overlay.context, overlay_handle, &memory) != SACCADE_OK || memory.host_committed != 1234 ||
+        memory.device_imported != 5678) {
         return 34;
     }
     backend.set_fault(FaultPoint::overlay_submit, SACCADE_ERROR_BACKEND);
@@ -567,22 +550,19 @@ int main() {
         accessibility_status.state != SACCADE_TICKET_COMPLETE || accessibility_status.snapshot == 0) {
         return 24;
     }
-    alignas(SaccadeTargetPacketHeader)
-        std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + sizeof(SaccadeTargetRecord)>
-            accessibility_output{};
+    alignas(SaccadeTargetPacketHeader) std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + sizeof(SaccadeTargetRecord)>
+        accessibility_output{};
     saccade::scene::PacketView accessibility_packet{};
-    if (accessibility.ops.collect(accessibility.context, accessibility_status.snapshot,
-                                  {accessibility_output.data(), 8}, &required) != SACCADE_ERROR_CAPACITY ||
+    if (accessibility.ops.collect(accessibility.context, accessibility_status.snapshot, {accessibility_output.data(), 8}, &required) !=
+            SACCADE_ERROR_CAPACITY ||
         required != accessibility_output.size() ||
         accessibility.ops.collect(accessibility.context, accessibility_status.snapshot,
-                                  {accessibility_output.data(), accessibility_output.size()},
-                                  &required) != SACCADE_OK ||
+                                  {accessibility_output.data(), accessibility_output.size()}, &required) != SACCADE_OK ||
         reinterpret_cast<const SaccadeTargetPacketHeader*>(accessibility_output.data())->session_epoch != 88 ||
         reinterpret_cast<const SaccadeTargetPacketHeader*>(accessibility_output.data())->transform_epoch != 99 ||
         reinterpret_cast<const SaccadeTargetPacketHeader*>(accessibility_output.data())->topology_epoch != 111 ||
         reinterpret_cast<const SaccadeTargetPacketHeader*>(accessibility_output.data())->frame_id != 222 ||
-        saccade::scene::validate_packet({accessibility_output.data(), accessibility_output.size()},
-                                        &accessibility_packet) != SACCADE_OK ||
+        saccade::scene::validate_packet({accessibility_output.data(), accessibility_output.size()}, &accessibility_packet) != SACCADE_OK ||
         accessibility.ops.release(accessibility.context, accessibility_status.snapshot) != SACCADE_OK) {
         return 25;
     }
@@ -598,15 +578,13 @@ int main() {
         accessibility.ops.cancel(accessibility.context, accessibility_ticket) != SACCADE_OK ||
         accessibility.ops.poll(accessibility.context, accessibility_ticket, &accessibility_status) != SACCADE_OK ||
         accessibility_status.state != SACCADE_TICKET_CANCELLED ||
-        accessibility.ops.poll(accessibility.context, accessibility_ticket, &accessibility_status) !=
-            SACCADE_ERROR_STALE_HANDLE) {
+        accessibility.ops.poll(accessibility.context, accessibility_ticket, &accessibility_status) != SACCADE_ERROR_STALE_HANDLE) {
         return 36;
     }
     for (int index = 0; index < 9; ++index) {
         if (accessibility.ops.request(accessibility.context, &query, &accessibility_ticket) != SACCADE_OK ||
             accessibility.ops.cancel(accessibility.context, accessibility_ticket) != SACCADE_OK ||
-            accessibility.ops.wait(accessibility.context, accessibility_ticket, 0, &accessibility_status) !=
-                SACCADE_OK ||
+            accessibility.ops.wait(accessibility.context, accessibility_ticket, 0, &accessibility_status) != SACCADE_OK ||
             accessibility_status.state != SACCADE_TICKET_CANCELLED) {
             return 38;
         }
@@ -620,26 +598,21 @@ int main() {
         return 26;
     }
     SaccadeInputStatus input_status = output_structure<SaccadeInputStatus>();
-    if (input.ops.poll(input.context, input_ticket, &input_status) != SACCADE_OK ||
-        input_status.state != SACCADE_TICKET_RUNNING ||
-        input.ops.wait(input.context, input_ticket, 1, &input_status) != SACCADE_OK ||
-        input_status.state != SACCADE_TICKET_COMPLETE || input_status.completed_actions != 3 ||
-        input.ops.reset(input.context) != SACCADE_OK) {
+    if (input.ops.poll(input.context, input_ticket, &input_status) != SACCADE_OK || input_status.state != SACCADE_TICKET_RUNNING ||
+        input.ops.wait(input.context, input_ticket, 1, &input_status) != SACCADE_OK || input_status.state != SACCADE_TICKET_COMPLETE ||
+        input_status.completed_actions != 3 || input.ops.reset(input.context) != SACCADE_OK) {
         return 27;
     }
     backend.set_fault(FaultPoint::input_execute, SACCADE_ERROR_BACKEND);
     if (input.ops.execute(input.context, &plan, &input_ticket) != SACCADE_ERROR_BACKEND ||
         input.ops.execute(input.context, &plan, &input_ticket) != SACCADE_OK ||
         input.ops.cancel(input.context, input_ticket) != SACCADE_OK ||
-        input.ops.poll(input.context, input_ticket, &input_status) != SACCADE_OK ||
-        input_status.state != SACCADE_TICKET_CANCELLED ||
-        input.ops.memory_stats(input.context, &memory) != SACCADE_OK || memory.host_committed != 1234 ||
-        memory.device_imported != 5678) {
+        input.ops.poll(input.context, input_ticket, &input_status) != SACCADE_OK || input_status.state != SACCADE_TICKET_CANCELLED ||
+        input.ops.memory_stats(input.context, &memory) != SACCADE_OK || memory.host_committed != 1234 || memory.device_imported != 5678) {
         return 28;
     }
     backend.set_fault(FaultPoint::input_release_all, SACCADE_ERROR_BACKEND);
-    if (input.ops.release_all(input.context) != SACCADE_ERROR_BACKEND ||
-        input.ops.release_all(input.context) != SACCADE_OK) {
+    if (input.ops.release_all(input.context) != SACCADE_ERROR_BACKEND || input.ops.release_all(input.context) != SACCADE_OK) {
         return 37;
     }
 

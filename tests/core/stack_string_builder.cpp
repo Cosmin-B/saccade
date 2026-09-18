@@ -32,14 +32,13 @@ int main() {
 
     text.reset();
     if (!text.append_unsigned(std::numeric_limits<uint64_t>::max()) || !text.append(' ') ||
-        !text.append_signed(std::numeric_limits<int64_t>::min()) ||
-        !equals(text.view(), "18446744073709551615 -9223372036854775808")) {
+        !text.append_signed(std::numeric_limits<int64_t>::min()) || !equals(text.view(), "18446744073709551615 -9223372036854775808")) {
         return 4;
     }
 
     StackStringBuilder<5> bounded;
-    if (bounded.append("abcdef") || !bounded.truncated() || bounded.size() != bounded.capacity() ||
-        !equals(bounded.view(), "abcde") || bounded.c_str()[5] != '\0') {
+    if (bounded.append("abcdef") || !bounded.truncated() || bounded.size() != bounded.capacity() || !equals(bounded.view(), "abcde") ||
+        bounded.c_str()[5] != '\0') {
         return 5;
     }
 
@@ -67,8 +66,8 @@ int main() {
     saccade::test::begin_allocation_tracking();
     {
         StackStringBuilder<64> measured;
-        measured_complete = measured.append("frame ") && measured.append_unsigned(120) && measured.append(" target ") &&
-                            measured.append_signed(-42);
+        measured_complete =
+            measured.append("frame ") && measured.append_unsigned(120) && measured.append(" target ") && measured.append_signed(-42);
         measured_equal = equals(measured.view(), "frame 120 target -42");
     }
     const size_t measured_allocations = saccade::test::end_allocation_tracking();

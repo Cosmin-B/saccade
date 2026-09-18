@@ -48,10 +48,9 @@ int main() {
     }
 
     const saccade::core::FrameLease* lease = pool.get(first);
-    if (lease == nullptr || lease->data() != first_pixels.data() || lease->byte_size() != first_pixels.size() ||
-        lease->width() != 2 || lease->height() != 2 || lease->row_stride_bytes() != 8 ||
-        lease->pixel_format() != SACCADE_FORMAT_BGRA8 || lease->frame_id() != 41 || lease->transform_epoch() != 7 ||
-        !lease->has_owner(FrameLeaseOwner::caller)) {
+    if (lease == nullptr || lease->data() != first_pixels.data() || lease->byte_size() != first_pixels.size() || lease->width() != 2 ||
+        lease->height() != 2 || lease->row_stride_bytes() != 8 || lease->pixel_format() != SACCADE_FORMAT_BGRA8 ||
+        lease->frame_id() != 41 || lease->transform_epoch() != 7 || !lease->has_owner(FrameLeaseOwner::caller)) {
         return 3;
     }
 
@@ -66,18 +65,17 @@ int main() {
     if (pool.add_owner(first, FrameLeaseOwner::mailbox) != SACCADE_OK ||
         pool.add_owner(first, FrameLeaseOwner::mailbox) != SACCADE_ERROR_ALREADY_EXISTS ||
         pool.release_owner(first, FrameLeaseOwner::caller) != SACCADE_OK ||
-        pool.release_owner(first, FrameLeaseOwner::caller) != SACCADE_ERROR_STALE_HANDLE ||
-        pool.get(first) == nullptr || pool.size() != 1) {
+        pool.release_owner(first, FrameLeaseOwner::caller) != SACCADE_ERROR_STALE_HANDLE || pool.get(first) == nullptr ||
+        pool.size() != 1) {
         return 5;
     }
-    if (pool.release_owner(first, FrameLeaseOwner::mailbox) != SACCADE_OK || pool.get(first) != nullptr ||
-        pool.size() != 0 || pool.release_owner(first, FrameLeaseOwner::mailbox) != SACCADE_ERROR_STALE_HANDLE) {
+    if (pool.release_owner(first, FrameLeaseOwner::mailbox) != SACCADE_OK || pool.get(first) != nullptr || pool.size() != 0 ||
+        pool.release_owner(first, FrameLeaseOwner::mailbox) != SACCADE_ERROR_STALE_HANDLE) {
         return 6;
     }
 
     SaccadeFrameHandle regenerated = 0;
-    if (pool.import_host(first_desc, &regenerated) != SACCADE_OK || regenerated == first ||
-        pool.get(first) != nullptr) {
+    if (pool.import_host(first_desc, &regenerated) != SACCADE_OK || regenerated == first || pool.get(first) != nullptr) {
         return 7;
     }
 
@@ -87,8 +85,7 @@ int main() {
         return 8;
     }
     SaccadeFrameHandle overflow = 99;
-    if (pool.import_host(second_desc, &overflow) != SACCADE_ERROR_CAPACITY || overflow != 0 ||
-        pool.size() != Pool::capacity()) {
+    if (pool.import_host(second_desc, &overflow) != SACCADE_ERROR_CAPACITY || overflow != 0 || pool.size() != Pool::capacity()) {
         return 9;
     }
 
@@ -134,8 +131,8 @@ int main() {
     const SaccadeResult caller_release = pool.release_owner(measured, FrameLeaseOwner::caller);
     const SaccadeResult mailbox_release = pool.release_owner(measured, FrameLeaseOwner::mailbox);
     const size_t allocations = saccade::test::end_allocation_tracking();
-    if (import_result != SACCADE_OK || add_result != SACCADE_OK || caller_release != SACCADE_OK ||
-        mailbox_release != SACCADE_OK || allocations != 0) {
+    if (import_result != SACCADE_OK || add_result != SACCADE_OK || caller_release != SACCADE_OK || mailbox_release != SACCADE_OK ||
+        allocations != 0) {
         return 16;
     }
 
@@ -160,16 +157,13 @@ int main() {
         return 18;
     }
     const saccade::core::FrameLease* native_lease = pool.get(native_frame);
-    const SaccadeFrameResourceView resource_view =
-        native_lease == nullptr ? SaccadeFrameResourceView{} : native_lease->resource_view();
+    const SaccadeFrameResourceView resource_view = native_lease == nullptr ? SaccadeFrameResourceView{} : native_lease->resource_view();
     if (native_lease == nullptr || native_lease->storage() != saccade::core::FrameStorage::win32_capture ||
         native_lease->resource() != &releases || native_lease->native_id() != 77 || native_lease->plane_index() != 1 ||
         native_lease->width() != 4 || native_lease->height() != 3 || native_lease->frame_id() != 44 ||
-        native_lease->transform_epoch() != 9 ||
-        resource_view.ready_fence != reinterpret_cast<uintptr_t>(&fence_releases) || resource_view.ready_value != 12 ||
-        releases != 0 || fence_releases != 0 ||
-        pool.release_owner(native_frame, FrameLeaseOwner::caller) != SACCADE_OK || releases != 1 ||
-        fence_releases != 1) {
+        native_lease->transform_epoch() != 9 || resource_view.ready_fence != reinterpret_cast<uintptr_t>(&fence_releases) ||
+        resource_view.ready_value != 12 || releases != 0 || fence_releases != 0 ||
+        pool.release_owner(native_frame, FrameLeaseOwner::caller) != SACCADE_OK || releases != 1 || fence_releases != 1) {
         return 19;
     }
 

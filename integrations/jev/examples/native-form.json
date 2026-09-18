@@ -1,0 +1,12 @@
+[
+  {
+    "goal": "Enter Ada in the Name field",
+    "actions": [{"kind": "text", "text": "Ada"}],
+    "expectText": "Entered: Ada"
+  },
+  {
+    "goal": "Click Save to save the entered name",
+    "actions": [{"kind": "click"}],
+    "expectText": "Saved: Ada"
+  }
+]

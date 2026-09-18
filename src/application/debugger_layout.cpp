@@ -50,8 +50,7 @@ SaccadeResult make_debugger_layout(int32_t width, int32_t height, DebuggerLayout
         const int32_t second_row_y = footer_y + control_height + gap;
         const int32_t split_width = (available_width - gap) / 2;
         layout.fault = {margin, second_row_y, split_width, control_height};
-        layout.arm_fault = {margin + split_width + gap, second_row_y, width - margin - (margin + split_width + gap),
-                            control_height};
+        layout.arm_fault = {margin + split_width + gap, second_row_y, width - margin - (margin + split_width + gap), control_height};
     }
 
     *output = layout;

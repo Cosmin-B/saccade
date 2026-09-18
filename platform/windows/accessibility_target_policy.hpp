@@ -24,10 +24,10 @@ inline constexpr std::array<PROPERTYID, 8> accessibility_target_pattern_properti
     UIA_IsTogglePatternAvailablePropertyId,         UIA_IsValuePatternAvailablePropertyId,
 };
 
-template <typename T, size_t Count>
-[[nodiscard]] constexpr bool policy_contains(const std::array<T, Count>& values, T value) noexcept {
+template <typename T, size_t Count> [[nodiscard]] constexpr bool policy_contains(const std::array<T, Count>& values, T value) noexcept {
     for (T candidate : values) {
-        if (candidate == value) return true;
+        if (candidate == value)
+            return true;
     }
     return false;
 }

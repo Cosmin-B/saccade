@@ -54,15 +54,14 @@ bool main_thread() noexcept {
 }
 
 bool display_valid(const geometry::DisplaySurface& display) noexcept {
-    return display.display_id != 0 && display.backing_width != 0 && display.backing_height != 0 &&
-           display.maximum_fps != 0 && geometry::rect_valid(display.desktop_bounds);
+    return display.display_id != 0 && display.backing_width != 0 && display.backing_height != 0 && display.maximum_fps != 0 &&
+           geometry::rect_valid(display.desktop_bounds);
 }
 
 CGDirectDisplayID screen_display_id(NSScreen* screen) noexcept {
     id value = screen.deviceDescription[@"NSScreenNumber"];
-    return [value isKindOfClass:NSNumber.class]
-               ? static_cast<CGDirectDisplayID>(static_cast<NSNumber*>(value).unsignedIntValue)
-               : kCGNullDirectDisplay;
+    return [value isKindOfClass:NSNumber.class] ? static_cast<CGDirectDisplayID>(static_cast<NSNumber*>(value).unsignedIntValue)
+                                                : kCGNullDirectDisplay;
 }
 
 NSScreen* find_screen(uint64_t display_id) noexcept {
@@ -79,8 +78,7 @@ NSScreen* find_screen(uint64_t display_id) noexcept {
 }
 
 uint64_t elapsed_ns(std::chrono::steady_clock::time_point begin) noexcept {
-    return static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin).count());
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin).count());
 }
 
 } // namespace
@@ -126,7 +124,8 @@ struct OverlaySurface::Impl {
         layer_.contentsScale = screen.backingScaleFactor;
         layer_.drawableSize = CGSizeMake(display.backing_width, display.backing_height);
         CGColorSpaceRef color_space = CGDisplayCopyColorSpace(static_cast<CGDirectDisplayID>(display.display_id));
-        if (color_space == nullptr) return SACCADE_ERROR_BACKEND;
+        if (color_space == nullptr)
+            return SACCADE_ERROR_BACKEND;
         layer_.colorspace = color_space;
         CGColorSpaceRelease(color_space);
         const float maximum = static_cast<float>(display.maximum_fps);
@@ -152,8 +151,7 @@ void overlay_surface_display_tick(void* owner, void* raw_update) noexcept {
         ++state.stats_.display_ticks;
 
         SaccadeOverlayFrameDesc frame{};
-        const SaccadeResult loaded =
-            state.callbacks_.load_frame(state.callbacks_.context, state.display_.display_id, &frame);
+        const SaccadeResult loaded = state.callbacks_.load_frame(state.callbacks_.context, state.display_.display_id, &frame);
         SaccadeResult result = loaded;
         backend::metal::Submission submission{};
         const backend::metal::Submission* observed_submission = nullptr;
@@ -181,7 +179,8 @@ void overlay_surface_display_tick(void* owner, void* raw_update) noexcept {
                 state.stats_.last_scene_epoch = frame.scene_epoch;
                 state.stats_.last_transform_epoch = frame.transform_epoch;
                 observed_submission = &submission;
-                if (state.animation_ticks_remaining_ != 0) --state.animation_ticks_remaining_;
+                if (state.animation_ticks_remaining_ != 0)
+                    --state.animation_ticks_remaining_;
                 if (state.animation_ticks_remaining_ == 0 &&
                     (!state.animate_active_target_ || (frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) == 0)) {
                     state.display_link_.paused = YES;
@@ -194,8 +193,7 @@ void overlay_surface_display_tick(void* owner, void* raw_update) noexcept {
         }
 
         if (state.callbacks_.observe_frame != nullptr) {
-            state.callbacks_.observe_frame(state.callbacks_.context, state.display_.display_id, result,
-                                           observed_submission);
+            state.callbacks_.observe_frame(state.callbacks_.context, state.display_.display_id, result, observed_submission);
         }
         if (CACurrentMediaTime() > update.targetTimestamp) {
             ++state.stats_.deadline_misses;
@@ -226,8 +224,7 @@ const OverlaySurface::Impl& OverlaySurface::impl() const noexcept {
 }
 
 SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display, const char* metallib_path,
-                                         backend::metal::PathPreference preference,
-                                         OverlaySurfaceCallbacks callbacks) noexcept {
+                                         backend::metal::PathPreference preference, OverlaySurfaceCallbacks callbacks) noexcept {
     if (!main_thread()) {
         return SACCADE_ERROR_STATE;
     }
@@ -274,8 +271,7 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
         state.panel_.level = NSStatusWindowLevel;
         state.panel_.animationBehavior = NSWindowAnimationBehaviorNone;
         state.panel_.sharingType = NSWindowSharingNone;
-        state.panel_.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                          NSWindowCollectionBehaviorFullScreenAuxiliary |
+        state.panel_.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary |
                                           NSWindowCollectionBehaviorStationary | NSWindowCollectionBehaviorIgnoresCycle;
 
         state.layer_.device = (__bridge id<MTLDevice>)state.renderer_.native_device();
@@ -310,7 +306,8 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
 }
 
 SaccadeResult OverlaySurface::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
-    if (!main_thread()) return SACCADE_ERROR_STATE;
+    if (!main_thread())
+        return SACCADE_ERROR_STATE;
     return impl().initialized_ ? impl().renderer_.set_glyph_atlas(atlas) : SACCADE_ERROR_STATE;
 }
 
@@ -364,12 +361,15 @@ SaccadeResult OverlaySurface::stop() noexcept {
 }
 
 SaccadeResult OverlaySurface::request_present(uint32_t animation_ticks, bool animate_active_target) noexcept {
-    if (!main_thread() || animation_ticks == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!main_thread() || animation_ticks == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl& state = impl();
-    if (!state.initialized_) return SACCADE_ERROR_STATE;
+    if (!state.initialized_)
+        return SACCADE_ERROR_STATE;
     state.animation_ticks_remaining_ = std::max(state.animation_ticks_remaining_, animation_ticks);
     state.animate_active_target_ = animate_active_target;
-    if (state.visible_) state.display_link_.paused = NO;
+    if (state.visible_)
+        state.display_link_.paused = NO;
     return SACCADE_OK;
 }
 
@@ -401,16 +401,13 @@ SaccadeResult OverlaySurface::read_info(OverlaySurfaceInfo* output) const noexce
     result.preferred_fps = static_cast<uint32_t>(state.display_link_.preferredFrameRateRange.preferred);
     result.maximum_drawable_count = static_cast<uint32_t>(state.layer_.maximumDrawableCount);
     result.window_level = static_cast<int32_t>(state.panel_.level);
-    result.flags =
-        overlay_surface_initialized | (state.visible_ ? overlay_surface_visible : 0U) |
-        (state.display_link_.paused ? overlay_surface_paused : 0U) |
-        (state.panel_.ignoresMouseEvents ? overlay_surface_click_through : 0U) |
-        ((state.panel_.styleMask & NSWindowStyleMaskNonactivatingPanel) != 0 ? overlay_surface_nonactivating : 0U) |
-        ((state.panel_.collectionBehavior & NSWindowCollectionBehaviorCanJoinAllSpaces) != 0
-             ? overlay_surface_all_spaces
-             : 0U) |
-        (state.layer_.colorspace != nullptr ? overlay_surface_color_managed : 0U) |
-        (state.layer_.displaySyncEnabled ? overlay_surface_display_paced : 0U);
+    result.flags = overlay_surface_initialized | (state.visible_ ? overlay_surface_visible : 0U) |
+                   (state.display_link_.paused ? overlay_surface_paused : 0U) |
+                   (state.panel_.ignoresMouseEvents ? overlay_surface_click_through : 0U) |
+                   ((state.panel_.styleMask & NSWindowStyleMaskNonactivatingPanel) != 0 ? overlay_surface_nonactivating : 0U) |
+                   ((state.panel_.collectionBehavior & NSWindowCollectionBehaviorCanJoinAllSpaces) != 0 ? overlay_surface_all_spaces : 0U) |
+                   (state.layer_.colorspace != nullptr ? overlay_surface_color_managed : 0U) |
+                   (state.layer_.displaySyncEnabled ? overlay_surface_display_paced : 0U);
     *output = result;
     return SACCADE_OK;
 }
@@ -455,12 +452,10 @@ SaccadeResult OverlaySurface::read_memory_stats(OverlaySurfaceMemoryStats* outpu
     result.drawable_width = static_cast<uint32_t>(state.layer_.drawableSize.width);
     result.drawable_height = static_cast<uint32_t>(state.layer_.drawableSize.height);
     result.drawable_count = static_cast<uint32_t>(state.layer_.maximumDrawableCount);
-    result.drawable_bytes_estimate =
-        static_cast<uint64_t>(result.drawable_width) * result.drawable_height * 4U * result.drawable_count;
+    result.drawable_bytes_estimate = static_cast<uint64_t>(result.drawable_width) * result.drawable_height * 4U * result.drawable_count;
     result.surface_host_bytes = sizeof(OverlaySurface);
-    result.total_known_and_estimated = result.surface_host_bytes + result.renderer.device_imported +
-                                       result.renderer.device_owned + result.renderer.framework_opaque +
-                                       result.drawable_bytes_estimate;
+    result.total_known_and_estimated = result.surface_host_bytes + result.renderer.device_imported + result.renderer.device_owned +
+                                       result.renderer.framework_opaque + result.drawable_bytes_estimate;
     *output = result;
     return SACCADE_OK;
 }
@@ -473,9 +468,7 @@ struct OverlaySurfaceSet::Impl {
 
         OverlaySurface& surface() noexcept { return *std::launder(reinterpret_cast<OverlaySurface*>(storage_.data())); }
 
-        const OverlaySurface& surface() const noexcept {
-            return *std::launder(reinterpret_cast<const OverlaySurface*>(storage_.data()));
-        }
+        const OverlaySurface& surface() const noexcept { return *std::launder(reinterpret_cast<const OverlaySurface*>(storage_.data())); }
 
         void construct(uint64_t display_id) noexcept {
             new (storage_.data()) OverlaySurface{};
@@ -574,8 +567,7 @@ SaccadeResult OverlaySurfaceSet::initialize(const char* metallib_path, backend::
         return SACCADE_ERROR_STATE;
     }
     if (metallib_path == nullptr || callbacks.load_frame == nullptr ||
-        (preference != backend::metal::PathPreference::automatic &&
-         preference != backend::metal::PathPreference::metal3 &&
+        (preference != backend::metal::PathPreference::automatic && preference != backend::metal::PathPreference::metal3 &&
          preference != backend::metal::PathPreference::metal4)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -594,9 +586,11 @@ SaccadeResult OverlaySurfaceSet::initialize(const char* metallib_path, backend::
 }
 
 SaccadeResult OverlaySurfaceSet::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
-    if (!main_thread()) return SACCADE_ERROR_STATE;
+    if (!main_thread())
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
-    if (!state.initialized_ || !overlay::glyph_atlas_valid(atlas)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state.initialized_ || !overlay::glyph_atlas_valid(atlas))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     std::array<bool, geometry::display_capacity> updated{};
     for (size_t index = 0; index < state.slots_.size(); ++index) {
@@ -616,8 +610,7 @@ SaccadeResult OverlaySurfaceSet::set_glyph_atlas(overlay::GlyphAtlasView atlas) 
         }
     }
     std::memcpy(state.glyph_atlas_.pixels.data(), atlas.pixels, overlay::glyph_atlas_bytes);
-    std::memcpy(state.glyph_atlas_.symbols.data(), atlas.symbols,
-                static_cast<size_t>(atlas.glyph_count) * sizeof(uint16_t));
+    std::memcpy(state.glyph_atlas_.symbols.data(), atlas.symbols, static_cast<size_t>(atlas.glyph_count) * sizeof(uint16_t));
     state.glyph_atlas_.glyph_count = atlas.glyph_count;
     state.has_glyph_atlas_ = true;
     return SACCADE_OK;
@@ -628,8 +621,7 @@ SaccadeResult OverlaySurfaceSet::synchronize(const geometry::DisplaySnapshot& sn
         return SACCADE_ERROR_STATE;
     }
     Impl& state = impl();
-    if (!state.initialized_ || snapshot.epoch == 0 || snapshot.count == 0 ||
-        snapshot.count > geometry::display_capacity) {
+    if (!state.initialized_ || snapshot.epoch == 0 || snapshot.count == 0 || snapshot.count > geometry::display_capacity) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     ++state.stats_.synchronize_attempts;
@@ -689,8 +681,7 @@ SaccadeResult OverlaySurfaceSet::synchronize(const geometry::DisplaySnapshot& sn
         slot->construct(display.display_id);
         const size_t slot_index = static_cast<size_t>(slot - state.slots_.data());
         added[slot_index] = true;
-        SaccadeResult result =
-            slot->surface().initialize(display, state.metallib_path_.data(), state.preference_, state.callbacks_);
+        SaccadeResult result = slot->surface().initialize(display, state.metallib_path_.data(), state.preference_, state.callbacks_);
         if (result == SACCADE_OK && state.has_glyph_atlas_) {
             result = slot->surface().set_glyph_atlas(state.glyph_atlas_.view());
         }
@@ -796,9 +787,11 @@ SaccadeResult OverlaySurfaceSet::stop() noexcept {
 }
 
 SaccadeResult OverlaySurfaceSet::request_present(uint32_t animation_ticks, bool animate_active_target) noexcept {
-    if (!main_thread() || animation_ticks == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!main_thread() || animation_ticks == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl& state = impl();
-    if (!state.initialized_) return SACCADE_ERROR_STATE;
+    if (!state.initialized_)
+        return SACCADE_ERROR_STATE;
     for (Impl::Slot& slot : state.slots_) {
         if (slot.active_) {
             const SaccadeResult result = slot.surface().request_present(animation_ticks, animate_active_target);
@@ -865,8 +858,7 @@ SaccadeResult OverlaySurfaceSet::read_surface_stats(uint64_t display_id, Overlay
     return slot == nullptr ? SACCADE_ERROR_NOT_FOUND : slot->surface().read_stats(output);
 }
 
-SaccadeResult OverlaySurfaceSet::read_surface_memory_stats(uint64_t display_id,
-                                                           OverlaySurfaceMemoryStats* output) const noexcept {
+SaccadeResult OverlaySurfaceSet::read_surface_memory_stats(uint64_t display_id, OverlaySurfaceMemoryStats* output) const noexcept {
     if (!main_thread()) {
         return SACCADE_ERROR_STATE;
     }
@@ -877,8 +869,7 @@ SaccadeResult OverlaySurfaceSet::read_surface_memory_stats(uint64_t display_id,
     return slot == nullptr ? SACCADE_ERROR_NOT_FOUND : slot->surface().read_memory_stats(output);
 }
 
-SaccadeResult OverlaySurfaceSet::read_surface_renderer_stats(uint64_t display_id,
-                                                             backend::metal::Stats* output) const noexcept {
+SaccadeResult OverlaySurfaceSet::read_surface_renderer_stats(uint64_t display_id, backend::metal::Stats* output) const noexcept {
     if (!main_thread()) {
         return SACCADE_ERROR_STATE;
     }

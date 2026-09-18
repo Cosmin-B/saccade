@@ -17,10 +17,11 @@ NSFont* atlas_font(const application::AppearanceSettings& appearance) noexcept {
     }
 
     NSString* family = [NSString stringWithUTF8String:appearance.font_family.data()];
-    if (family == nil) return nil;
+    if (family == nil)
+        return nil;
     NSDictionary* traits = @{NSFontWeightTrait : @(weight)};
-    NSFontDescriptor* descriptor = [NSFontDescriptor
-        fontDescriptorWithFontAttributes:@{NSFontFamilyAttribute : family, NSFontTraitsAttribute : traits}];
+    NSFontDescriptor* descriptor =
+        [NSFontDescriptor fontDescriptorWithFontAttributes:@{NSFontFamilyAttribute : family, NSFontTraitsAttribute : traits}];
     return [NSFont fontWithDescriptor:descriptor size:atlas_font_size];
 }
 
@@ -35,10 +36,8 @@ void flip_rows(overlay::GlyphAtlasStorage* atlas) noexcept {
 
 } // namespace
 
-SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& settings,
-                                    overlay::GlyphAtlasStorage* output) noexcept {
-    if (output == nullptr || settings.hints.alphabet_count < 2 ||
-        settings.hints.alphabet_count > overlay::glyph_atlas_capacity) {
+SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& settings, overlay::GlyphAtlasStorage* output) noexcept {
+    if (output == nullptr || settings.hints.alphabet_count < 2 || settings.hints.alphabet_count > overlay::glyph_atlas_capacity) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
@@ -48,7 +47,8 @@ SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& setting
 
     @autoreleasepool {
         NSFont* font = atlas_font(settings.appearance);
-        if (font == nil) return SACCADE_ERROR_NOT_FOUND;
+        if (font == nil)
+            return SACCADE_ERROR_NOT_FOUND;
         unsigned char* planes[5]{output->pixels.data(), nullptr, nullptr, nullptr, nullptr};
         NSBitmapImageRep* bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:planes
                                                                            pixelsWide:overlay::glyph_atlas_width
@@ -62,7 +62,8 @@ SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& setting
                                                                           bytesPerRow:overlay::glyph_atlas_width
                                                                          bitsPerPixel:8];
         NSGraphicsContext* context = bitmap == nil ? nil : [NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap];
-        if (context == nil) return SACCADE_ERROR_BACKEND;
+        if (context == nil)
+            return SACCADE_ERROR_BACKEND;
         NSDictionary* attributes = @{NSFontAttributeName : font, NSForegroundColorAttributeName : NSColor.whiteColor};
 
         [NSGraphicsContext saveGraphicsState];
@@ -78,9 +79,8 @@ SaccadeResult rasterize_glyph_atlas(const application::SettingsDocument& setting
             const NSSize size = [text sizeWithAttributes:attributes];
             const uint32_t column = index % overlay::glyph_atlas_columns;
             const uint32_t row = index / overlay::glyph_atlas_columns;
-            const NSPoint origin{
-                column * overlay::glyph_atlas_cell_width + (overlay::glyph_atlas_cell_width - size.width) * 0.5,
-                row * overlay::glyph_atlas_cell_height + (overlay::glyph_atlas_cell_height - size.height) * 0.5};
+            const NSPoint origin{column * overlay::glyph_atlas_cell_width + (overlay::glyph_atlas_cell_width - size.width) * 0.5,
+                                 row * overlay::glyph_atlas_cell_height + (overlay::glyph_atlas_cell_height - size.height) * 0.5};
             [text drawAtPoint:origin withAttributes:attributes];
             output->symbols[index] = character;
         }

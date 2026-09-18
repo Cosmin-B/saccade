@@ -53,13 +53,15 @@ template <typename T> T output_structure() noexcept {
 }
 
 bool parse_u32(const char* text, uint32_t minimum, uint32_t maximum, uint32_t* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const char* end = text;
     while (*end != '\0')
         ++end;
     uint32_t value = 0;
     const auto parsed = std::from_chars(text, end, value);
-    if (parsed.ec != std::errc{} || parsed.ptr != end || value < minimum || value > maximum) return false;
+    if (parsed.ec != std::errc{} || parsed.ptr != end || value < minimum || value > maximum)
+        return false;
     *output = value;
     return true;
 }
@@ -77,8 +79,7 @@ SaccadeResult acquire_frame(const SaccadeCaptureProviderDesc& provider, SaccadeC
 
 void emit(const StackStringBuilder<512>& text) noexcept {
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written,
-                    nullptr);
+    (void)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
 void emit_initialization_error(InitializationError error) noexcept {
@@ -155,8 +156,8 @@ int main(int argc, char** argv) {
             break;
         }
         const D3D12_RESOURCE_DESC desc = texture.texture->GetDesc();
-        if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.Width < frame.width ||
-            desc.Height < frame.height || desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
+        if (desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D || desc.Width < frame.width || desc.Height < frame.height ||
+            desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM) {
             tool_result = ToolResult::texture_mismatch;
         }
         if (graphics.return_texture(&texture, nullptr, 0) != SACCADE_OK) {
@@ -165,15 +166,17 @@ int main(int argc, char** argv) {
         if (provider.ops.release(provider.context, stream, frame.frame) != SACCADE_OK) {
             tool_result = ToolResult::release_failed;
         }
-        if (tool_result != ToolResult::success) break;
+        if (tool_result != ToolResult::success)
+            break;
     }
 
-    const bool cleaned = provider.ops.stop(provider.context, stream) == SACCADE_OK &&
-                         provider.ops.destroy(provider.context, stream) == SACCADE_OK;
+    const bool cleaned =
+        provider.ops.stop(provider.context, stream) == SACCADE_OK && provider.ops.destroy(provider.context, stream) == SACCADE_OK;
     if (tool_result == ToolResult::success && !cleaned) {
         tool_result = ToolResult::cleanup_failed;
     }
-    if (tool_result != ToolResult::success) return result(tool_result);
+    if (tool_result != ToolResult::success)
+        return result(tool_result);
 
     StackStringBuilder<512> summary;
     (void)summary.append("windows_d3d12_capture frames=");

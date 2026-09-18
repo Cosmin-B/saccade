@@ -53,13 +53,12 @@ saccade::kernels::image::InterleavedU8View source_view(uint32_t width, uint32_t 
     return {source_pixels.data(), source_pixels.size(), width, height, static_cast<uint32_t>(source_stride), format};
 }
 
-saccade::kernels::image::PlaneU8View destination_view(
-    std::array<uint8_t, destination_stride * maximum_height>& pixels) noexcept {
+saccade::kernels::image::PlaneU8View destination_view(std::array<uint8_t, destination_stride * maximum_height>& pixels) noexcept {
     return {pixels.data(), pixels.size(), static_cast<uint32_t>(destination_stride)};
 }
 
-bool verify_reference(const std::array<uint8_t, destination_stride * maximum_height>& pixels, uint32_t width,
-                      uint32_t height, uint32_t format) noexcept {
+bool verify_reference(const std::array<uint8_t, destination_stride * maximum_height>& pixels, uint32_t width, uint32_t height,
+                      uint32_t format) noexcept {
     for (uint32_t y = 0; y < height; ++y) {
         const uint8_t* source = source_pixels.data() + static_cast<size_t>(y) * source_stride;
         const uint8_t* output = pixels.data() + static_cast<size_t>(y) * destination_stride;
@@ -82,8 +81,7 @@ bool verify_reference(const std::array<uint8_t, destination_stride * maximum_hei
 }
 
 bool equal_active_pixels(const std::array<uint8_t, destination_stride * maximum_height>& left,
-                         const std::array<uint8_t, destination_stride * maximum_height>& right, uint32_t width,
-                         uint32_t height) noexcept {
+                         const std::array<uint8_t, destination_stride * maximum_height>& right, uint32_t width, uint32_t height) noexcept {
     for (uint32_t y = 0; y < height; ++y) {
         const size_t offset = static_cast<size_t>(y) * destination_stride;
         for (uint32_t x = 0; x < width; ++x) {
@@ -135,18 +133,15 @@ template <size_t Width> bool exact_tail_matches(saccade::kernels::image::LumaPat
     const saccade::kernels::image::InterleavedU8View input{source.data(), source.size(), width, 1, source_size, format};
     const saccade::kernels::image::PlaneU8View scalar_output{scalar.data(), scalar.size(), width};
     const saccade::kernels::image::PlaneU8View selected_output{selected.data(), selected.size(), width};
-    return saccade::kernels::image::convert_to_luma(input, scalar_output, saccade::kernels::image::LumaPath::scalar) ==
-               SACCADE_OK &&
+    return saccade::kernels::image::convert_to_luma(input, scalar_output, saccade::kernels::image::LumaPath::scalar) == SACCADE_OK &&
            saccade::kernels::image::convert_to_luma(input, selected_output, path) == SACCADE_OK && scalar == selected;
 }
 
 bool exact_tails_match(saccade::kernels::image::LumaPath path, uint32_t format) noexcept {
-    return exact_tail_matches<1>(path, format) && exact_tail_matches<7>(path, format) &&
-           exact_tail_matches<8>(path, format) && exact_tail_matches<9>(path, format) &&
-           exact_tail_matches<15>(path, format) && exact_tail_matches<16>(path, format) &&
-           exact_tail_matches<17>(path, format) && exact_tail_matches<31>(path, format) &&
-           exact_tail_matches<32>(path, format) && exact_tail_matches<33>(path, format) &&
-           exact_tail_matches<63>(path, format) && exact_tail_matches<64>(path, format) &&
+    return exact_tail_matches<1>(path, format) && exact_tail_matches<7>(path, format) && exact_tail_matches<8>(path, format) &&
+           exact_tail_matches<9>(path, format) && exact_tail_matches<15>(path, format) && exact_tail_matches<16>(path, format) &&
+           exact_tail_matches<17>(path, format) && exact_tail_matches<31>(path, format) && exact_tail_matches<32>(path, format) &&
+           exact_tail_matches<33>(path, format) && exact_tail_matches<63>(path, format) && exact_tail_matches<64>(path, format) &&
            exact_tail_matches<65>(path, format);
 }
 
@@ -167,16 +162,14 @@ int main() {
     if (!saccade::test::allocation_tracker_self_test()) {
         return 1;
     }
-    if (!luma_path_compiled(LumaPath::automatic) || !luma_path_compiled(LumaPath::scalar) ||
-        !luma_path_available(LumaPath::automatic) || !luma_path_available(LumaPath::scalar) ||
-        selected_luma_path() == LumaPath::automatic || !luma_path_available(selected_luma_path()) ||
-        luma_path_compiled(static_cast<LumaPath>(UINT8_C(0xFF))) ||
+    if (!luma_path_compiled(LumaPath::automatic) || !luma_path_compiled(LumaPath::scalar) || !luma_path_available(LumaPath::automatic) ||
+        !luma_path_available(LumaPath::scalar) || selected_luma_path() == LumaPath::automatic ||
+        !luma_path_available(selected_luma_path()) || luma_path_compiled(static_cast<LumaPath>(UINT8_C(0xFF))) ||
         luma_path_available(static_cast<LumaPath>(UINT8_C(0xFF)))) {
         return 2;
     }
 #if defined(__aarch64__) || defined(_M_ARM64)
-    if (!luma_path_compiled(LumaPath::neon) || luma_path_compiled(LumaPath::avx2) ||
-        selected_luma_path() != LumaPath::neon) {
+    if (!luma_path_compiled(LumaPath::neon) || luma_path_compiled(LumaPath::avx2) || selected_luma_path() != LumaPath::neon) {
         return 19;
     }
 #elif defined(__x86_64__) || defined(_M_X64)
@@ -286,8 +279,7 @@ int main() {
     if (convert_to_luma(primary_source, invalid_destination, LumaPath::scalar) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 16;
     }
-    if (convert_to_luma(primary_source, primary_destination, static_cast<LumaPath>(UINT8_C(0xFF))) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (convert_to_luma(primary_source, primary_destination, static_cast<LumaPath>(UINT8_C(0xFF))) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 17;
     }
 

@@ -23,8 +23,7 @@ class WindowNavigator final {
     SaccadeResult collect(SaccadeAccessibilityProviderDesc, uint64_t excluded_process_id, WindowSnapshot*) noexcept;
     SaccadeResult cycle(const WindowSnapshot&, uint64_t current_window_id, bool forward, uint64_t*) const noexcept;
     SaccadeResult behind(const WindowSnapshot&, uint64_t current_window_id, uint64_t*) const noexcept;
-    SaccadeResult directional(const WindowSnapshot&, uint64_t current_window_id, WindowDirection,
-                              uint64_t*) const noexcept;
+    SaccadeResult directional(const WindowSnapshot&, uint64_t current_window_id, WindowDirection, uint64_t*) const noexcept;
 };
 
 static_assert(sizeof(WindowSnapshot) == sizeof(SaccadeWindowInfo) * window_navigation_capacity + 8);

@@ -50,8 +50,8 @@ void retire(void* context, SaccadeFrameHandle) noexcept {
     ++static_cast<Retirement*>(context)->count;
 }
 
-saccade::scheduler::DesktopNeuralFrame desktop_frame(SaccadeFrameHandle frame, uint64_t frame_id, uint64_t source_id,
-                                                     int32_t x_q8, Retirement* retirement) noexcept {
+saccade::scheduler::DesktopNeuralFrame desktop_frame(SaccadeFrameHandle frame, uint64_t frame_id, uint64_t source_id, int32_t x_q8,
+                                                     Retirement* retirement) noexcept {
     saccade::scheduler::DesktopNeuralFrame value{};
     value.frame = frame;
     value.source_id = source_id;
@@ -77,11 +77,11 @@ int main() {
     runtime_desc.struct_size = sizeof(runtime_desc);
     runtime_desc.api_version = SACCADE_API_VERSION;
     SaccadeRuntimeHandle runtime = 0;
-    if (saccade_runtime_create(&runtime_desc, &runtime) != SACCADE_OK) return 1;
+    if (saccade_runtime_create(&runtime_desc, &runtime) != SACCADE_OK)
+        return 1;
     saccade::backend::reference_cpu::Backend backend;
     const SaccadeInferenceProviderDesc provider = backend.provider();
-    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK ||
-        saccade_runtime_freeze(runtime) != SACCADE_OK)
+    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK || saccade_runtime_freeze(runtime) != SACCADE_OK)
         return 2;
     const auto model = saccade::backend::reference_cpu::encode_model({200, 1});
     SaccadeInferenceSessionDesc session_desc{};
@@ -98,7 +98,8 @@ int main() {
     session_desc.max_in_flight = 1;
     SaccadeInferenceSessionInfo session_info = output_structure<SaccadeInferenceSessionInfo>();
     SaccadeExecutionContextHandle session = 0;
-    if (saccade_inference_session_create(runtime, &session_desc, &session, &session_info) != SACCADE_OK) return 3;
+    if (saccade_inference_session_create(runtime, &session_desc, &session, &session_info) != SACCADE_OK)
+        return 3;
 
     static saccade::scene::SceneStoreStorage scene_storage;
     static saccade::scheduler::DesktopNeuralCoordinatorStorage coordinator_storage;
@@ -113,8 +114,7 @@ int main() {
     config.maximum_output_bytes = session_info.max_output_bytes;
     config.maximum_targets = 16;
     config.rates.scene_period_ns = 1;
-    if (scenes.initialize(&scene_storage) != SACCADE_OK ||
-        coordinator.initialize(config, &coordinator_storage, &scenes) != SACCADE_OK)
+    if (scenes.initialize(&scene_storage) != SACCADE_OK || coordinator.initialize(config, &coordinator_storage, &scenes) != SACCADE_OK)
         return 4;
 
     Retirement retirement{};
@@ -128,22 +128,20 @@ int main() {
     if (coordinator.advance(0, &advance) != SACCADE_OK || !advance.interaction_due || advance.scene_published ||
         coordinator.advance(1, &advance) != SACCADE_OK || advance.scene_published || advance.sources_completed != 1 ||
         coordinator.advance(2, &advance) != SACCADE_OK || !advance.scene_published || !advance.scope_complete ||
-        advance.sources_expected != 2 || advance.sources_completed != 1 || advance.target_count != 2 ||
-        advance.batch_latency_ns != 2 || advance.full_scope_latency_ns != 1 || retirement.count != 2)
+        advance.sources_expected != 2 || advance.sources_completed != 1 || advance.target_count != 2 || advance.batch_latency_ns != 2 ||
+        advance.full_scope_latency_ns != 1 || retirement.count != 2)
         return 6;
     saccade::scene::PacketView scene{};
     if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->scene_epoch != 1 || scene.header->frame_id != 2 ||
-        scene.header->capture_time_ns != 1 || scene.header->transform_epoch != 30 ||
-        scene.header->topology_epoch != 20 || scene.header->target_count != 2 || scene.targets[0].x_q8 != 0 ||
-        scene.targets[1].x_q8 != 256)
+        scene.header->capture_time_ns != 1 || scene.header->transform_epoch != 30 || scene.header->topology_epoch != 20 ||
+        scene.header->target_count != 2 || scene.targets[0].x_q8 != 0 || scene.targets[1].x_q8 != 256)
         return 7;
     const auto stats = coordinator.stats();
-    if (stats.frames_offered != 2 || stats.batches_started != 1 || stats.batches_published != 1 ||
-        stats.sources_submitted != 2 || stats.sources_completed != 2 || stats.targets_published != 2 ||
-        stats.batch_latency_total_ns != 2 || stats.batch_latency_max_ns != 2 || stats.batch_deadlines_missed != 1 ||
-        stats.full_scope_latency_total_ns != 1 || stats.full_scope_latency_max_ns != 1 ||
-        stats.full_scope_deadlines_missed != 0 || stats.failures != 0 || coordinator.shutdown() != SACCADE_OK ||
-        saccade::test::end_allocation_tracking() != 0)
+    if (stats.frames_offered != 2 || stats.batches_started != 1 || stats.batches_published != 1 || stats.sources_submitted != 2 ||
+        stats.sources_completed != 2 || stats.targets_published != 2 || stats.batch_latency_total_ns != 2 ||
+        stats.batch_latency_max_ns != 2 || stats.batch_deadlines_missed != 1 || stats.full_scope_latency_total_ns != 1 ||
+        stats.full_scope_latency_max_ns != 1 || stats.full_scope_deadlines_missed != 0 || stats.failures != 0 ||
+        coordinator.shutdown() != SACCADE_OK || saccade::test::end_allocation_tracking() != 0)
         return 8;
 
     static saccade::scene::SceneStoreStorage missing_scene_storage;
@@ -153,13 +151,11 @@ int main() {
     Retirement missing_retirement{};
     const SaccadeFrameHandle missing = import_frame(runtime, white, 3, 100);
     if (missing_scenes.initialize(&missing_scene_storage) != SACCADE_OK ||
-        missing_coordinator.initialize(config, &missing_coordinator_storage, &missing_scenes) != SACCADE_OK ||
-        missing == 0 ||
+        missing_coordinator.initialize(config, &missing_coordinator_storage, &missing_scenes) != SACCADE_OK || missing == 0 ||
         missing_coordinator.offer(desktop_frame(missing, 3, 100, 0, &missing_retirement)) != SACCADE_OK ||
-        missing_coordinator.advance(0, &advance) != SACCADE_OK || advance.scene_published ||
-        advance.sources_expected != 2 || missing_scenes.acquire_latest(&scene) != SACCADE_ERROR_NOT_FOUND ||
-        missing_coordinator.stats().batches_incomplete != 1 || missing_coordinator.shutdown() != SACCADE_OK ||
-        missing_retirement.count != 1) {
+        missing_coordinator.advance(0, &advance) != SACCADE_OK || advance.scene_published || advance.sources_expected != 2 ||
+        missing_scenes.acquire_latest(&scene) != SACCADE_ERROR_NOT_FOUND || missing_coordinator.stats().batches_incomplete != 1 ||
+        missing_coordinator.shutdown() != SACCADE_OK || missing_retirement.count != 1) {
         return 10;
     }
 
@@ -173,19 +169,16 @@ int main() {
     const SaccadeFrameHandle failed_first = import_frame(runtime, white, 4, 100);
     const SaccadeFrameHandle failed_second = import_frame(runtime, white, 5, 200);
     if (failed_scenes.initialize(&failed_scene_storage) != SACCADE_OK ||
-        failed_coordinator.initialize(failed_config, &failed_coordinator_storage, &failed_scenes) != SACCADE_OK ||
-        failed_first == 0 || failed_second == 0 ||
-        failed_coordinator.offer(desktop_frame(failed_first, 4, 100, 0, &failed_retirement)) != SACCADE_OK ||
+        failed_coordinator.initialize(failed_config, &failed_coordinator_storage, &failed_scenes) != SACCADE_OK || failed_first == 0 ||
+        failed_second == 0 || failed_coordinator.offer(desktop_frame(failed_first, 4, 100, 0, &failed_retirement)) != SACCADE_OK ||
         failed_coordinator.offer(desktop_frame(failed_second, 5, 200, 256, &failed_retirement)) != SACCADE_OK ||
-        failed_coordinator.advance(0, &advance) != SACCADE_OK || advance.scene_published ||
-        advance.sources_expected != 2 || advance.sources_failed != 2 ||
-        failed_scenes.acquire_latest(&scene) != SACCADE_ERROR_NOT_FOUND ||
+        failed_coordinator.advance(0, &advance) != SACCADE_OK || advance.scene_published || advance.sources_expected != 2 ||
+        advance.sources_failed != 2 || failed_scenes.acquire_latest(&scene) != SACCADE_ERROR_NOT_FOUND ||
         failed_coordinator.stats().batches_incomplete != 1 || failed_coordinator.stats().sources_failed != 2 ||
         failed_coordinator.shutdown() != SACCADE_OK || failed_retirement.count != 2) {
         return 11;
     }
-    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK ||
-        saccade_runtime_destroy(runtime) != SACCADE_OK)
+    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK)
         return 9;
     return 0;
 }

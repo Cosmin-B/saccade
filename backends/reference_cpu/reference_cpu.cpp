@@ -80,8 +80,7 @@ template <typename Structure> SaccadeResult write_structure(Structure* destinati
     if (static_cast<size_t>(struct_size) < offsetof(Structure, reserved)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
-    std::memcpy(&api_version,
-                static_cast<const uint8_t*>(static_cast<const void*>(destination)) + offsetof(Structure, api_version),
+    std::memcpy(&api_version, static_cast<const uint8_t*>(static_cast<const void*>(destination)) + offsetof(Structure, api_version),
                 sizeof(api_version));
     if (api_major(api_version) != api_major(SACCADE_API_VERSION)) {
         return SACCADE_ERROR_VERSION;
@@ -108,8 +107,8 @@ size_t bytes_per_pixel(uint32_t format) noexcept {
 
 SaccadeResult validate_frame(const FrameView& frame) noexcept {
     const size_t pixel_size = bytes_per_pixel(frame.pixel_format);
-    if (frame.data == nullptr || frame.size == 0 || frame.width == 0 || frame.height == 0 ||
-        frame.width > maximum_width || frame.height > maximum_height || pixel_size == 0 || frame.frame_id == 0) {
+    if (frame.data == nullptr || frame.size == 0 || frame.width == 0 || frame.height == 0 || frame.width > maximum_width ||
+        frame.height > maximum_height || pixel_size == 0 || frame.frame_id == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (static_cast<size_t>(frame.width) > std::numeric_limits<size_t>::max() / pixel_size) {
@@ -129,8 +128,7 @@ SaccadeResult validate_frame(const FrameView& frame) noexcept {
 
 uint8_t pixel_luma(const FrameView& frame, uint32_t x, uint32_t y) noexcept {
     const size_t pixel_size = bytes_per_pixel(frame.pixel_format);
-    const uint8_t* pixel =
-        frame.data + static_cast<size_t>(y) * frame.row_stride_bytes + static_cast<size_t>(x) * pixel_size;
+    const uint8_t* pixel = frame.data + static_cast<size_t>(y) * frame.row_stride_bytes + static_cast<size_t>(x) * pixel_size;
     if (frame.pixel_format == SACCADE_FORMAT_R8) {
         return pixel[0];
     }
@@ -142,8 +140,8 @@ uint8_t pixel_luma(const FrameView& frame, uint32_t x, uint32_t y) noexcept {
 
 uint64_t target_id(uint64_t frame_id, int32_t x, int32_t y, int32_t width, int32_t height) noexcept {
     uint64_t hash = UINT64_C(14695981039346656037);
-    const std::array<uint64_t, 5> values{frame_id, static_cast<uint32_t>(x), static_cast<uint32_t>(y),
-                                         static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    const std::array<uint64_t, 5> values{frame_id, static_cast<uint32_t>(x), static_cast<uint32_t>(y), static_cast<uint32_t>(width),
+                                         static_cast<uint32_t>(height)};
     for (uint64_t value : values) {
         for (uint32_t index = 0; index < 8; ++index) {
             hash ^= static_cast<uint8_t>(value >> (index * 8U));
@@ -155,8 +153,8 @@ uint64_t target_id(uint64_t frame_id, int32_t x, int32_t y, int32_t width, int32
 
 SaccadeResult parse_model(SaccadeSpanU8 bytes, ModelParameters* out_parameters) noexcept {
     if (out_parameters == nullptr || bytes.data == nullptr || bytes.size != model_byte_count || bytes.data[0] != 'S' ||
-        bytes.data[1] != 'C' || bytes.data[2] != 'M' || bytes.data[3] != '1' || bytes.data[5] != 0 ||
-        bytes.data[6] != 0 || bytes.data[7] != 0) {
+        bytes.data[1] != 'C' || bytes.data[2] != 'M' || bytes.data[3] != '1' || bytes.data[5] != 0 || bytes.data[6] != 0 ||
+        bytes.data[7] != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const uint32_t minimum_area = read_u32_le(bytes.data + 8);
@@ -168,9 +166,8 @@ SaccadeResult parse_model(SaccadeSpanU8 bytes, ModelParameters* out_parameters) 
     return SACCADE_OK;
 }
 
-size_t serialize_output(uint8_t* destination, size_t capacity, uint64_t frame_id, uint64_t model_epoch,
-                        uint64_t session_epoch, uint64_t transform_epoch, uint64_t topology_epoch, uint64_t source_id,
-                        const DetectionResult& result) noexcept {
+size_t serialize_output(uint8_t* destination, size_t capacity, uint64_t frame_id, uint64_t model_epoch, uint64_t session_epoch,
+                        uint64_t transform_epoch, uint64_t topology_epoch, uint64_t source_id, const DetectionResult& result) noexcept {
     const size_t required = serialized_header_size + static_cast<size_t>(result.target_count) * serialized_target_size;
     if (destination == nullptr || capacity < required) {
         return 0;
@@ -362,9 +359,9 @@ SaccadeResult detect(const FrameView& frame, const ModelParameters& parameters, 
         target.safe_x = target.x + target.width / 2;
         target.safe_y = target.y + target.height / 2;
         target.area = component.area;
-        target.confidence_q16 = static_cast<uint32_t>(
-            (component.luma_sum * UINT64_C(65535) + static_cast<uint64_t>(component.area) * UINT64_C(127)) /
-            (static_cast<uint64_t>(component.area) * UINT64_C(255)));
+        target.confidence_q16 =
+            static_cast<uint32_t>((component.luma_sum * UINT64_C(65535) + static_cast<uint64_t>(component.area) * UINT64_C(127)) /
+                                  (static_cast<uint64_t>(component.area) * UINT64_C(255)));
         target.stable_id = target_id(frame.frame_id, target.x, target.y, target.width, target.height);
         out_result->targets[out_result->target_count++] = target;
     }
@@ -374,8 +371,7 @@ SaccadeResult detect(const FrameView& frame, const ModelParameters& parameters, 
         uint32_t position = index;
         while (position > 0) {
             const Target& previous_target = out_result->targets[position - 1U];
-            if (previous_target.y < candidate.y ||
-                (previous_target.y == candidate.y && previous_target.x <= candidate.x)) {
+            if (previous_target.y < candidate.y || (previous_target.y == candidate.y && previous_target.x <= candidate.x)) {
                 break;
             }
             out_result->targets[position] = previous_target;
@@ -394,9 +390,8 @@ SaccadeResult decode_output(SaccadeSpanU8 bytes, DecodedOutput* out_output) noex
     SaccadeTargetPacketHeader header{};
     std::memcpy(&header, bytes.data, sizeof(header));
     if (header.struct_size != sizeof(header) || header.packet_version != SACCADE_TARGET_PACKET_VERSION ||
-        header.coordinate_space != SACCADE_COORDINATE_SPACE_SOURCE_Q8 || header.scene_epoch != 0 ||
-        header.target_count > maximum_targets || header.target_stride != sizeof(SaccadeTargetRecord) ||
-        header.targets_offset != sizeof(header) || header.total_size != bytes.size) {
+        header.coordinate_space != SACCADE_COORDINATE_SPACE_SOURCE_Q8 || header.scene_epoch != 0 || header.target_count > maximum_targets ||
+        header.target_stride != sizeof(SaccadeTargetRecord) || header.targets_offset != sizeof(header) || header.total_size != bytes.size) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     out_output->frame_id = header.frame_id;
@@ -407,8 +402,7 @@ SaccadeResult decode_output(SaccadeSpanU8 bytes, DecodedOutput* out_output) noex
     out_output->source_id = header.source_id;
     out_output->detections.target_count = header.target_count;
     for (uint32_t index = 0; index < header.target_count; ++index) {
-        const uint8_t* input =
-            bytes.data + serialized_header_size + static_cast<size_t>(index) * serialized_target_size;
+        const uint8_t* input = bytes.data + serialized_header_size + static_cast<size_t>(index) * serialized_target_size;
         SaccadeTargetRecord record{};
         std::memcpy(&record, input, sizeof(record));
         Target& target = out_output->detections.targets[index];
@@ -491,10 +485,8 @@ struct Backend::Impl {
 
         const size_t pixel_size = bytes_per_pixel(ticket.frame.pixel_format);
         FrameView scoped = ticket.frame;
-        scoped.data += static_cast<size_t>(ticket.scope.y) * scoped.row_stride_bytes +
-                       static_cast<size_t>(ticket.scope.x) * pixel_size;
-        scoped.size -= static_cast<size_t>(ticket.scope.y) * scoped.row_stride_bytes +
-                       static_cast<size_t>(ticket.scope.x) * pixel_size;
+        scoped.data += static_cast<size_t>(ticket.scope.y) * scoped.row_stride_bytes + static_cast<size_t>(ticket.scope.x) * pixel_size;
+        scoped.size -= static_cast<size_t>(ticket.scope.y) * scoped.row_stride_bytes + static_cast<size_t>(ticket.scope.x) * pixel_size;
         scoped.width = static_cast<uint32_t>(ticket.scope.width);
         scoped.height = static_cast<uint32_t>(ticket.scope.height);
 
@@ -512,9 +504,9 @@ struct Backend::Impl {
             target.safe_y += ticket.scope.y;
             target.stable_id = target_id(ticket.frame.frame_id, target.x, target.y, target.width, target.height);
         }
-        const size_t output_size = serialize_output(ticket.output.data(), ticket.output.size(), ticket.frame.frame_id,
-                                                    ticket.model_epoch, ticket.session_epoch, ticket.transform_epoch,
-                                                    ticket.topology_epoch, ticket.source_id, result);
+        const size_t output_size =
+            serialize_output(ticket.output.data(), ticket.output.size(), ticket.frame.frame_id, ticket.model_epoch, ticket.session_epoch,
+                             ticket.transform_epoch, ticket.topology_epoch, ticket.source_id, result);
         if (output_size == 0 || output_size > UINT32_MAX) {
             ticket.state = SACCADE_TICKET_FAILED;
             ticket.result = SACCADE_ERROR_CAPACITY;
@@ -547,17 +539,13 @@ struct Backend::Impl {
     static SaccadeResult SACCADE_CALL query_model(void*, SaccadeSpanU8, SaccadeModelInfo*);
     static SaccadeResult SACCADE_CALL create_model(void*, const SaccadeModelDesc*, SaccadeModelHandle*);
     static SaccadeResult SACCADE_CALL destroy_model(void*, SaccadeModelHandle);
-    static SaccadeResult SACCADE_CALL create_context(void*, const SaccadeExecutionContextDesc*,
-                                                     SaccadeExecutionContextHandle*);
+    static SaccadeResult SACCADE_CALL create_context(void*, const SaccadeExecutionContextDesc*, SaccadeExecutionContextHandle*);
     static SaccadeResult SACCADE_CALL destroy_context(void*, SaccadeExecutionContextHandle);
     static SaccadeResult SACCADE_CALL submit(void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*,
                                              SaccadeTicketHandle*);
-    static SaccadeResult SACCADE_CALL poll(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                                           SaccadeInferenceStatus*);
-    static SaccadeResult SACCADE_CALL wait(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t,
-                                           SaccadeInferenceStatus*);
-    static SaccadeResult SACCADE_CALL collect(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                                              SaccadeMutableSpanU8, size_t*);
+    static SaccadeResult SACCADE_CALL poll(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeInferenceStatus*);
+    static SaccadeResult SACCADE_CALL wait(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t, SaccadeInferenceStatus*);
+    static SaccadeResult SACCADE_CALL collect(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*);
     static SaccadeResult SACCADE_CALL cancel(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle);
     static SaccadeResult SACCADE_CALL reset(void*, SaccadeExecutionContextHandle);
     static SaccadeResult SACCADE_CALL synchronize(void*, SaccadeExecutionContextHandle, uint64_t);
@@ -612,8 +600,7 @@ SaccadeResult Backend::release_frame(SaccadeFrameHandle frame) noexcept {
     return state.frames.erase(frame);
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::enumerate_devices(void* context, uint32_t index,
-                                                            SaccadeDeviceInfo* out_info) {
+SaccadeResult SACCADE_CALL Backend::Impl::enumerate_devices(void* context, uint32_t index, SaccadeDeviceInfo* out_info) {
     Impl* state = from(context);
     if (state == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -644,8 +631,7 @@ SaccadeResult SACCADE_CALL Backend::Impl::query_model(void* context, SaccadeSpan
     return write_structure(out_info, info);
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::create_model(void* context, const SaccadeModelDesc* desc,
-                                                       SaccadeModelHandle* out_model) {
+SaccadeResult SACCADE_CALL Backend::Impl::create_model(void* context, const SaccadeModelDesc* desc, SaccadeModelHandle* out_model) {
     Impl* state = from(context);
     if (state == nullptr || out_model == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -709,8 +695,7 @@ SaccadeResult SACCADE_CALL Backend::Impl::create_context(void* context, const Sa
     return result;
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::destroy_context(void* context,
-                                                          SaccadeExecutionContextHandle execution_context) {
+SaccadeResult SACCADE_CALL Backend::Impl::destroy_context(void* context, SaccadeExecutionContextHandle execution_context) {
     Impl* state = from(context);
     if (state == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -730,8 +715,7 @@ SaccadeResult SACCADE_CALL Backend::Impl::destroy_context(void* context,
 }
 
 SaccadeResult SACCADE_CALL Backend::Impl::submit(void* context, SaccadeExecutionContextHandle execution_context,
-                                                 const SaccadeInferenceDispatchDesc* desc,
-                                                 SaccadeTicketHandle* out_ticket) {
+                                                 const SaccadeInferenceDispatchDesc* desc, SaccadeTicketHandle* out_ticket) {
     Impl* state = from(context);
     if (state == nullptr || out_ticket == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -742,10 +726,9 @@ SaccadeResult SACCADE_CALL Backend::Impl::submit(void* context, SaccadeExecution
     if (validation != SACCADE_OK) {
         return validation;
     }
-    if (value.frame.storage != SACCADE_FRAME_STORAGE_HOST || value.frame.host_data.data == nullptr ||
-        value.frame.frame_id == 0 || value.frame.width == 0 || value.frame.height == 0 || value.scope.x < 0 ||
-        value.scope.y < 0 || value.scope.width <= 0 || value.scope.height <= 0 ||
-        value.output_capacity < maximum_output_size || value.model_epoch == 0 || value.session_epoch == 0 ||
+    if (value.frame.storage != SACCADE_FRAME_STORAGE_HOST || value.frame.host_data.data == nullptr || value.frame.frame_id == 0 ||
+        value.frame.width == 0 || value.frame.height == 0 || value.scope.x < 0 || value.scope.y < 0 || value.scope.width <= 0 ||
+        value.scope.height <= 0 || value.output_capacity < maximum_output_size || value.model_epoch == 0 || value.session_epoch == 0 ||
         value.transform_epoch == 0 || value.topology_epoch == 0 || value.source_id == 0 || value.flags != 0 ||
         (value.priority_region_count != 0 && value.priority_regions == nullptr)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -780,8 +763,8 @@ SaccadeResult SACCADE_CALL Backend::Impl::submit(void* context, SaccadeExecution
     return result;
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::poll(void* context, SaccadeExecutionContextHandle execution_context,
-                                               SaccadeTicketHandle handle, SaccadeInferenceStatus* out_status) {
+SaccadeResult SACCADE_CALL Backend::Impl::poll(void* context, SaccadeExecutionContextHandle execution_context, SaccadeTicketHandle handle,
+                                               SaccadeInferenceStatus* out_status) {
     Impl* state = from(context);
     if (state == nullptr || out_status == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -794,9 +777,8 @@ SaccadeResult SACCADE_CALL Backend::Impl::poll(void* context, SaccadeExecutionCo
     return write_structure(out_status, status(handle, *ticket));
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::wait(void* context, SaccadeExecutionContextHandle execution_context,
-                                               SaccadeTicketHandle handle, uint64_t timeout_ns,
-                                               SaccadeInferenceStatus* out_status) {
+SaccadeResult SACCADE_CALL Backend::Impl::wait(void* context, SaccadeExecutionContextHandle execution_context, SaccadeTicketHandle handle,
+                                               uint64_t timeout_ns, SaccadeInferenceStatus* out_status) {
     Impl* state = from(context);
     if (state == nullptr || out_status == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -814,8 +796,7 @@ SaccadeResult SACCADE_CALL Backend::Impl::wait(void* context, SaccadeExecutionCo
 }
 
 SaccadeResult SACCADE_CALL Backend::Impl::collect(void* context, SaccadeExecutionContextHandle execution_context,
-                                                  SaccadeTicketHandle handle, SaccadeMutableSpanU8 output,
-                                                  size_t* out_required) {
+                                                  SaccadeTicketHandle handle, SaccadeMutableSpanU8 output, size_t* out_required) {
     Impl* state = from(context);
     if (state == nullptr || out_required == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -889,8 +870,7 @@ SaccadeResult SACCADE_CALL Backend::Impl::reset(void* context, SaccadeExecutionC
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL Backend::Impl::synchronize(void* context, SaccadeExecutionContextHandle execution_context,
-                                                      uint64_t timeout_ns) {
+SaccadeResult SACCADE_CALL Backend::Impl::synchronize(void* context, SaccadeExecutionContextHandle execution_context, uint64_t timeout_ns) {
     Impl* state = from(context);
     if (state == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -967,8 +947,8 @@ SaccadeInferenceProviderDesc Backend::provider() noexcept {
     info.struct_size = static_cast<uint32_t>(sizeof(info));
     info.api_version = SACCADE_API_VERSION;
     info.family = SACCADE_PROVIDER_FAMILY_INFERENCE;
-    info.capability_bits = SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT |
-                           SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
+    info.capability_bits =
+        SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_HOST_IMPORT | SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
     info.stable_id = provider_id;
     info.name = literal_span("scalar reference inference");
 

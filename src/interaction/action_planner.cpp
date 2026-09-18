@@ -7,11 +7,10 @@ namespace saccade::interaction {
 namespace {
 
 constexpr uint32_t button_mask = SACCADE_INPUT_BUTTON_LEFT | SACCADE_INPUT_BUTTON_RIGHT | SACCADE_INPUT_BUTTON_MIDDLE;
-constexpr uint32_t modifier_mask = SACCADE_INPUT_MODIFIER_SHIFT | SACCADE_INPUT_MODIFIER_CONTROL |
-                                   SACCADE_INPUT_MODIFIER_ALT | SACCADE_INPUT_MODIFIER_META;
-constexpr uint32_t permission_mask = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD |
-                                     SACCADE_INPUT_PERMISSION_TEXT | SACCADE_INPUT_PERMISSION_WINDOW |
-                                     SACCADE_INPUT_PERMISSION_CLIPBOARD;
+constexpr uint32_t modifier_mask =
+    SACCADE_INPUT_MODIFIER_SHIFT | SACCADE_INPUT_MODIFIER_CONTROL | SACCADE_INPUT_MODIFIER_ALT | SACCADE_INPUT_MODIFIER_META;
+constexpr uint32_t permission_mask = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD | SACCADE_INPUT_PERMISSION_TEXT |
+                                     SACCADE_INPUT_PERMISSION_WINDOW | SACCADE_INPUT_PERMISSION_CLIPBOARD;
 
 const SaccadeTargetRecord* find_target(const scene::PacketView& scene, uint64_t target_id) noexcept {
     for (uint32_t index = 0; index < scene.header->target_count; ++index) {
@@ -66,9 +65,8 @@ bool one_button(uint32_t value) noexcept {
 }
 
 bool request_shape_valid(const ActionRequest& request) noexcept {
-    if (request.kind < ActionKind::pointer_move || request.kind > ActionKind::invoke ||
-        request.target_count > maximum_action_targets || request.repeat_count == 0 || request.repeat_count > 16 ||
-        (request.modifiers & ~modifier_mask) != 0) {
+    if (request.kind < ActionKind::pointer_move || request.kind > ActionKind::invoke || request.target_count > maximum_action_targets ||
+        request.repeat_count == 0 || request.repeat_count > 16 || (request.modifiers & ~modifier_mask) != 0) {
         return false;
     }
 
@@ -121,21 +119,19 @@ SaccadeInputCommand target_command(SaccadeInputCommandKind kind, const SaccadeTa
 
 } // namespace
 
-SaccadeResult ActionPlanner::build(const scene::PacketView& scene, const ActionContext& context,
-                                   const ActionRequest& request, ActionPlanStorage* storage,
-                                   SaccadeSpanU8* output) noexcept {
-    if (storage == nullptr || output == nullptr || scene.header == nullptr || scene.targets == nullptr ||
-        context.plan_id == 0 || context.permission_epoch == 0 || context.deadline_ns == 0 ||
-        context.now_ns >= context.deadline_ns || (context.permissions & ~permission_mask) != 0 ||
-        (context.expected_buttons & ~button_mask) != 0 || context.reserved != 0 || !request_shape_valid(request)) {
+SaccadeResult ActionPlanner::build(const scene::PacketView& scene, const ActionContext& context, const ActionRequest& request,
+                                   ActionPlanStorage* storage, SaccadeSpanU8* output) noexcept {
+    if (storage == nullptr || output == nullptr || scene.header == nullptr || scene.targets == nullptr || context.plan_id == 0 ||
+        context.permission_epoch == 0 || context.deadline_ns == 0 || context.now_ns >= context.deadline_ns ||
+        (context.permissions & ~permission_mask) != 0 || (context.expected_buttons & ~button_mask) != 0 || context.reserved != 0 ||
+        !request_shape_valid(request)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
     *output = {};
 
-    if (scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
-        scene.header->scene_epoch != context.scene_epoch || scene.header->transform_epoch != context.transform_epoch ||
-        scene.header->topology_epoch != context.topology_epoch) {
+    if (scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 || scene.header->scene_epoch != context.scene_epoch ||
+        scene.header->transform_epoch != context.transform_epoch || scene.header->topology_epoch != context.topology_epoch) {
         ++stats_.rejected_stale;
         return SACCADE_ERROR_STALE_HANDLE;
     }
@@ -198,7 +194,8 @@ SaccadeResult ActionPlanner::build(const scene::PacketView& scene, const ActionC
             if (request.pointer_duration_ns != 0) {
                 SaccadeInputCommand move = target_command(SACCADE_INPUT_COMMAND_POINTER_MOVE, *targets[index]);
                 move.duration_ns = request.pointer_duration_ns;
-                if (!append(move)) return SACCADE_ERROR_CAPACITY;
+                if (!append(move))
+                    return SACCADE_ERROR_CAPACITY;
             }
             SaccadeInputCommand command = target_command(SACCADE_INPUT_COMMAND_CLICK, *targets[index]);
             command.data0 = request.button;
@@ -296,19 +293,19 @@ SaccadeResult ActionPlanner::build(const scene::PacketView& scene, const ActionC
         break;
     }
     }
-    if (request.move_to_final_pointer && request.kind != ActionKind::hold &&
-        request.kind != ActionKind::window_activate) {
+    if (request.move_to_final_pointer && request.kind != ActionKind::hold && request.kind != ActionKind::window_activate) {
         SaccadeInputCommand final{};
         final.kind = SACCADE_INPUT_COMMAND_POINTER_MOVE;
         final.flags = SACCADE_INPUT_COMMAND_ABSOLUTE;
         final.x_q8 = request.final_pointer.x;
         final.y_q8 = request.final_pointer.y;
         final.duration_ns = request.pointer_duration_ns;
-        if (!append(final)) return SACCADE_ERROR_CAPACITY;
+        if (!append(final))
+            return SACCADE_ERROR_CAPACITY;
     }
     if ((context.permissions & permissions) != permissions) {
         ++stats_.rejected_permission;
-        return SACCADE_ERROR_UNSUPPORTED;
+        return SACCADE_ERROR_PERMISSION;
     }
 
     const uint64_t commands_size = static_cast<uint64_t>(command_count) * sizeof(SaccadeInputCommand);
@@ -336,10 +333,8 @@ SaccadeResult ActionPlanner::build(const scene::PacketView& scene, const ActionC
     header->permission_epoch = context.permission_epoch;
     header->source_id = scene.header->source_id;
     header->focus_id = context.focus_id;
-    header->window_id =
-        request.target_count == 0 ? 0 : (targets[0]->window_id == 0 ? context.window_id : targets[0]->window_id);
-    header->display_id =
-        request.target_count == 0 ? 0 : (targets[0]->display_id == 0 ? context.display_id : targets[0]->display_id);
+    header->window_id = request.target_count == 0 ? 0 : (targets[0]->window_id == 0 ? context.window_id : targets[0]->window_id);
+    header->display_id = request.target_count == 0 ? 0 : (targets[0]->display_id == 0 ? context.display_id : targets[0]->display_id);
     header->deadline_ns = context.deadline_ns;
     header->commands_offset = sizeof(*header);
     header->total_size = total_size;

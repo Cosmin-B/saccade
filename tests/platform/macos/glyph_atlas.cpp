@@ -23,12 +23,12 @@ int main() {
     using namespace saccade;
     application::SettingsDocument settings = application::default_settings();
     overlay::GlyphAtlasStorage regular{};
-    if (platform::macos::rasterize_glyph_atlas(settings, &regular) != SACCADE_OK ||
-        regular.glyph_count != settings.hints.alphabet_count) {
+    if (platform::macos::rasterize_glyph_atlas(settings, &regular) != SACCADE_OK || regular.glyph_count != settings.hints.alphabet_count) {
         return 1;
     }
     for (uint32_t index = 0; index < regular.glyph_count; ++index) {
-        if (regular.symbols[index] != settings.hints.alphabet[index] || !glyph_nonempty(regular, index)) return 2;
+        if (regular.symbols[index] != settings.hints.alphabet[index] || !glyph_nonempty(regular, index))
+            return 2;
     }
 
     settings.appearance.font_weight = 900;

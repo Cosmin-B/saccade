@@ -16,23 +16,23 @@ bool config_valid(const GridSceneConfig& config) noexcept {
     const uint32_t count = static_cast<uint32_t>(config.rows) * config.columns;
     const int64_t horizontal_margins = static_cast<int64_t>(config.margin_x_q8) * 2;
     const int64_t vertical_margins = static_cast<int64_t>(config.margin_y_q8) * 2;
-    return geometry::rect_valid(config.scope) && config.scene_epoch != 0 && config.frame_id != 0 &&
-           config.model_epoch != 0 && config.session_epoch != 0 && config.transform_epoch != 0 &&
-           config.topology_epoch != 0 && config.source_id != 0 && config.rows != 0 && config.columns != 0 &&
-           count <= SACCADE_TARGET_PACKET_MAX_TARGETS && config.reserved0 == 0 && config.reserved1 == 0 &&
-           config.margin_x_q8 >= 0 && config.margin_y_q8 >= 0 && horizontal_margins < config.scope.width &&
+    return geometry::rect_valid(config.scope) && config.scene_epoch != 0 && config.frame_id != 0 && config.model_epoch != 0 &&
+           config.session_epoch != 0 && config.transform_epoch != 0 && config.topology_epoch != 0 && config.source_id != 0 &&
+           config.rows != 0 && config.columns != 0 && count <= SACCADE_TARGET_PACKET_MAX_TARGETS && config.reserved0 == 0 &&
+           config.reserved1 == 0 && config.margin_x_q8 >= 0 && config.margin_y_q8 >= 0 && horizontal_margins < config.scope.width &&
            vertical_margins < config.scope.height;
 }
 
 } // namespace
 
 SaccadeResult build_grid_scene(const GridSceneConfig& config, SaccadeMutableSpanU8 output, size_t* byte_size) noexcept {
-    if (byte_size == nullptr || !config_valid(config)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (byte_size == nullptr || !config_valid(config))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const uint32_t target_count = static_cast<uint32_t>(config.rows) * config.columns;
-    const size_t required =
-        sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(target_count) * sizeof(SaccadeTargetRecord);
+    const size_t required = sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(target_count) * sizeof(SaccadeTargetRecord);
     *byte_size = required;
-    if (output.data == nullptr || output.size < required) return SACCADE_ERROR_CAPACITY;
+    if (output.data == nullptr || output.size < required)
+        return SACCADE_ERROR_CAPACITY;
 
     SaccadeTargetPacketHeader header{};
     header.struct_size = sizeof(header);

@@ -47,8 +47,7 @@ struct TargetRows {
 
 SaccadeResult parse_contract(const ArtifactView&, Contract*) noexcept;
 SaccadeResult decode_target_rows(const Contract&, const TargetRows&, uint32_t candidate_count, SaccadeRectI32 scope,
-                                 kernels::targets::DenseCandidate*, uint32_t output_capacity,
-                                 uint32_t* output_count) noexcept;
+                                 kernels::targets::DenseCandidate*, uint32_t output_capacity, uint32_t* output_count) noexcept;
 
 } // namespace saccade::model::coreml
 

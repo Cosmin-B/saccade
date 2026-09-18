@@ -72,33 +72,31 @@ int main(int argc, char** argv) {
         }
         SaccadeResult worker_initialize = SACCADE_OK;
         std::thread worker([&]() noexcept {
-            worker_initialize = surface.initialize(
-                *display, argv[1], saccade::backend::metal::PathPreference::automatic, {nullptr, load_frame, nullptr});
+            worker_initialize =
+                surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::automatic, {nullptr, load_frame, nullptr});
         });
         worker.join();
         if (worker_initialize != SACCADE_ERROR_STATE) {
             return 5;
         }
-        const SaccadeResult initialized = surface.initialize(
-            *display, argv[1], saccade::backend::metal::PathPreference::automatic, {nullptr, load_frame, nullptr});
+        const SaccadeResult initialized =
+            surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::automatic, {nullptr, load_frame, nullptr});
         if (initialized == SACCADE_ERROR_UNSUPPORTED) {
             return 77;
         }
-        if (initialized != SACCADE_OK ||
-            surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::automatic,
-                               {nullptr, load_frame, nullptr}) != SACCADE_ERROR_STATE) {
+        if (initialized != SACCADE_OK || surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::automatic,
+                                                            {nullptr, load_frame, nullptr}) != SACCADE_ERROR_STATE) {
             return 6;
         }
         if (surface.read_info(&info) != SACCADE_OK || info.display_id != display->display_id ||
             info.drawable_width != display->backing_width || info.drawable_height != display->backing_height ||
             info.preferred_fps != std::min(display->maximum_fps, 120U) || info.maximum_drawable_count != 3 ||
             info.window_level != NSStatusWindowLevel ||
-            (info.flags & (overlay_surface_initialized | overlay_surface_paused | overlay_surface_click_through |
-                           overlay_surface_nonactivating | overlay_surface_all_spaces | overlay_surface_color_managed |
-                           overlay_surface_display_paced)) !=
-                (overlay_surface_initialized | overlay_surface_paused | overlay_surface_click_through |
-                 overlay_surface_nonactivating | overlay_surface_all_spaces | overlay_surface_color_managed |
-                 overlay_surface_display_paced) ||
+            (info.flags &
+             (overlay_surface_initialized | overlay_surface_paused | overlay_surface_click_through | overlay_surface_nonactivating |
+              overlay_surface_all_spaces | overlay_surface_color_managed | overlay_surface_display_paced)) !=
+                (overlay_surface_initialized | overlay_surface_paused | overlay_surface_click_through | overlay_surface_nonactivating |
+                 overlay_surface_all_spaces | overlay_surface_color_managed | overlay_surface_display_paced) ||
             (info.flags & overlay_surface_visible) != 0) {
             return 7;
         }
@@ -121,8 +119,8 @@ int main(int argc, char** argv) {
             return 10;
         }
         [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.15]];
-        if (surface.stop() != SACCADE_OK || surface.read_info(&info) != SACCADE_OK ||
-            (info.flags & overlay_surface_visible) != 0 || (info.flags & overlay_surface_paused) == 0) {
+        if (surface.stop() != SACCADE_OK || surface.read_info(&info) != SACCADE_OK || (info.flags & overlay_surface_visible) != 0 ||
+            (info.flags & overlay_surface_paused) == 0) {
             return 10;
         }
 
@@ -137,37 +135,34 @@ int main(int argc, char** argv) {
         if (surface.read_memory_stats(&memory) != SACCADE_OK || memory.drawable_width != display->backing_width ||
             memory.drawable_height != display->backing_height || memory.drawable_count != 3 ||
             memory.surface_host_bytes != sizeof(OverlaySurface) ||
-            memory.drawable_bytes_estimate !=
-                static_cast<uint64_t>(display->backing_width) * display->backing_height * 4U * 3U ||
+            memory.drawable_bytes_estimate != static_cast<uint64_t>(display->backing_width) * display->backing_height * 4U * 3U ||
             memory.total_known_and_estimated < memory.drawable_bytes_estimate) {
             return 21;
         }
 
         OverlaySurface metal3_surface;
-        if (metal3_surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::metal3,
-                                      {nullptr, load_frame, nullptr}) != SACCADE_OK ||
+        if (metal3_surface.initialize(*display, argv[1], saccade::backend::metal::PathPreference::metal3, {nullptr, load_frame, nullptr}) !=
+                SACCADE_OK ||
             metal3_surface.start() != SACCADE_OK) {
             return 12;
         }
         [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
         if (metal3_surface.stop() != SACCADE_OK || metal3_surface.read_stats(&stats) != SACCADE_OK ||
             metal3_surface.read_renderer_stats(&renderer_stats) != SACCADE_OK || stats.rendered_frames == 0 ||
-            renderer_stats.path != saccade::backend::metal::Path::metal3 ||
-            renderer_stats.presented_frames != stats.rendered_frames) {
+            renderer_stats.path != saccade::backend::metal::Path::metal3 || renderer_stats.presented_frames != stats.rendered_frames) {
             return 13;
         }
 
         OverlaySurfaceSet surfaces;
-        if (surfaces.initialize(argv[1], saccade::backend::metal::PathPreference::automatic,
-                                {nullptr, load_frame, nullptr}) != SACCADE_OK ||
+        if (surfaces.initialize(argv[1], saccade::backend::metal::PathPreference::automatic, {nullptr, load_frame, nullptr}) !=
+                SACCADE_OK ||
             surfaces.synchronize(snapshot) != SACCADE_OK) {
             return 14;
         }
         OverlaySurfaceSetStats set_stats{};
         if (surfaces.read_stats(&set_stats) != SACCADE_OK || set_stats.active_surfaces != snapshot.count ||
             set_stats.surfaces_added != snapshot.count || set_stats.topology_epoch != snapshot.epoch ||
-            surfaces.read_surface_info(display->display_id, &info) != SACCADE_OK ||
-            surfaces.synchronize(snapshot) != SACCADE_OK) {
+            surfaces.read_surface_info(display->display_id, &info) != SACCADE_OK || surfaces.synchronize(snapshot) != SACCADE_OK) {
             return 15;
         }
         saccade::geometry::DisplaySnapshot duplicate{};
@@ -179,13 +174,12 @@ int main(int argc, char** argv) {
         auto missing = duplicate;
         missing.count = 1;
         missing.displays[0].display_id = UINT64_C(0x100000000);
-        if (surfaces.synchronize(duplicate) != SACCADE_ERROR_INVALID_ARGUMENT ||
-            surfaces.synchronize(missing) != SACCADE_ERROR_NOT_FOUND || surfaces.read_stats(&set_stats) != SACCADE_OK ||
-            set_stats.active_surfaces != snapshot.count || set_stats.topology_epoch != snapshot.epoch) {
+        if (surfaces.synchronize(duplicate) != SACCADE_ERROR_INVALID_ARGUMENT || surfaces.synchronize(missing) != SACCADE_ERROR_NOT_FOUND ||
+            surfaces.read_stats(&set_stats) != SACCADE_OK || set_stats.active_surfaces != snapshot.count ||
+            set_stats.topology_epoch != snapshot.epoch) {
             return 22;
         }
-        if (surfaces.set_click_through(false) != SACCADE_OK ||
-            surfaces.read_surface_info(display->display_id, &info) != SACCADE_OK ||
+        if (surfaces.set_click_through(false) != SACCADE_OK || surfaces.read_surface_info(display->display_id, &info) != SACCADE_OK ||
             (info.flags & overlay_surface_click_through) != 0 || surfaces.set_click_through(true) != SACCADE_OK ||
             surfaces.start() != SACCADE_OK) {
             return 16;
@@ -194,9 +188,8 @@ int main(int argc, char** argv) {
         if (surfaces.stop() != SACCADE_OK || surfaces.read_stats(&set_stats) != SACCADE_OK ||
             surfaces.read_surface_stats(display->display_id, &stats) != SACCADE_OK ||
             surfaces.read_surface_memory_stats(display->display_id, &memory) != SACCADE_OK ||
-            surfaces.read_surface_renderer_stats(display->display_id, &renderer_stats) != SACCADE_OK ||
-            set_stats.running != 0 || stats.rendered_frames == 0 || memory.drawable_count != 3 ||
-            renderer_stats.presented_frames == 0) {
+            surfaces.read_surface_renderer_stats(display->display_id, &renderer_stats) != SACCADE_OK || set_stats.running != 0 ||
+            stats.rendered_frames == 0 || memory.drawable_count != 3 || renderer_stats.presented_frames == 0) {
             return 17;
         }
 

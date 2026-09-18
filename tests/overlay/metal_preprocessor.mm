@@ -110,16 +110,13 @@ ExitCode run_fp16(id<MTLDevice> device, const char* library, PathPreference pref
     SaccadeMemoryStats memory{};
     memory.struct_size = sizeof(memory);
     memory.api_version = SACCADE_API_VERSION;
-    if (preprocessor.memory_stats(&memory) != SACCADE_OK || memory.device_owned < view.byte_size ||
-        memory.copied_bytes != 0) {
+    if (preprocessor.memory_stats(&memory) != SACCADE_OK || memory.device_owned < view.byte_size || memory.copied_bytes != 0) {
         return ExitCode::fp16_memory;
     }
     const auto stats = preprocessor.stats();
-    const Path expected_path = preference == PathPreference::metal3
-                                   ? Path::metal3
-                                   : (preference == PathPreference::metal4 ? Path::metal4 : stats.path);
-    if (stats.path != expected_path || stats.submissions != 1 || stats.completed != 1 ||
-        stats.output_bytes != view.byte_size) {
+    const Path expected_path =
+        preference == PathPreference::metal3 ? Path::metal3 : (preference == PathPreference::metal4 ? Path::metal4 : stats.path);
+    if (stats.path != expected_path || stats.submissions != 1 || stats.completed != 1 || stats.output_bytes != view.byte_size) {
         return ExitCode::fp16_stats;
     }
     return ExitCode::success;
@@ -159,8 +156,7 @@ ExitCode run_int8(id<MTLDevice> device, const char* library) {
     const SourceRegion right_column{1, 0, 1, 2};
     if (preprocessor.submit((__bridge void*)texture, 2, 2, right_column, 10, 10, &second) != SACCADE_OK ||
         preprocessor.wait(second, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        preprocessor.tensor(first, &view) != SACCADE_ERROR_STALE_HANDLE ||
-        preprocessor.tensor(second, &view) != SACCADE_OK) {
+        preprocessor.tensor(first, &view) != SACCADE_ERROR_STALE_HANDLE || preprocessor.tensor(second, &view) != SACCADE_OK) {
         return ExitCode::int8_crop;
     }
     buffer = (__bridge id<MTLBuffer>)view.buffer;
@@ -168,8 +164,7 @@ ExitCode run_int8(id<MTLDevice> device, const char* library) {
     const std::array<int8_t, 12> cropped{-128, -128, 127, -128, 127, -128, 127, -128, -128, -128, 127, -128};
     for (size_t index = 0; index < cropped.size(); ++index) {
         if (values[index] != cropped[index]) {
-            std::fprintf(stderr, "crop[%zu]=%d expected=%d\n", index, static_cast<int>(values[index]),
-                         static_cast<int>(cropped[index]));
+            std::fprintf(stderr, "crop[%zu]=%d expected=%d\n", index, static_cast<int>(values[index]), static_cast<int>(cropped[index]));
             return ExitCode::int8_cropped_values;
         }
     }
@@ -185,9 +180,9 @@ ExitCode run_direct(id<MTLDevice> device) {
     }
     id<MTLTexture> texture = make_texture(device);
     DirectTextureView view{};
-    if (preprocessor.direct_texture((__bridge void*)texture, 2, 2, &view) != SACCADE_OK ||
-        view.texture != (__bridge void*)texture || view.width != 2 || view.height != 2 ||
-        view.pixel_format != SACCADE_FORMAT_BGRA8 || preprocessor.stats().direct_texture_views != 1) {
+    if (preprocessor.direct_texture((__bridge void*)texture, 2, 2, &view) != SACCADE_OK || view.texture != (__bridge void*)texture ||
+        view.width != 2 || view.height != 2 || view.pixel_format != SACCADE_FORMAT_BGRA8 ||
+        preprocessor.stats().direct_texture_views != 1) {
         return ExitCode::direct_view;
     }
     return ExitCode::success;
@@ -209,10 +204,9 @@ ExitCode run_image(id<MTLDevice> device, const char* library, PathPreference pre
         return ExitCode::image_submit;
     }
     ImageView image{};
-    if (preprocessor.image(submission, &image) != SACCADE_OK || image.pixel_buffer == nullptr ||
-        image.texture == nullptr || image.iosurface_id == 0 || image.width != 4 || image.height != 2 ||
-        image.pixel_format != SACCADE_FORMAT_BGRA8 || image.content.x != 1 || image.content.y != 0 ||
-        image.content.width != 2 || image.content.height != 2) {
+    if (preprocessor.image(submission, &image) != SACCADE_OK || image.pixel_buffer == nullptr || image.texture == nullptr ||
+        image.iosurface_id == 0 || image.width != 4 || image.height != 2 || image.pixel_format != SACCADE_FORMAT_BGRA8 ||
+        image.content.x != 1 || image.content.y != 0 || image.content.width != 2 || image.content.height != 2) {
         return ExitCode::image_view;
     }
     CVPixelBufferRef pixel_buffer = static_cast<CVPixelBufferRef>(image.pixel_buffer);
@@ -232,8 +226,7 @@ ExitCode run_image(id<MTLDevice> device, const char* library, PathPreference pre
     SaccadeMemoryStats memory{};
     memory.struct_size = sizeof(memory);
     memory.api_version = SACCADE_API_VERSION;
-    if (preprocessor.memory_stats(&memory) != SACCADE_OK || memory.device_owned < 4U * 2U * 4U ||
-        memory.copied_bytes != 0) {
+    if (preprocessor.memory_stats(&memory) != SACCADE_OK || memory.device_owned < 4U * 2U * 4U || memory.copied_bytes != 0) {
         return ExitCode::image_memory;
     }
     return ExitCode::success;
@@ -255,15 +248,14 @@ ExitCode run_atlas(id<MTLDevice> device, const char* library, PathPreference pre
         AtlasSource{(__bridge void*)texture, 2, 2, {1, 0, 1, 2}, {2, 0, 2, 2}},
     };
     PreprocessSubmission submission{};
-    if (preprocessor.submit_atlas(sources.data(), sources.size(), {0, 0, 4, 2}, AtlasLoad::clear, 30, 31,
-                                  &submission) != SACCADE_OK ||
+    if (preprocessor.submit_atlas(sources.data(), sources.size(), {0, 0, 4, 2}, AtlasLoad::clear, 30, 31, &submission) != SACCADE_OK ||
         preprocessor.wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK) {
         return ExitCode::atlas_submit;
     }
 
     ImageView image{};
-    if (preprocessor.image(submission, &image) != SACCADE_OK || image.content.x != 0 || image.content.y != 0 ||
-        image.content.width != 4 || image.content.height != 2) {
+    if (preprocessor.image(submission, &image) != SACCADE_OK || image.content.x != 0 || image.content.y != 0 || image.content.width != 4 ||
+        image.content.height != 2) {
         return ExitCode::atlas_view;
     }
     CVPixelBufferRef pixel_buffer = static_cast<CVPixelBufferRef>(image.pixel_buffer);
@@ -284,8 +276,7 @@ ExitCode run_atlas(id<MTLDevice> device, const char* library, PathPreference pre
 
     const AtlasSource update{(__bridge void*)texture, 2, 2, {0, 0, 1, 2}, {2, 0, 2, 2}};
     if (preprocessor.submit_atlas(&update, 1, {0, 0, 4, 2}, AtlasLoad::preserve, 32, 31, &submission) != SACCADE_OK ||
-        preprocessor.wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        preprocessor.image(submission, &image) != SACCADE_OK ||
+        preprocessor.wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK || preprocessor.image(submission, &image) != SACCADE_OK ||
         CVPixelBufferLockBaseAddress(pixel_buffer, kCVPixelBufferLock_ReadOnly) != kCVReturnSuccess) {
         return ExitCode::atlas_update;
     }

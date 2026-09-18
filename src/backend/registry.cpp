@@ -95,8 +95,7 @@ SaccadeResult validate_info(const SaccadeProviderInfo& info, uint32_t family) no
         static_cast<size_t>(info.struct_size) > sizeof(info)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
-    const SaccadeResult prefix =
-        validate_prefix(info.struct_size, info.api_version, offsetof(SaccadeProviderInfo, reserved));
+    const SaccadeResult prefix = validate_prefix(info.struct_size, info.api_version, offsetof(SaccadeProviderInfo, reserved));
     if (prefix != SACCADE_OK) {
         return prefix;
     }
@@ -113,8 +112,7 @@ SaccadeResult validate_info(const SaccadeProviderInfo& info, uint32_t family) no
 }
 
 template <typename Operations> SaccadeResult validate_operations_prefix(const Operations& ops) noexcept {
-    if (static_cast<size_t>(ops.struct_size) < offsetof(Operations, reserved) ||
-        static_cast<size_t>(ops.struct_size) > sizeof(ops)) {
+    if (static_cast<size_t>(ops.struct_size) < offsetof(Operations, reserved) || static_cast<size_t>(ops.struct_size) > sizeof(ops)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const SaccadeResult prefix = validate_prefix(ops.struct_size, ops.api_version, offsetof(Operations, reserved));
@@ -132,10 +130,10 @@ SaccadeResult validate_operations(const SaccadeInferenceOps& ops) noexcept {
     if (prefix != SACCADE_OK) {
         return prefix;
     }
-    if (ops.enumerate_devices == nullptr || ops.query_model == nullptr || ops.create_model == nullptr ||
-        ops.destroy_model == nullptr || ops.create_context == nullptr || ops.destroy_context == nullptr ||
-        ops.submit == nullptr || ops.poll == nullptr || ops.wait == nullptr || ops.collect == nullptr ||
-        ops.cancel == nullptr || ops.reset == nullptr || ops.synchronize == nullptr || ops.memory_stats == nullptr) {
+    if (ops.enumerate_devices == nullptr || ops.query_model == nullptr || ops.create_model == nullptr || ops.destroy_model == nullptr ||
+        ops.create_context == nullptr || ops.destroy_context == nullptr || ops.submit == nullptr || ops.poll == nullptr ||
+        ops.wait == nullptr || ops.collect == nullptr || ops.cancel == nullptr || ops.reset == nullptr || ops.synchronize == nullptr ||
+        ops.memory_stats == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     return SACCADE_OK;
@@ -184,16 +182,14 @@ SaccadeResult validate_operations(const SaccadeInputOps& ops) noexcept {
     if (prefix != SACCADE_OK) {
         return prefix;
     }
-    if (ops.execute == nullptr || ops.poll == nullptr || ops.wait == nullptr || ops.cancel == nullptr ||
-        ops.release_all == nullptr || ops.synchronize == nullptr || ops.reset == nullptr ||
-        ops.memory_stats == nullptr) {
+    if (ops.execute == nullptr || ops.poll == nullptr || ops.wait == nullptr || ops.cancel == nullptr || ops.release_all == nullptr ||
+        ops.synchronize == nullptr || ops.reset == nullptr || ops.memory_stats == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     return SACCADE_OK;
 }
 
-template <typename Descriptor>
-SaccadeResult copy_descriptor_prefix(const Descriptor* desc, Descriptor* out_desc) noexcept {
+template <typename Descriptor> SaccadeResult copy_descriptor_prefix(const Descriptor* desc, Descriptor* out_desc) noexcept {
     if (desc == nullptr || out_desc == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -244,18 +240,16 @@ SaccadeResult copy_and_validate_device_info(const SaccadeDeviceInfo* info, Sacca
     *out_info = {};
     const size_t copy_size = std::min(static_cast<size_t>(struct_size), sizeof(*out_info));
     std::memcpy(out_info, static_cast<const void*>(info), copy_size);
-    const SaccadeResult prefix =
-        validate_prefix(struct_size, out_info->api_version, offsetof(SaccadeDeviceInfo, reserved));
+    const SaccadeResult prefix = validate_prefix(struct_size, out_info->api_version, offsetof(SaccadeDeviceInfo, reserved));
     if (prefix != SACCADE_OK) {
         return prefix;
     }
     if (!reserved_is_zero(out_info, struct_size, offsetof(SaccadeDeviceInfo, reserved), sizeof(*out_info))) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
-    if (out_info->stable_id == 0 || out_info->format_bits == 0 || out_info->precision_bits == 0 ||
-        out_info->import_bits == 0 || out_info->queue_capacity == 0 || out_info->max_in_flight == 0 ||
-        out_info->max_in_flight > out_info->queue_capacity || !is_power_of_two(out_info->host_alignment) ||
-        (out_info->device_alignment != 0 && !is_power_of_two(out_info->device_alignment)) ||
+    if (out_info->stable_id == 0 || out_info->format_bits == 0 || out_info->precision_bits == 0 || out_info->import_bits == 0 ||
+        out_info->queue_capacity == 0 || out_info->max_in_flight == 0 || out_info->max_in_flight > out_info->queue_capacity ||
+        !is_power_of_two(out_info->host_alignment) || (out_info->device_alignment != 0 && !is_power_of_two(out_info->device_alignment)) ||
         (out_info->name.size != 0 && out_info->name.data == nullptr) || out_info->name.size >= 64) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -297,8 +291,7 @@ uint32_t count_bits(uint32_t value) noexcept {
 }
 
 SaccadeProviderHandle make_handle(uint32_t domain, uint32_t family, size_t slot) noexcept {
-    return (static_cast<uint64_t>(domain) << 32U) | (static_cast<uint64_t>(family) << 16U) |
-           (static_cast<uint64_t>(slot) + UINT64_C(1));
+    return (static_cast<uint64_t>(domain) << 32U) | (static_cast<uint64_t>(family) << 16U) | (static_cast<uint64_t>(slot) + UINT64_C(1));
 }
 
 SaccadeDeviceHandle make_device_handle(uint32_t domain, size_t slot) noexcept {
@@ -317,8 +310,7 @@ DecodedHandle decode_handle(SaccadeProviderHandle handle) noexcept {
     const uint32_t family = static_cast<uint32_t>((handle >> 16U) & UINT64_C(0xFF));
     const uint32_t reserved = static_cast<uint32_t>((handle >> 24U) & UINT64_C(0xFF));
     const uint32_t domain = static_cast<uint32_t>(handle >> 32U);
-    if (slot == 0 || reserved != 0 || domain == 0 ||
-        static_cast<size_t>(slot) > ProviderRegistry::capacity_per_family) {
+    if (slot == 0 || reserved != 0 || domain == 0 || static_cast<size_t>(slot) > ProviderRegistry::capacity_per_family) {
         return {};
     }
     return {static_cast<size_t>(slot - 1U), family, domain, true};
@@ -344,9 +336,8 @@ DecodedDeviceHandle decode_device_handle(SaccadeDeviceHandle handle) noexcept {
 ProviderRegistry::ProviderRegistry() noexcept : domain_(allocate_registry_domain()) {}
 
 template <typename Operations>
-SaccadeResult ProviderRegistry::insert(FamilyStore<Operations>& store, uint32_t family, const SaccadeProviderInfo& info,
-                                       void* context, const Operations& ops,
-                                       SaccadeProviderHandle* out_handle) noexcept {
+SaccadeResult ProviderRegistry::insert(FamilyStore<Operations>& store, uint32_t family, const SaccadeProviderInfo& info, void* context,
+                                       const Operations& ops, SaccadeProviderHandle* out_handle) noexcept {
     if (out_handle != nullptr) {
         *out_handle = 0;
     }
@@ -390,8 +381,8 @@ SaccadeResult ProviderRegistry::insert(FamilyStore<Operations>& store, uint32_t 
 }
 
 template <typename Operations>
-SaccadeResult ProviderRegistry::select(const FamilyStore<Operations>& store, uint32_t family, uint32_t required,
-                                       uint32_t preferred, ProviderSelection* out_selection) const noexcept {
+SaccadeResult ProviderRegistry::select(const FamilyStore<Operations>& store, uint32_t family, uint32_t required, uint32_t preferred,
+                                       ProviderSelection* out_selection) const noexcept {
     if (out_selection == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -420,8 +411,7 @@ SaccadeResult ProviderRegistry::select(const FamilyStore<Operations>& store, uin
     out_selection->handle = best->record.handle;
     out_selection->stable_id = best->record.info.stable_id;
     out_selection->capability_bits = best->record.info.capability_bits;
-    out_selection->reason =
-        best_score == 0 ? SelectionReason::registration_order : SelectionReason::preferred_capability;
+    out_selection->reason = best_score == 0 ? SelectionReason::registration_order : SelectionReason::preferred_capability;
     (void)family;
     return SACCADE_OK;
 }
@@ -460,26 +450,24 @@ const ProviderRecord<Operations>* ProviderRegistry::lookup(const FamilyStore<Ope
     return &slot.record;
 }
 
-#define SACCADE_DEFINE_REGISTRATION(method, member, family_value, descriptor_type)                                     \
-    SaccadeResult ProviderRegistry::method(const descriptor_type* desc, SaccadeProviderHandle* out_handle) noexcept {  \
-        if (frozen_) {                                                                                                 \
-            return SACCADE_ERROR_STATE;                                                                                \
-        }                                                                                                              \
-        descriptor_type normalized_desc{};                                                                             \
-        const SaccadeResult validation = copy_and_validate_descriptor(desc, family_value, &normalized_desc);           \
-        if (validation != SACCADE_OK) {                                                                                \
-            return validation;                                                                                         \
-        }                                                                                                              \
-        return insert(member, family_value, normalized_desc.info, normalized_desc.context,                             \
-                      normalized_operations(normalized_desc.ops), out_handle);                                         \
+#define SACCADE_DEFINE_REGISTRATION(method, member, family_value, descriptor_type)                                                         \
+    SaccadeResult ProviderRegistry::method(const descriptor_type* desc, SaccadeProviderHandle* out_handle) noexcept {                      \
+        if (frozen_) {                                                                                                                     \
+            return SACCADE_ERROR_STATE;                                                                                                    \
+        }                                                                                                                                  \
+        descriptor_type normalized_desc{};                                                                                                 \
+        const SaccadeResult validation = copy_and_validate_descriptor(desc, family_value, &normalized_desc);                               \
+        if (validation != SACCADE_OK) {                                                                                                    \
+            return validation;                                                                                                             \
+        }                                                                                                                                  \
+        return insert(member, family_value, normalized_desc.info, normalized_desc.context, normalized_operations(normalized_desc.ops),     \
+                      out_handle);                                                                                                         \
     }
 
-SACCADE_DEFINE_REGISTRATION(register_inference, inference_, SACCADE_PROVIDER_FAMILY_INFERENCE,
-                            SaccadeInferenceProviderDesc)
+SACCADE_DEFINE_REGISTRATION(register_inference, inference_, SACCADE_PROVIDER_FAMILY_INFERENCE, SaccadeInferenceProviderDesc)
 SACCADE_DEFINE_REGISTRATION(register_capture, capture_, SACCADE_PROVIDER_FAMILY_CAPTURE, SaccadeCaptureProviderDesc)
 SACCADE_DEFINE_REGISTRATION(register_overlay, overlay_, SACCADE_PROVIDER_FAMILY_OVERLAY, SaccadeOverlayProviderDesc)
-SACCADE_DEFINE_REGISTRATION(register_accessibility, accessibility_, SACCADE_PROVIDER_FAMILY_ACCESSIBILITY,
-                            SaccadeAccessibilityProviderDesc)
+SACCADE_DEFINE_REGISTRATION(register_accessibility, accessibility_, SACCADE_PROVIDER_FAMILY_ACCESSIBILITY, SaccadeAccessibilityProviderDesc)
 SACCADE_DEFINE_REGISTRATION(register_input, input_, SACCADE_PROVIDER_FAMILY_INPUT, SaccadeInputProviderDesc)
 
 #undef SACCADE_DEFINE_REGISTRATION
@@ -547,10 +535,9 @@ SaccadeResult ProviderRegistry::register_device(SaccadeProviderHandle provider, 
     return SACCADE_ERROR_CAPACITY;
 }
 
-#define SACCADE_DEFINE_SELECTION(method, member, family_value)                                                         \
-    SaccadeResult ProviderRegistry::method(uint32_t required, uint32_t preferred, ProviderSelection* out_selection)    \
-        const noexcept {                                                                                               \
-        return select(member, family_value, required, preferred, out_selection);                                       \
+#define SACCADE_DEFINE_SELECTION(method, member, family_value)                                                                             \
+    SaccadeResult ProviderRegistry::method(uint32_t required, uint32_t preferred, ProviderSelection* out_selection) const noexcept {       \
+        return select(member, family_value, required, preferred, out_selection);                                                           \
     }
 
 SACCADE_DEFINE_SELECTION(select_inference, inference_, SACCADE_PROVIDER_FAMILY_INFERENCE)
@@ -561,9 +548,9 @@ SACCADE_DEFINE_SELECTION(select_input, input_, SACCADE_PROVIDER_FAMILY_INPUT)
 
 #undef SACCADE_DEFINE_SELECTION
 
-#define SACCADE_DEFINE_ID_SELECTION(method, member, family_value)                                                      \
-    SaccadeResult ProviderRegistry::method(uint64_t stable_id, ProviderSelection* out_selection) const noexcept {      \
-        return select_by_id(member, family_value, stable_id, out_selection);                                           \
+#define SACCADE_DEFINE_ID_SELECTION(method, member, family_value)                                                                          \
+    SaccadeResult ProviderRegistry::method(uint64_t stable_id, ProviderSelection* out_selection) const noexcept {                          \
+        return select_by_id(member, family_value, stable_id, out_selection);                                                               \
     }
 
 SACCADE_DEFINE_ID_SELECTION(select_inference_by_id, inference_, SACCADE_PROVIDER_FAMILY_INFERENCE)
@@ -574,8 +561,7 @@ SACCADE_DEFINE_ID_SELECTION(select_input_by_id, input_, SACCADE_PROVIDER_FAMILY_
 
 #undef SACCADE_DEFINE_ID_SELECTION
 
-SaccadeResult ProviderRegistry::select_device(const DeviceRequirements& requirements,
-                                              DeviceSelection* out_selection) const noexcept {
+SaccadeResult ProviderRegistry::select_device(const DeviceRequirements& requirements, DeviceSelection* out_selection) const noexcept {
     if (out_selection == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -592,8 +578,7 @@ SaccadeResult ProviderRegistry::select_device(const DeviceRequirements& requirem
             (info.format_bits & requirements.required_format_bits) != requirements.required_format_bits ||
             (info.precision_bits & requirements.required_precision_bits) != requirements.required_precision_bits ||
             (info.import_bits & requirements.required_import_bits) != requirements.required_import_bits ||
-            info.queue_capacity < requirements.minimum_queue_capacity ||
-            info.max_in_flight < requirements.minimum_max_in_flight) {
+            info.queue_capacity < requirements.minimum_queue_capacity || info.max_in_flight < requirements.minimum_max_in_flight) {
             continue;
         }
 
@@ -614,8 +599,7 @@ SaccadeResult ProviderRegistry::select_device(const DeviceRequirements& requirem
     out_selection->provider = best->record.provider;
     out_selection->stable_id = best->record.info.stable_id;
     out_selection->capability_bits = best->record.info.capability_bits;
-    out_selection->reason =
-        best_score == 0 ? SelectionReason::registration_order : SelectionReason::preferred_capability;
+    out_selection->reason = best_score == 0 ? SelectionReason::registration_order : SelectionReason::preferred_capability;
     return SACCADE_OK;
 }
 
@@ -642,9 +626,9 @@ SaccadeResult ProviderRegistry::select_device_by_id(SaccadeProviderHandle provid
     return SACCADE_ERROR_NOT_FOUND;
 }
 
-#define SACCADE_DEFINE_LOOKUP(method, record_type, member, family_value)                                               \
-    const ProviderRegistry::record_type* ProviderRegistry::method(SaccadeProviderHandle handle) const noexcept {       \
-        return lookup(member, family_value, handle);                                                                   \
+#define SACCADE_DEFINE_LOOKUP(method, record_type, member, family_value)                                                                   \
+    const ProviderRegistry::record_type* ProviderRegistry::method(SaccadeProviderHandle handle) const noexcept {                           \
+        return lookup(member, family_value, handle);                                                                                       \
     }
 
 SACCADE_DEFINE_LOOKUP(inference, InferenceRecord, inference_, SACCADE_PROVIDER_FAMILY_INFERENCE)

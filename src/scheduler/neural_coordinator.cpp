@@ -14,9 +14,9 @@ SaccadeResult NeuralCoordinator::initialize(const NeuralCoordinatorConfig& confi
     if (initialized_) {
         return SACCADE_ERROR_ALREADY_EXISTS;
     }
-    if (storage == nullptr || scenes == nullptr || config.runtime == 0 || config.session == 0 ||
-        config.model_epoch == 0 || config.session_epoch == 0 || config.maximum_output_bytes == 0 ||
-        config.maximum_output_bytes > storage->inference_output.size() || config.reserved != 0) {
+    if (storage == nullptr || scenes == nullptr || config.runtime == 0 || config.session == 0 || config.model_epoch == 0 ||
+        config.session_epoch == 0 || config.maximum_output_bytes == 0 || config.maximum_output_bytes > storage->inference_output.size() ||
+        config.reserved != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const SaccadeResult scheduled = scheduler_.initialize(config.start_time_ns, config.rates);
@@ -43,10 +43,9 @@ void NeuralCoordinator::release_frame(NeuralFrame* frame) noexcept {
 
 SaccadeResult NeuralCoordinator::offer(NeuralFrame frame) noexcept {
     const geometry::TransformDesc& transform = frame.source_to_desktop.descriptor();
-    if (!initialized_ || frame.frame == 0 || frame.source_id == 0 || frame.topology_epoch == 0 ||
-        frame.transform_epoch == 0 || frame.width == 0 || frame.height == 0 ||
-        frame.width > static_cast<uint32_t>(INT32_MAX) || frame.height > static_cast<uint32_t>(INT32_MAX) ||
-        !frame.source_to_desktop.valid() || transform.epoch != frame.transform_epoch ||
+    if (!initialized_ || frame.frame == 0 || frame.source_id == 0 || frame.topology_epoch == 0 || frame.transform_epoch == 0 ||
+        frame.width == 0 || frame.height == 0 || frame.width > static_cast<uint32_t>(INT32_MAX) ||
+        frame.height > static_cast<uint32_t>(INT32_MAX) || !frame.source_to_desktop.valid() || transform.epoch != frame.transform_epoch ||
         transform.destination_space != geometry::CoordinateSpace::desktop || pending_frame_.frame == frame.frame ||
         running_frame_.frame == frame.frame) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -85,8 +84,7 @@ SaccadeResult NeuralCoordinator::start_pending(uint64_t, NeuralAdvance*) noexcep
     submit.transform_epoch = pending_frame_.transform_epoch;
     submit.topology_epoch = pending_frame_.topology_epoch;
     submit.source_id = pending_frame_.source_id;
-    const SaccadeResult submitted =
-        saccade_inference_submit(config_.runtime, config_.session, &submit, &running_ticket_);
+    const SaccadeResult submitted = saccade_inference_submit(config_.runtime, config_.session, &submit, &running_ticket_);
     if (submitted != SACCADE_OK) {
         ++stats_.failures;
         release_frame(&pending_frame_);
@@ -109,10 +107,8 @@ SaccadeResult NeuralCoordinator::publish_output(size_t byte_size, NeuralAdvance*
     const SaccadeTargetPacketHeader& input_header = *input.header;
     if (input_header.coordinate_space == SACCADE_COORDINATE_SPACE_DESKTOP_Q8 || input_header.scene_epoch != 0 ||
         input_header.frame_id == 0 || input_header.model_epoch != config_.model_epoch ||
-        input_header.session_epoch != config_.session_epoch ||
-        input_header.transform_epoch != running_frame_.transform_epoch ||
-        input_header.topology_epoch != running_frame_.topology_epoch ||
-        input_header.source_id != running_frame_.source_id) {
+        input_header.session_epoch != config_.session_epoch || input_header.transform_epoch != running_frame_.transform_epoch ||
+        input_header.topology_epoch != running_frame_.topology_epoch || input_header.source_id != running_frame_.source_id) {
         ++stats_.stale_outputs;
         return SACCADE_ERROR_STALE_HANDLE;
     }
@@ -145,9 +141,8 @@ SaccadeResult NeuralCoordinator::publish_output(size_t byte_size, NeuralAdvance*
             return mapped_result;
         }
         geometry::PointQ8 safe{};
-        if (running_frame_.source_to_desktop.map_point({source.safe_x_q8, source.safe_y_q8}, &safe) != SACCADE_OK ||
-            safe.x < mapped.x || safe.y < mapped.y ||
-            static_cast<int64_t>(safe.x) >= static_cast<int64_t>(mapped.x) + mapped.width ||
+        if (running_frame_.source_to_desktop.map_point({source.safe_x_q8, source.safe_y_q8}, &safe) != SACCADE_OK || safe.x < mapped.x ||
+            safe.y < mapped.y || static_cast<int64_t>(safe.x) >= static_cast<int64_t>(mapped.x) + mapped.width ||
             static_cast<int64_t>(safe.y) >= static_cast<int64_t>(mapped.y) + mapped.height) {
             safe = {mapped.x + mapped.width / 2, mapped.y + mapped.height / 2};
         }
@@ -197,9 +192,8 @@ SaccadeResult NeuralCoordinator::retire_running(NeuralAdvance* advance) noexcept
     }
 
     size_t required = 0;
-    const SaccadeResult collected =
-        saccade_inference_collect(config_.runtime, config_.session, running_ticket_,
-                                  {storage_->inference_output.data(), config_.maximum_output_bytes}, &required);
+    const SaccadeResult collected = saccade_inference_collect(config_.runtime, config_.session, running_ticket_,
+                                                              {storage_->inference_output.data(), config_.maximum_output_bytes}, &required);
     SaccadeResult result = collected;
     if (status.state == SACCADE_TICKET_COMPLETE && collected == SACCADE_OK) {
         result = publish_output(required, advance);

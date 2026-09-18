@@ -33,7 +33,8 @@ int result(TestResult value) noexcept {
 class RefProbe final : public IUnknown {
   public:
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void** output) override {
-        if (output == nullptr) return E_POINTER;
+        if (output == nullptr)
+            return E_POINTER;
         *output = nullptr;
         return E_NOINTERFACE;
     }

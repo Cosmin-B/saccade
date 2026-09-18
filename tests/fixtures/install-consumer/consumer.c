@@ -9,8 +9,7 @@ int main(void) {
     SaccadeFrameHandle frame_handle = 0;
     desc.struct_size = (uint32_t)sizeof(desc);
     desc.api_version = SACCADE_API_VERSION;
-    if (saccade_api_version() != SACCADE_API_VERSION || saccade_runtime_create(&desc, &runtime) != SACCADE_OK ||
-        runtime == 0) {
+    if (saccade_api_version() != SACCADE_API_VERSION || saccade_runtime_create(&desc, &runtime) != SACCADE_OK || runtime == 0) {
         return 1;
     }
 

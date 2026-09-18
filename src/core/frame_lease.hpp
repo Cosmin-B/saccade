@@ -11,11 +11,7 @@
 
 namespace saccade::core {
 
-enum class FrameLeaseOwner : uint8_t {
-    caller = UINT8_C(1) << 0U,
-    mailbox = UINT8_C(1) << 1U,
-    worker = UINT8_C(1) << 2U
-};
+enum class FrameLeaseOwner : uint8_t { caller = UINT8_C(1) << 0U, mailbox = UINT8_C(1) << 1U, worker = UINT8_C(1) << 2U };
 
 enum class FrameStorage : uint8_t { host = 1, iosurface = 2, win32_capture = 3 };
 
@@ -44,15 +40,13 @@ class FrameLease final {
     explicit FrameLease(const SaccadeHostFrameDesc& desc) noexcept
         : data_(desc.data.data), byte_size_(desc.data.size), width_(desc.width), height_(desc.height),
           row_stride_bytes_(desc.row_stride_bytes), pixel_format_(desc.pixel_format), frame_id_(desc.frame_id),
-          transform_epoch_(desc.transform_epoch), storage_(FrameStorage::host),
-          owners_(owner_bit(FrameLeaseOwner::caller)) {}
+          transform_epoch_(desc.transform_epoch), storage_(FrameStorage::host), owners_(owner_bit(FrameLeaseOwner::caller)) {}
 
     explicit FrameLease(const NativeFrameResource& desc) noexcept
-        : resource_(desc.resource), release_(desc.release), ready_fence_(desc.ready_fence),
-          release_ready_fence_(desc.release_ready_fence), ready_value_(desc.ready_value), native_id_(desc.native_id),
-          width_(desc.width), height_(desc.height), pixel_format_(desc.pixel_format), frame_id_(desc.frame_id),
-          transform_epoch_(desc.transform_epoch), plane_index_(desc.plane_index), storage_(desc.storage),
-          owners_(owner_bit(FrameLeaseOwner::caller)) {}
+        : resource_(desc.resource), release_(desc.release), ready_fence_(desc.ready_fence), release_ready_fence_(desc.release_ready_fence),
+          ready_value_(desc.ready_value), native_id_(desc.native_id), width_(desc.width), height_(desc.height),
+          pixel_format_(desc.pixel_format), frame_id_(desc.frame_id), transform_epoch_(desc.transform_epoch),
+          plane_index_(desc.plane_index), storage_(desc.storage), owners_(owner_bit(FrameLeaseOwner::caller)) {}
 
     ~FrameLease() noexcept {
         if (resource_ != nullptr && release_ != nullptr) {
@@ -122,8 +116,7 @@ class FrameLease final {
     static constexpr uint8_t owner_bit(FrameLeaseOwner owner) noexcept { return static_cast<uint8_t>(owner); }
 
     static constexpr bool valid_owner(FrameLeaseOwner owner) noexcept {
-        return owner == FrameLeaseOwner::caller || owner == FrameLeaseOwner::mailbox ||
-               owner == FrameLeaseOwner::worker;
+        return owner == FrameLeaseOwner::caller || owner == FrameLeaseOwner::mailbox || owner == FrameLeaseOwner::worker;
     }
 
     bool add_owner(FrameLeaseOwner owner) noexcept {
@@ -198,9 +191,8 @@ template <size_t Capacity> class FrameLeasePool final {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         *out_frame = 0;
-        if (domain_ == 0 || domain_ > max_domain_ || desc.resource == nullptr || desc.release == nullptr ||
-            desc.native_id == 0 || desc.width == 0 || desc.height == 0 || desc.pixel_format == 0 ||
-            (desc.ready_fence == nullptr) != (desc.ready_value == 0) ||
+        if (domain_ == 0 || domain_ > max_domain_ || desc.resource == nullptr || desc.release == nullptr || desc.native_id == 0 ||
+            desc.width == 0 || desc.height == 0 || desc.pixel_format == 0 || (desc.ready_fence == nullptr) != (desc.ready_value == 0) ||
             (desc.ready_fence != nullptr && desc.release_ready_fence == nullptr) ||
             (desc.storage != FrameStorage::iosurface && desc.storage != FrameStorage::win32_capture)) {
             return SACCADE_ERROR_INVALID_ARGUMENT;

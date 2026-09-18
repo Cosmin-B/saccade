@@ -5,14 +5,7 @@
 
 namespace {
 
-enum class TestResult : int {
-    success,
-    initial_delay_failed,
-    backoff_failed,
-    maximum_failed,
-    saturation_failed,
-    completion_failed
-};
+enum class TestResult : int { success, initial_delay_failed, backoff_failed, maximum_failed, saturation_failed, completion_failed };
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -30,8 +23,7 @@ int main() {
         return result(TestResult::initial_delay_failed);
 
     recovery.retry(recovery.next_attempt_ns());
-    if (recovery.attempt() != 1 ||
-        recovery.next_attempt_ns() != start_ns + 3U * saccade::application::recovery_initial_delay_ns)
+    if (recovery.attempt() != 1 || recovery.next_attempt_ns() != start_ns + 3U * saccade::application::recovery_initial_delay_ns)
         return result(TestResult::backoff_failed);
 
     for (uint32_t index = 0; index < 16; ++index)

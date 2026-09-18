@@ -422,21 +422,18 @@ typedef SaccadeResult(SACCADE_CALL* SaccadeDestroyModelFn)(void*, SaccadeModelHa
 typedef SaccadeResult(SACCADE_CALL* SaccadeCreateExecutionContextFn)(void*, const SaccadeExecutionContextDesc*,
                                                                      SaccadeExecutionContextHandle*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeDestroyExecutionContextFn)(void*, SaccadeExecutionContextHandle);
-typedef SaccadeResult(SACCADE_CALL* SaccadeSubmitInferenceFn)(void*, SaccadeExecutionContextHandle,
-                                                              const SaccadeInferenceDispatchDesc*,
+typedef SaccadeResult(SACCADE_CALL* SaccadeSubmitInferenceFn)(void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*,
                                                               SaccadeTicketHandle*);
 typedef SaccadeResult(SACCADE_CALL* SaccadePollInferenceFn)(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
                                                             SaccadeInferenceStatus*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeWaitInferenceFn)(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                                                            uint64_t, SaccadeInferenceStatus*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCollectInferenceFn)(void*, SaccadeExecutionContextHandle,
-                                                               SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCancelInferenceFn)(void*, SaccadeExecutionContextHandle,
-                                                              SaccadeTicketHandle);
+typedef SaccadeResult(SACCADE_CALL* SaccadeWaitInferenceFn)(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t,
+                                                            SaccadeInferenceStatus*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCollectInferenceFn)(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
+                                                               SaccadeMutableSpanU8, size_t*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCancelInferenceFn)(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeResetInferenceFn)(void*, SaccadeExecutionContextHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeSynchronizeInferenceFn)(void*, SaccadeExecutionContextHandle, uint64_t);
-typedef SaccadeResult(SACCADE_CALL* SaccadeInferenceMemoryStatsFn)(void*, SaccadeExecutionContextHandle,
-                                                                   SaccadeMemoryStats*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeInferenceMemoryStatsFn)(void*, SaccadeExecutionContextHandle, SaccadeMemoryStats*);
 
 typedef struct SaccadeInferenceOps {
     uint32_t struct_size;
@@ -459,19 +456,16 @@ typedef struct SaccadeInferenceOps {
 } SaccadeInferenceOps;
 
 typedef SaccadeResult(SACCADE_CALL* SaccadeEnumerateCaptureSourcesFn)(void*, uint32_t, SaccadeCaptureSourceInfo*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCreateCaptureStreamFn)(void*, const SaccadeCaptureStreamDesc*,
-                                                                  SaccadeCaptureStreamHandle*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCreateCaptureStreamFn)(void*, const SaccadeCaptureStreamDesc*, SaccadeCaptureStreamHandle*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeDestroyCaptureStreamFn)(void*, SaccadeCaptureStreamHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeStartCaptureFn)(void*, SaccadeCaptureStreamHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeStopCaptureFn)(void*, SaccadeCaptureStreamHandle);
-typedef SaccadeResult(SACCADE_CALL* SaccadeAcquireFrameFn)(void*, SaccadeCaptureStreamHandle, uint64_t,
-                                                           SaccadeCapturedFrame*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCopyDamageFn)(void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle,
-                                                         SaccadeRectI32*, uint32_t, uint32_t*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeAcquireFrameFn)(void*, SaccadeCaptureStreamHandle, uint64_t, SaccadeCapturedFrame*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCopyDamageFn)(void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle, SaccadeRectI32*, uint32_t,
+                                                         uint32_t*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeReleaseFrameFn)(void*, SaccadeCaptureStreamHandle, SaccadeFrameHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeSynchronizeCaptureFn)(void*, SaccadeCaptureStreamHandle, uint64_t);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCaptureMemoryStatsFn)(void*, SaccadeCaptureStreamHandle,
-                                                                 SaccadeMemoryStats*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCaptureMemoryStatsFn)(void*, SaccadeCaptureStreamHandle, SaccadeMemoryStats*);
 
 typedef struct SaccadeCaptureOps {
     uint32_t struct_size;
@@ -491,8 +485,7 @@ typedef struct SaccadeCaptureOps {
 
 typedef SaccadeResult(SACCADE_CALL* SaccadeCreateOverlayFn)(void*, const SaccadeOverlayDesc*, SaccadeOverlayHandle*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeDestroyOverlayFn)(void*, SaccadeOverlayHandle);
-typedef SaccadeResult(SACCADE_CALL* SaccadeSubmitOverlayFn)(void*, SaccadeOverlayHandle,
-                                                            const SaccadeOverlayFrameDesc*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeSubmitOverlayFn)(void*, SaccadeOverlayHandle, const SaccadeOverlayFrameDesc*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeSetOverlayVisibleFn)(void*, SaccadeOverlayHandle, uint32_t);
 typedef SaccadeResult(SACCADE_CALL* SaccadeSynchronizeOverlayFn)(void*, SaccadeOverlayHandle, uint64_t);
 typedef SaccadeResult(SACCADE_CALL* SaccadeOverlayMemoryStatsFn)(void*, SaccadeOverlayHandle, SaccadeMemoryStats*);
@@ -512,14 +505,10 @@ typedef struct SaccadeOverlayOps {
 } SaccadeOverlayOps;
 
 typedef SaccadeResult(SACCADE_CALL* SaccadeEnumerateWindowsFn)(void*, uint32_t, SaccadeWindowInfo*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeRequestAccessibilityFn)(void*, const SaccadeAccessibilityQueryDesc*,
-                                                                   SaccadeTicketHandle*);
-typedef SaccadeResult(SACCADE_CALL* SaccadePollAccessibilityFn)(void*, SaccadeTicketHandle,
-                                                                SaccadeAccessibilityStatus*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeWaitAccessibilityFn)(void*, SaccadeTicketHandle, uint64_t,
-                                                                SaccadeAccessibilityStatus*);
-typedef SaccadeResult(SACCADE_CALL* SaccadeCollectAccessibilityFn)(void*, SaccadeSnapshotHandle, SaccadeMutableSpanU8,
-                                                                   size_t*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeRequestAccessibilityFn)(void*, const SaccadeAccessibilityQueryDesc*, SaccadeTicketHandle*);
+typedef SaccadeResult(SACCADE_CALL* SaccadePollAccessibilityFn)(void*, SaccadeTicketHandle, SaccadeAccessibilityStatus*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeWaitAccessibilityFn)(void*, SaccadeTicketHandle, uint64_t, SaccadeAccessibilityStatus*);
+typedef SaccadeResult(SACCADE_CALL* SaccadeCollectAccessibilityFn)(void*, SaccadeSnapshotHandle, SaccadeMutableSpanU8, size_t*);
 typedef SaccadeResult(SACCADE_CALL* SaccadeCancelAccessibilityFn)(void*, SaccadeTicketHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeReleaseSnapshotFn)(void*, SaccadeSnapshotHandle);
 typedef SaccadeResult(SACCADE_CALL* SaccadeSynchronizeAccessibilityFn)(void*, uint64_t);
@@ -614,39 +603,28 @@ typedef struct SaccadeInputProviderDesc {
    overlay, accessibility, and input registrations are accepted and validated
    but not yet consumed by the runtime, which drives its native providers
    directly. */
-SACCADE_API SaccadeResult SACCADE_CALL saccade_register_inference_provider(SaccadeRuntimeHandle,
-                                                                           const SaccadeInferenceProviderDesc*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_register_capture_provider(SaccadeRuntimeHandle,
-                                                                         const SaccadeCaptureProviderDesc*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_register_overlay_provider(SaccadeRuntimeHandle,
-                                                                         const SaccadeOverlayProviderDesc*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_register_inference_provider(SaccadeRuntimeHandle, const SaccadeInferenceProviderDesc*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_register_capture_provider(SaccadeRuntimeHandle, const SaccadeCaptureProviderDesc*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_register_overlay_provider(SaccadeRuntimeHandle, const SaccadeOverlayProviderDesc*);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_register_accessibility_provider(SaccadeRuntimeHandle,
                                                                                const SaccadeAccessibilityProviderDesc*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_register_input_provider(SaccadeRuntimeHandle,
-                                                                       const SaccadeInputProviderDesc*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_register_input_provider(SaccadeRuntimeHandle, const SaccadeInputProviderDesc*);
 
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_session_create(SaccadeRuntimeHandle,
-                                                                        const SaccadeInferenceSessionDesc*,
-                                                                        SaccadeExecutionContextHandle*,
-                                                                        SaccadeInferenceSessionInfo*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_session_destroy(SaccadeRuntimeHandle,
-                                                                         SaccadeExecutionContextHandle);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_session_create(SaccadeRuntimeHandle, const SaccadeInferenceSessionDesc*,
+                                                                        SaccadeExecutionContextHandle*, SaccadeInferenceSessionInfo*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_session_destroy(SaccadeRuntimeHandle, SaccadeExecutionContextHandle);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_submit(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
-                                                                const SaccadeInferenceSubmitDesc*,
-                                                                SaccadeTicketHandle*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_poll(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
-                                                              SaccadeTicketHandle, SaccadeInferenceStatus*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_wait(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
-                                                              SaccadeTicketHandle, uint64_t, SaccadeInferenceStatus*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_collect(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
-                                                                 SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_cancel(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
-                                                                SaccadeTicketHandle);
+                                                                const SaccadeInferenceSubmitDesc*, SaccadeTicketHandle*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_poll(SaccadeRuntimeHandle, SaccadeExecutionContextHandle, SaccadeTicketHandle,
+                                                              SaccadeInferenceStatus*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_wait(SaccadeRuntimeHandle, SaccadeExecutionContextHandle, SaccadeTicketHandle,
+                                                              uint64_t, SaccadeInferenceStatus*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_collect(SaccadeRuntimeHandle, SaccadeExecutionContextHandle, SaccadeTicketHandle,
+                                                                 SaccadeMutableSpanU8, size_t*);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_cancel(SaccadeRuntimeHandle, SaccadeExecutionContextHandle, SaccadeTicketHandle);
 SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_reset(SaccadeRuntimeHandle, SaccadeExecutionContextHandle);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_synchronize(SaccadeRuntimeHandle,
-                                                                     SaccadeExecutionContextHandle, uint64_t);
-SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_memory_stats(SaccadeRuntimeHandle,
-                                                                      SaccadeExecutionContextHandle,
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_synchronize(SaccadeRuntimeHandle, SaccadeExecutionContextHandle, uint64_t);
+SACCADE_API SaccadeResult SACCADE_CALL saccade_inference_memory_stats(SaccadeRuntimeHandle, SaccadeExecutionContextHandle,
                                                                       SaccadeMemoryStats*);
 
 #ifdef __cplusplus

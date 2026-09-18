@@ -22,11 +22,10 @@ template <class Record> Record load_indexed(const uint8_t* bytes, uint32_t index
 }
 
 bool style_valid(const SaccadeOverlayStyle& style) noexcept {
-    return style.target_stroke_q3 != 0 && style.label_height_q3 != 0 && style.glyph_width_q3 != 0 &&
-           style.glyph_height_q3 != 0 && style.glyph_advance_q3 >= style.glyph_width_q3 &&
-           style.label_height_q3 >= style.glyph_height_q3 && style.active_stroke_q3 != 0 && style.reserved16 == 0 &&
-           (style.flags & ~style_flag_mask) == 0 && style.reserved32 == 0 && style.reserved[0] == 0 &&
-           style.reserved[1] == 0;
+    return style.target_stroke_q3 != 0 && style.label_height_q3 != 0 && style.glyph_width_q3 != 0 && style.glyph_height_q3 != 0 &&
+           style.glyph_advance_q3 >= style.glyph_width_q3 && style.label_height_q3 >= style.glyph_height_q3 &&
+           style.active_stroke_q3 != 0 && style.reserved16 == 0 && (style.flags & ~style_flag_mask) == 0 && style.reserved32 == 0 &&
+           style.reserved[0] == 0 && style.reserved[1] == 0;
 }
 
 bool fits_q3(uint16_t origin, uint32_t extent) noexcept {
@@ -34,8 +33,8 @@ bool fits_q3(uint16_t origin, uint32_t extent) noexcept {
 }
 
 bool target_valid(const SaccadeOverlayTarget& target, const SaccadeOverlayStyle& style) noexcept {
-    if (target.glyph_count > SACCADE_OVERLAY_GLYPHS_PER_TARGET || target.width_q3 < 2 || target.height_q3 < 2 ||
-        target.flags != 0 || target.reserved != 0) {
+    if (target.glyph_count > SACCADE_OVERLAY_GLYPHS_PER_TARGET || target.width_q3 < 2 || target.height_q3 < 2 || target.flags != 0 ||
+        target.reserved != 0) {
         return false;
     }
 
@@ -45,8 +44,8 @@ bool target_valid(const SaccadeOverlayTarget& target, const SaccadeOverlayStyle&
         }
     }
 
-    const uint32_t label_width = static_cast<uint32_t>(style.label_padding_x_q3) * 2U +
-                                 static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count;
+    const uint32_t label_width =
+        static_cast<uint32_t>(style.label_padding_x_q3) * 2U + static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count;
     return label_width != 0 && fits_q3(target.x_q3, target.width_q3) && fits_q3(target.y_q3, target.height_q3) &&
            fits_q3(target.label_x_q3, label_width) && fits_q3(target.label_y_q3, style.label_height_q3);
 }
@@ -71,23 +70,19 @@ SaccadeResult validate_packet(SaccadeSpanU8 packet, PacketView* out_view) noexce
     }
 
     const SaccadeOverlayPacketHeader header = load_record<SaccadeOverlayPacketHeader>(packet.data);
-    if (header.struct_size != sizeof(SaccadeOverlayPacketHeader) ||
-        header.packet_version != SACCADE_OVERLAY_PACKET_VERSION || header.target_count > SACCADE_OVERLAY_MAX_TARGETS ||
-        header.style_count > SACCADE_OVERLAY_MAX_STYLES || ((header.target_count == 0) != (header.style_count == 0)) ||
-        header.target_stride != sizeof(SaccadeOverlayTarget) || header.style_stride != sizeof(SaccadeOverlayStyle) ||
-        header.reserved32 != 0 || header.flags != 0) {
+    if (header.struct_size != sizeof(SaccadeOverlayPacketHeader) || header.packet_version != SACCADE_OVERLAY_PACKET_VERSION ||
+        header.target_count > SACCADE_OVERLAY_MAX_TARGETS || header.style_count > SACCADE_OVERLAY_MAX_STYLES ||
+        ((header.target_count == 0) != (header.style_count == 0)) || header.target_stride != sizeof(SaccadeOverlayTarget) ||
+        header.style_stride != sizeof(SaccadeOverlayStyle) || header.reserved32 != 0 || header.flags != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
     const uint64_t expected_targets_offset = header.target_count == 0 ? 0 : sizeof(SaccadeOverlayPacketHeader);
     const uint64_t expected_styles_offset =
-        header.target_count == 0
-            ? 0
-            : expected_targets_offset + static_cast<uint64_t>(header.target_count) * sizeof(SaccadeOverlayTarget);
+        header.target_count == 0 ? 0 : expected_targets_offset + static_cast<uint64_t>(header.target_count) * sizeof(SaccadeOverlayTarget);
     const uint64_t expected_packet_size =
-        header.target_count == 0
-            ? sizeof(SaccadeOverlayPacketHeader)
-            : expected_styles_offset + static_cast<uint64_t>(header.style_count) * sizeof(SaccadeOverlayStyle);
+        header.target_count == 0 ? sizeof(SaccadeOverlayPacketHeader)
+                                 : expected_styles_offset + static_cast<uint64_t>(header.style_count) * sizeof(SaccadeOverlayStyle);
     if (header.targets_offset != expected_targets_offset || header.styles_offset != expected_styles_offset ||
         expected_packet_size != packet.size) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -114,8 +109,7 @@ SaccadeResult validate_packet(SaccadeSpanU8 packet, PacketView* out_view) noexce
 }
 
 SaccadeResult expand_static(const PacketView& packet, ExpandedInstanceSpan output, size_t* out_count) noexcept {
-    if (out_count == nullptr ||
-        (packet.header.target_count != 0 && (packet.targets == nullptr || packet.styles == nullptr)) ||
+    if (out_count == nullptr || (packet.header.target_count != 0 && (packet.targets == nullptr || packet.styles == nullptr)) ||
         packet.header.target_count > SACCADE_OVERLAY_MAX_TARGETS) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -132,8 +126,8 @@ SaccadeResult expand_static(const PacketView& packet, ExpandedInstanceSpan outpu
     for (uint32_t target_index = 0; target_index < packet.header.target_count; ++target_index) {
         const SaccadeOverlayTarget target = target_at(packet, target_index);
         const SaccadeOverlayStyle style = style_at(packet, target.style_index);
-        const uint16_t stroke = std::min({style.target_stroke_q3, static_cast<uint16_t>(target.width_q3 / 2U),
-                                          static_cast<uint16_t>(target.height_q3 / 2U)});
+        const uint16_t stroke =
+            std::min({style.target_stroke_q3, static_cast<uint16_t>(target.width_q3 / 2U), static_cast<uint16_t>(target.height_q3 / 2U)});
         const uint16_t x = target.x_q3;
         const uint16_t y = target.y_q3;
         const uint16_t bottom_y = static_cast<uint16_t>(y + target.height_q3 - stroke);
@@ -150,9 +144,8 @@ SaccadeResult expand_static(const PacketView& packet, ExpandedInstanceSpan outpu
         output.rects[destination] = rect(right_x, y, stroke, target.height_q3);
         output.metadata[destination++] = outline_metadata;
 
-        const uint16_t label_width =
-            static_cast<uint16_t>(static_cast<uint32_t>(style.label_padding_x_q3) * 2U +
-                                  static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count);
+        const uint16_t label_width = static_cast<uint16_t>(static_cast<uint32_t>(style.label_padding_x_q3) * 2U +
+                                                           static_cast<uint32_t>(style.glyph_advance_q3) * target.glyph_count);
         output.rects[destination] = rect(target.label_x_q3, target.label_y_q3, label_width, style.label_height_q3);
         output.metadata[destination++] =
             saccade_overlay_instance_meta_make(target_index, target.style_index, SACCADE_OVERLAY_INSTANCE_LABEL);
@@ -163,8 +156,7 @@ SaccadeResult expand_static(const PacketView& packet, ExpandedInstanceSpan outpu
 SaccadeResult expand_active(const PacketView& packet, uint32_t active_target_index, ExpandedInstanceSpan output,
                             size_t* out_count) noexcept {
     if (out_count == nullptr || (packet.header.target_count != 0 && packet.targets == nullptr) ||
-        (active_target_index != SACCADE_OVERLAY_ACTIVE_TARGET_NONE &&
-         active_target_index >= packet.header.target_count)) {
+        (active_target_index != SACCADE_OVERLAY_ACTIVE_TARGET_NONE && active_target_index >= packet.header.target_count)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const bool has_active = active_target_index != SACCADE_OVERLAY_ACTIVE_TARGET_NONE;
@@ -181,8 +173,7 @@ SaccadeResult expand_active(const PacketView& packet, uint32_t active_target_ind
 
     const SaccadeOverlayTarget target = target_at(packet, active_target_index);
     output.rects[0] = rect(target.x_q3, target.y_q3, target.width_q3, target.height_q3);
-    output.metadata[0] =
-        saccade_overlay_instance_meta_make(active_target_index, target.style_index, SACCADE_OVERLAY_INSTANCE_ACTIVE);
+    output.metadata[0] = saccade_overlay_instance_meta_make(active_target_index, target.style_index, SACCADE_OVERLAY_INSTANCE_ACTIVE);
     return SACCADE_OK;
 }
 

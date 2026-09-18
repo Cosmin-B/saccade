@@ -19,9 +19,8 @@ using saccade::backend::d3d12::GraphicsDevice;
 using saccade::backend::d3d12::OverlayRenderer;
 using saccade::backend::d3d12::OverlaySubmission;
 
-constexpr size_t max_packet_size = sizeof(SaccadeOverlayPacketHeader) +
-                                   SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
-                                   sizeof(SaccadeOverlayStyle);
+constexpr size_t max_packet_size =
+    sizeof(SaccadeOverlayPacketHeader) + SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 constexpr size_t max_instance_count = SACCADE_OVERLAY_MAX_TARGETS * 5U + 1U;
 
 alignas(64) std::array<uint8_t, max_packet_size> packet_bytes{};
@@ -30,14 +29,7 @@ alignas(64) std::array<SaccadeOverlayInstanceMeta, max_instance_count> expected_
 alignas(64) std::array<SaccadeOverlayRect, max_instance_count> actual_rects{};
 alignas(64) std::array<SaccadeOverlayInstanceMeta, max_instance_count> actual_metadata{};
 
-enum class TestResult : int {
-    success,
-    usage,
-    device_unavailable = 77,
-    renderer_failed = 2,
-    statistics_failed,
-    device_loss_failed
-};
+enum class TestResult : int { success, usage, device_unavailable = 77, renderer_failed = 2, statistics_failed, device_loss_failed };
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -107,8 +99,8 @@ bool compare_case(OverlayRenderer* renderer, uint32_t count, uint64_t scene_epoc
         return false;
     }
     size_t static_count = 0;
-    if (saccade::overlay::expand_static(view, {expected_rects.data(), expected_metadata.data(), expected_rects.size()},
-                                        &static_count) != SACCADE_OK) {
+    if (saccade::overlay::expand_static(view, {expected_rects.data(), expected_metadata.data(), expected_rects.size()}, &static_count) !=
+        SACCADE_OK) {
         return false;
     }
     size_t active_count = 0;
@@ -130,33 +122,31 @@ bool compare_case(OverlayRenderer* renderer, uint32_t count, uint64_t scene_epoc
         frame.active_target_index = active_index;
     }
     OverlaySubmission submission{};
-    if (renderer->submit(frame, &submission) != SACCADE_OK ||
-        renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK) {
+    if (renderer->submit(frame, &submission) != SACCADE_OK || renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK) {
         return false;
     }
     size_t actual_count = 0;
-    if (renderer->copy_instances(submission, {actual_rects.data(), actual_metadata.data(), actual_rects.size()},
-                                 &actual_count) != SACCADE_OK ||
+    if (renderer->copy_instances(submission, {actual_rects.data(), actual_metadata.data(), actual_rects.size()}, &actual_count) !=
+            SACCADE_OK ||
         actual_count != static_count + active_count) {
         return false;
     }
     return std::memcmp(actual_rects.data(), expected_rects.data(), actual_count * sizeof(SaccadeOverlayRect)) == 0 &&
-           std::memcmp(actual_metadata.data(), expected_metadata.data(),
-                       actual_count * sizeof(SaccadeOverlayInstanceMeta)) == 0;
+           std::memcmp(actual_metadata.data(), expected_metadata.data(), actual_count * sizeof(SaccadeOverlayInstanceMeta)) == 0;
 }
 
 bool execute_and_wait(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12GraphicsCommandList* commands) noexcept {
-    if (FAILED(commands->Close())) return false;
+    if (FAILED(commands->Close()))
+        return false;
     ID3D12CommandList* lists[]{commands};
     queue->ExecuteCommandLists(1, lists);
     ComPtr<ID3D12Fence> fence;
-    if (FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf()))) ||
-        FAILED(queue->Signal(fence.Get(), 1)))
+    if (FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf()))) || FAILED(queue->Signal(fence.Get(), 1)))
         return false;
     const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (event == nullptr) return false;
-    const bool complete =
-        SUCCEEDED(fence->SetEventOnCompletion(1, event)) && WaitForSingleObject(event, 1'000) == WAIT_OBJECT_0;
+    if (event == nullptr)
+        return false;
+    const bool complete = SUCCEEDED(fence->SetEventOnCompletion(1, event)) && WaitForSingleObject(event, 1'000) == WAIT_OBJECT_0;
     (void)CloseHandle(event);
     return complete;
 }
@@ -179,11 +169,9 @@ bool texture_nonzero(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Reso
     ComPtr<ID3D12Resource> readback;
     ComPtr<ID3D12CommandAllocator> allocator;
     ComPtr<ID3D12GraphicsCommandList> commands;
-    if (FAILED(device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc,
-                                               D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                               IID_PPV_ARGS(readback.GetAddressOf()))) ||
-        FAILED(
-            device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
+    if (FAILED(device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                               nullptr, IID_PPV_ARGS(readback.GetAddressOf()))) ||
+        FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
         FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr,
                                          IID_PPV_ARGS(commands.GetAddressOf())))) {
         return false;
@@ -205,11 +193,13 @@ bool texture_nonzero(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Reso
     commands->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
     std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
     commands->ResourceBarrier(1, &barrier);
-    if (!execute_and_wait(device, queue, commands.Get())) return false;
+    if (!execute_and_wait(device, queue, commands.Get()))
+        return false;
 
     void* mapped = nullptr;
     D3D12_RANGE range{0, static_cast<SIZE_T>(readback_bytes)};
-    if (FAILED(readback->Map(0, &range, &mapped))) return false;
+    if (FAILED(readback->Map(0, &range, &mapped)))
+        return false;
     bool nonzero = false;
     for (uint32_t y = 0; y < static_cast<uint32_t>(texture_desc.Height) && !nonzero; ++y) {
         const auto* row = static_cast<const uint8_t*>(mapped) + static_cast<size_t>(y) * footprint.Footprint.RowPitch;
@@ -244,8 +234,7 @@ bool render_case(ID3D12Device* device, ID3D12CommandQueue* queue, OverlayRendere
     rtv_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     rtv_heap_desc.NumDescriptors = 1;
     ComPtr<ID3D12DescriptorHeap> rtv_heap;
-    if (FAILED(device->CreateCommittedResource(&default_heap, D3D12_HEAP_FLAG_NONE, &texture_desc,
-                                               D3D12_RESOURCE_STATE_PRESENT, nullptr,
+    if (FAILED(device->CreateCommittedResource(&default_heap, D3D12_HEAP_FLAG_NONE, &texture_desc, D3D12_RESOURCE_STATE_PRESENT, nullptr,
                                                IID_PPV_ARGS(texture.GetAddressOf()))) ||
         FAILED(device->CreateDescriptorHeap(&rtv_heap_desc, IID_PPV_ARGS(rtv_heap.GetAddressOf())))) {
         return false;
@@ -266,20 +255,17 @@ bool render_case(ID3D12Device* device, ID3D12CommandQueue* queue, OverlayRendere
         renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK) {
         return false;
     }
-    if (!texture_nonzero(device, queue, texture.Get(), texture_desc)) return false;
+    if (!texture_nonzero(device, queue, texture.Get(), texture_desc))
+        return false;
 
     frame.packet = make_packet(100, 21, true);
     frame.scene_epoch = 21;
-    if (renderer->render(frame, {texture.Get(), rtv, UINT64_C(1'000'000'000), width, height}, &submission) !=
-            SACCADE_OK ||
-        renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        texture_nonzero(device, queue, texture.Get(), texture_desc)) {
+    if (renderer->render(frame, {texture.Get(), rtv, UINT64_C(1'000'000'000), width, height}, &submission) != SACCADE_OK ||
+        renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK || texture_nonzero(device, queue, texture.Get(), texture_desc)) {
         return false;
     }
-    if (renderer->render(frame, {texture.Get(), rtv, UINT64_C(1'200'000'000), width, height}, &submission) !=
-            SACCADE_OK ||
-        renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        !texture_nonzero(device, queue, texture.Get(), texture_desc)) {
+    if (renderer->render(frame, {texture.Get(), rtv, UINT64_C(1'200'000'000), width, height}, &submission) != SACCADE_OK ||
+        renderer->wait(submission, UINT64_C(1'000'000'000)) != SACCADE_OK || !texture_nonzero(device, queue, texture.Get(), texture_desc)) {
         return false;
     }
     return true;
@@ -288,25 +274,25 @@ bool render_case(ID3D12Device* device, ID3D12CommandQueue* queue, OverlayRendere
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) return result(TestResult::usage);
+    if (argc != 2)
+        return result(TestResult::usage);
     GraphicsDevice graphics;
     if (graphics.initialize() != SACCADE_OK) {
         return result(TestResult::device_unavailable);
     }
     OverlayRenderer renderer;
-    if (renderer.initialize(graphics.device(), graphics.queue(), argv[1]) != SACCADE_OK ||
-        !compare_case(&renderer, 1, 1, false) || !compare_case(&renderer, 100, 2, true) ||
-        !compare_case(&renderer, 10'000, 3, true) || !render_case(graphics.device(), graphics.queue(), &renderer)) {
+    if (renderer.initialize(graphics.device(), graphics.queue(), argv[1]) != SACCADE_OK || !compare_case(&renderer, 1, 1, false) ||
+        !compare_case(&renderer, 100, 2, true) || !compare_case(&renderer, 10'000, 3, true) ||
+        !render_case(graphics.device(), graphics.queue(), &renderer)) {
         return result(TestResult::renderer_failed);
     }
     const auto stats = renderer.stats();
     SaccadeMemoryStats memory{};
     memory.struct_size = sizeof(memory);
     memory.api_version = SACCADE_API_VERSION;
-    if (stats.slot_count != 3 || stats.target_capacity != SACCADE_OVERLAY_MAX_TARGETS ||
-        stats.instance_capacity != max_instance_count || stats.submissions != 6 || stats.static_dispatches != 6 ||
-        stats.active_dispatches != 6 || stats.rendered_frames != 3 || stats.draw_calls != 3 ||
-        renderer.memory_stats(&memory) != SACCADE_OK || memory.device_owned == 0) {
+    if (stats.slot_count != 3 || stats.target_capacity != SACCADE_OVERLAY_MAX_TARGETS || stats.instance_capacity != max_instance_count ||
+        stats.submissions != 6 || stats.static_dispatches != 6 || stats.active_dispatches != 6 || stats.rendered_frames != 3 ||
+        stats.draw_calls != 3 || renderer.memory_stats(&memory) != SACCADE_OK || memory.device_owned == 0) {
         return result(TestResult::statistics_failed);
     }
     SaccadeOverlayFrameDesc removed_frame{};

@@ -90,21 +90,19 @@ int main() {
     config.pointer_x_q8 = static_cast<int32_t>(80U * 512U + 128U);
     saccade::interaction::HintSession session;
     saccade::test::begin_allocation_tracking();
-    const SaccadeResult result =
-        saccade::scene::validate_packet({packet.bytes.data(), packet.bytes.size()}, &scene) == SACCADE_OK
-            ? session.freeze(scene, config, &storage)
-            : SACCADE_ERROR_INVALID_ARGUMENT;
+    const SaccadeResult result = saccade::scene::validate_packet({packet.bytes.data(), packet.bytes.size()}, &scene) == SACCADE_OK
+                                     ? session.freeze(scene, config, &storage)
+                                     : SACCADE_ERROR_INVALID_ARGUMENT;
     const size_t allocations = saccade::test::end_allocation_tracking();
-    if (result != SACCADE_OK || allocations != 0 || session.label_count() != target_count ||
-        session.labels()[0].target_id != 81 || !prefix_free(session.labels(), session.label_count())) {
+    if (result != SACCADE_OK || allocations != 0 || session.label_count() != target_count || session.labels()[0].target_id != 81 ||
+        !prefix_free(session.labels(), session.label_count())) {
         return to_process_exit_code(ExitCode::freeze);
     }
     const auto& label = session.labels()[37];
     saccade::interaction::HintMatch match{};
     if (session.resolve_prefix(label.symbols.data(), 1, &match) != SACCADE_OK || match.candidate_count == 0 ||
         session.resolve_prefix(label.symbols.data(), label.symbol_count, &match) != SACCADE_OK || !match.exact ||
-        match.target_id != label.target_id || session.cancel() != SACCADE_OK ||
-        session.cancel() != SACCADE_ERROR_STATE) {
+        match.target_id != label.target_id || session.cancel() != SACCADE_OK || session.cancel() != SACCADE_ERROR_STATE) {
         return to_process_exit_code(ExitCode::resolve);
     }
     return to_process_exit_code(ExitCode::success);

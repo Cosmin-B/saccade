@@ -33,7 +33,8 @@ int result(TestResult value) noexcept {
 
 int main() {
     const DPI_AWARENESS_CONTEXT previous = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    if (previous == nullptr) return result(TestResult::unavailable);
+    if (previous == nullptr)
+        return result(TestResult::unavailable);
     saccade::geometry::DisplayCatalog catalog;
     saccade::platform::windows::DisplayCollector collector;
     if (collector.refresh(&catalog) != SACCADE_OK || catalog.snapshot().count == 0) {
@@ -46,14 +47,13 @@ int main() {
     }
     saccade::platform::windows::SceneCaptureSet captures;
     if (captures.initialize(&provider, 1536, 0) != SACCADE_ERROR_INVALID_ARGUMENT ||
-        captures.initialize(&provider, 1536, 1024) != SACCADE_ERROR_UNSUPPORTED ||
-        captures.initialize(&provider, 0, 0) != SACCADE_OK || captures.synchronize(original) != SACCADE_OK) {
+        captures.initialize(&provider, 1536, 1024) != SACCADE_ERROR_UNSUPPORTED || captures.initialize(&provider, 0, 0) != SACCADE_OK ||
+        captures.synchronize(original) != SACCADE_OK) {
         return result(TestResult::initialization_failed);
     }
     saccade::platform::windows::SceneCaptureStats stats{};
-    if (captures.read_stats(&stats) != SACCADE_OK || stats.topology_epoch != original.epoch ||
-        stats.active_streams != original.count || stats.streams_added != original.count ||
-        captures.synchronize(original) != SACCADE_OK) {
+    if (captures.read_stats(&stats) != SACCADE_OK || stats.topology_epoch != original.epoch || stats.active_streams != original.count ||
+        stats.streams_added != original.count || captures.synchronize(original) != SACCADE_OK) {
         return result(TestResult::synchronization_failed);
     }
     SaccadeResult foreign_result = SACCADE_OK;
@@ -78,9 +78,9 @@ int main() {
         Sleep(10);
         acquired = captures.acquire(display_id, &frame);
     }
-    if (acquired != SACCADE_OK || frame.display_id != display_id || frame.topology_epoch != original.epoch ||
-        frame.frame.frame == 0 || frame.native.d3d11_texture == nullptr || frame.native.width < frame.frame.width ||
-        frame.native.height < frame.frame.height || captures.acquire(display_id, &frame) != SACCADE_ERROR_BUSY) {
+    if (acquired != SACCADE_OK || frame.display_id != display_id || frame.topology_epoch != original.epoch || frame.frame.frame == 0 ||
+        frame.native.d3d11_texture == nullptr || frame.native.width < frame.frame.width || frame.native.height < frame.frame.height ||
+        captures.acquire(display_id, &frame) != SACCADE_ERROR_BUSY) {
         return result(TestResult::acquire_failed);
     }
     saccade::geometry::DisplaySnapshot empty{};
@@ -113,20 +113,19 @@ int main() {
     }
     neural.retire(neural.retire_context, neural.frame);
     if (saccade_runtime_destroy(runtime) != SACCADE_OK || captures.synchronize(empty) != SACCADE_OK ||
-        captures.read_stats(&stats) != SACCADE_OK || stats.active_streams != 0 ||
-        stats.streams_removed != original.count) {
+        captures.read_stats(&stats) != SACCADE_OK || stats.active_streams != 0 || stats.streams_removed != original.count) {
         return result(TestResult::removal_failed);
     }
     auto restored = original;
     restored.epoch = empty.epoch + 1U;
     if (captures.synchronize(restored) != SACCADE_OK || captures.read_stats(&stats) != SACCADE_OK ||
         stats.topology_epoch != restored.epoch || stats.active_streams != restored.count ||
-        stats.streams_added != static_cast<uint64_t>(restored.count) * 2U || stats.frames_acquired != 1 ||
-        stats.frames_released != 1 || stats.failures != 1 || bridge.stats().imports != 1 ||
-        bridge.stats().capture_releases != 1 || bridge.stats().failures != 0) {
+        stats.streams_added != static_cast<uint64_t>(restored.count) * 2U || stats.frames_acquired != 1 || stats.frames_released != 1 ||
+        stats.failures != 1 || bridge.stats().imports != 1 || bridge.stats().capture_releases != 1 || bridge.stats().failures != 0) {
         return result(TestResult::restoration_failed);
     }
-    if (captures.shutdown() != SACCADE_OK) return result(TestResult::shutdown_failed);
+    if (captures.shutdown() != SACCADE_OK)
+        return result(TestResult::shutdown_failed);
     (void)SetThreadDpiAwarenessContext(previous);
     return result(TestResult::success);
 }

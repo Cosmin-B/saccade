@@ -52,37 +52,35 @@ bool frame_valid(const SaccadeOverlayFrameDesc& frame) noexcept {
         return false;
     }
     for (uint64_t value : frame.reserved) {
-        if (value != 0) return false;
+        if (value != 0)
+            return false;
     }
     return true;
 }
 
-bool load_shader(const char* directory, const char* name, std::array<std::byte, maximum_shader_bytes>* bytes,
-                 size_t* byte_count) noexcept {
+bool load_shader(const char* directory, const char* name, std::array<std::byte, maximum_shader_bytes>* bytes, size_t* byte_count) noexcept {
     core::StackStringBuilder<1024> path;
-    if (directory == nullptr || name == nullptr || bytes == nullptr || byte_count == nullptr ||
-        !path.append(directory) ||
-        (!path.empty() && path.view().back() != '/' && path.view().back() != '\\' && !path.append('\\')) ||
-        !path.append(name)) {
+    if (directory == nullptr || name == nullptr || bytes == nullptr || byte_count == nullptr || !path.append(directory) ||
+        (!path.empty() && path.view().back() != '/' && path.view().back() != '\\' && !path.append('\\')) || !path.append(name)) {
         return false;
     }
-    const HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                                    FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
+    const HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
     LARGE_INTEGER size{};
     DWORD read = 0;
-    const bool loaded = GetFileSizeEx(file, &size) != FALSE && size.QuadPart > 0 &&
-                        size.QuadPart <= static_cast<LONGLONG>(bytes->size()) &&
+    const bool loaded = GetFileSizeEx(file, &size) != FALSE && size.QuadPart > 0 && size.QuadPart <= static_cast<LONGLONG>(bytes->size()) &&
                         ReadFile(file, bytes->data(), static_cast<DWORD>(size.QuadPart), &read, nullptr) != FALSE &&
                         read == static_cast<DWORD>(size.QuadPart);
     (void)CloseHandle(file);
-    if (!loaded) return false;
+    if (!loaded)
+        return false;
     *byte_count = read;
     return true;
 }
 
-bool create_buffer(ID3D12Device* device, uint64_t bytes, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_FLAGS flags,
-                   D3D12_RESOURCE_STATES state, ComPtr<ID3D12Resource>* output) noexcept {
+bool create_buffer(ID3D12Device* device, uint64_t bytes, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES state,
+                   ComPtr<ID3D12Resource>* output) noexcept {
     D3D12_HEAP_PROPERTIES heap_properties{};
     heap_properties.Type = heap;
     D3D12_RESOURCE_DESC desc{};
@@ -112,19 +110,21 @@ D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle(ID3D12DescriptorHeap* heap, UINT descript
 
 DWORD timeout_milliseconds(uint64_t timeout_ns) noexcept {
     constexpr uint64_t nanoseconds_per_millisecond = 1'000'000;
-    if (timeout_ns == 0) return 0;
-    const uint64_t milliseconds =
-        timeout_ns / nanoseconds_per_millisecond + (timeout_ns % nanoseconds_per_millisecond != 0 ? 1U : 0U);
+    if (timeout_ns == 0)
+        return 0;
+    const uint64_t milliseconds = timeout_ns / nanoseconds_per_millisecond + (timeout_ns % nanoseconds_per_millisecond != 0 ? 1U : 0U);
     return static_cast<DWORD>(std::min<uint64_t>(milliseconds, INFINITE - 1U));
 }
 
 void fill_builtin_atlas(uint8_t* pixels, size_t row_pitch) noexcept {
-    constexpr uint64_t glyph_bits[overlay::glyph_atlas_capacity] = {
-        0x4631FC62EULL, 0x3E317C62FULL, 0x78210843EULL, 0x3E318C62FULL, 0x7C217843FULL, 0x04217843FULL, 0x7A31E843EULL,
-        0x4631FC631ULL, 0x7C842109FULL, 0x19294211CULL, 0x452519531ULL, 0x7C2108421ULL, 0x4631AD771ULL, 0x4631CD671ULL,
-        0x3A318C62EULL, 0x04217C62FULL, 0x59358C62EULL, 0x45257C62FULL, 0x3E107043EULL, 0x10842109FULL, 0x3A318C631ULL,
-        0x11518C631ULL, 0x2AB5AC631ULL, 0x462A22A31ULL, 0x108422A31ULL, 0x7C222221FULL, 0x3A33AE62EULL, 0x3884210C4ULL,
-        0x7C444422EULL, 0x3E107420FULL, 0x211F4A988ULL, 0x3E107843FULL};
+    constexpr uint64_t glyph_bits[overlay::glyph_atlas_capacity] = {0x4631FC62EULL, 0x3E317C62FULL, 0x78210843EULL, 0x3E318C62FULL,
+                                                                    0x7C217843FULL, 0x04217843FULL, 0x7A31E843EULL, 0x4631FC631ULL,
+                                                                    0x7C842109FULL, 0x19294211CULL, 0x452519531ULL, 0x7C2108421ULL,
+                                                                    0x4631AD771ULL, 0x4631CD671ULL, 0x3A318C62EULL, 0x04217C62FULL,
+                                                                    0x59358C62EULL, 0x45257C62FULL, 0x3E107043EULL, 0x10842109FULL,
+                                                                    0x3A318C631ULL, 0x11518C631ULL, 0x2AB5AC631ULL, 0x462A22A31ULL,
+                                                                    0x108422A31ULL, 0x7C222221FULL, 0x3A33AE62EULL, 0x3884210C4ULL,
+                                                                    0x7C444422EULL, 0x3E107420FULL, 0x211F4A988ULL, 0x3E107843FULL};
     std::memset(pixels, 0, row_pitch * overlay::glyph_atlas_height);
     for (uint32_t glyph = 0; glyph < overlay::glyph_atlas_capacity; ++glyph) {
         const uint32_t cell_x = (glyph % overlay::glyph_atlas_columns) * overlay::glyph_atlas_cell_width;
@@ -192,21 +192,26 @@ struct OverlayRenderer::Impl {
     [[nodiscard]] bool owns_thread() const noexcept { return owner_thread_ == GetCurrentThreadId(); }
 
     SaccadeResult fence_status(uint64_t value) const noexcept {
-        if (value == 0) return SACCADE_OK;
+        if (value == 0)
+            return SACCADE_OK;
         const uint64_t completed = fence_->GetCompletedValue();
-        if (completed == UINT64_MAX) return SACCADE_ERROR_BACKEND;
+        if (completed == UINT64_MAX)
+            return SACCADE_ERROR_BACKEND;
         return completed >= value ? SACCADE_OK : SACCADE_ERROR_BUSY;
     }
 
     SaccadeResult wait_fence(uint64_t value, uint64_t timeout_ns) const noexcept {
         SaccadeResult status = fence_status(value);
-        if (status != SACCADE_ERROR_BUSY) return status;
+        if (status != SACCADE_ERROR_BUSY)
+            return status;
         if (FAILED(fence_->SetEventOnCompletion(value, completion_event_))) {
             return SACCADE_ERROR_BACKEND;
         }
         const DWORD waited = WaitForSingleObject(completion_event_, timeout_milliseconds(timeout_ns));
-        if (waited == WAIT_TIMEOUT) return SACCADE_ERROR_TIMEOUT;
-        if (waited != WAIT_OBJECT_0) return SACCADE_ERROR_BACKEND;
+        if (waited == WAIT_TIMEOUT)
+            return SACCADE_ERROR_TIMEOUT;
+        if (waited != WAIT_OBJECT_0)
+            return SACCADE_ERROR_BACKEND;
         status = fence_status(value);
         return status == SACCADE_ERROR_BUSY ? SACCADE_ERROR_BACKEND : status;
     }
@@ -217,28 +222,24 @@ struct OverlayRenderer::Impl {
 
     bool create_slot(Slot& slot) noexcept {
         const bool buffers =
-            create_buffer(device_.Get(), target_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE,
-                          D3D12_RESOURCE_STATE_GENERIC_READ, &slot.targets_) &&
-            create_buffer(device_.Get(), style_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE,
-                          D3D12_RESOURCE_STATE_GENERIC_READ, &slot.styles_) &&
-            create_buffer(device_.Get(), rect_bytes, D3D12_HEAP_TYPE_DEFAULT,
-                          D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                          &slot.rects_) &&
-            create_buffer(device_.Get(), metadata_bytes, D3D12_HEAP_TYPE_DEFAULT,
-                          D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                          &slot.metadata_) &&
-            create_buffer(device_.Get(), sizeof(D3D12_DRAW_ARGUMENTS), D3D12_HEAP_TYPE_DEFAULT,
-                          D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-                          &slot.arguments_) &&
-            create_buffer(device_.Get(), rect_bytes, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE,
-                          D3D12_RESOURCE_STATE_COPY_DEST, &slot.rects_readback_) &&
-            create_buffer(device_.Get(), metadata_bytes, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE,
-                          D3D12_RESOURCE_STATE_COPY_DEST, &slot.metadata_readback_);
+            create_buffer(device_.Get(), target_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ,
+                          &slot.targets_) &&
+            create_buffer(device_.Get(), style_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ,
+                          &slot.styles_) &&
+            create_buffer(device_.Get(), rect_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                          D3D12_RESOURCE_STATE_UNORDERED_ACCESS, &slot.rects_) &&
+            create_buffer(device_.Get(), metadata_bytes, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                          D3D12_RESOURCE_STATE_UNORDERED_ACCESS, &slot.metadata_) &&
+            create_buffer(device_.Get(), sizeof(D3D12_DRAW_ARGUMENTS), D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+                          D3D12_RESOURCE_STATE_UNORDERED_ACCESS, &slot.arguments_) &&
+            create_buffer(device_.Get(), rect_bytes, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST,
+                          &slot.rects_readback_) &&
+            create_buffer(device_.Get(), metadata_bytes, D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST,
+                          &slot.metadata_readback_);
 
         if (!buffers || FAILED(slot.targets_->Map(0, nullptr, reinterpret_cast<void**>(&slot.targets_mapped_))) ||
             FAILED(slot.styles_->Map(0, nullptr, reinterpret_cast<void**>(&slot.styles_mapped_))) ||
-            FAILED(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                                   IID_PPV_ARGS(slot.allocator_.GetAddressOf()))) ||
+            FAILED(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(slot.allocator_.GetAddressOf()))) ||
             FAILED(device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, slot.allocator_.Get(), nullptr,
                                               IID_PPV_ARGS(slot.commands_.GetAddressOf()))) ||
             FAILED(slot.commands_->Close())) {
@@ -252,11 +253,9 @@ struct OverlayRenderer::Impl {
         raw_srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         raw_srv.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
         raw_srv.Buffer.NumElements = target_bytes / sizeof(uint32_t);
-        device_->CreateShaderResourceView(slot.targets_.Get(), &raw_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base));
+        device_->CreateShaderResourceView(slot.targets_.Get(), &raw_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base));
         raw_srv.Buffer.NumElements = style_bytes / sizeof(uint32_t);
-        device_->CreateShaderResourceView(slot.styles_.Get(), &raw_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base + 1U));
+        device_->CreateShaderResourceView(slot.styles_.Get(), &raw_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base + 1U));
 
         D3D12_UNORDERED_ACCESS_VIEW_DESC structured_uav{};
         structured_uav.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
@@ -280,24 +279,20 @@ struct OverlayRenderer::Impl {
         structured_srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         structured_srv.Buffer.NumElements = instance_capacity;
         structured_srv.Buffer.StructureByteStride = sizeof(SaccadeOverlayRect);
-        device_->CreateShaderResourceView(slot.rects_.Get(), &structured_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base + 5U));
+        device_->CreateShaderResourceView(slot.rects_.Get(), &structured_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base + 5U));
         structured_srv.Buffer.StructureByteStride = sizeof(SaccadeOverlayInstanceMeta);
         device_->CreateShaderResourceView(slot.metadata_.Get(), &structured_srv,
                                           cpu_handle(descriptors_.Get(), descriptor_size_, base + 6U));
         raw_srv.Buffer.NumElements = target_bytes / sizeof(uint32_t);
-        device_->CreateShaderResourceView(slot.targets_.Get(), &raw_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base + 7U));
+        device_->CreateShaderResourceView(slot.targets_.Get(), &raw_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base + 7U));
         raw_srv.Buffer.NumElements = style_bytes / sizeof(uint32_t);
-        device_->CreateShaderResourceView(slot.styles_.Get(), &raw_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base + 8U));
+        device_->CreateShaderResourceView(slot.styles_.Get(), &raw_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base + 8U));
         D3D12_SHADER_RESOURCE_VIEW_DESC atlas_srv{};
         atlas_srv.Format = DXGI_FORMAT_R8_UNORM;
         atlas_srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         atlas_srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         atlas_srv.Texture2D.MipLevels = 1;
-        device_->CreateShaderResourceView(glyph_atlas_.Get(), &atlas_srv,
-                                          cpu_handle(descriptors_.Get(), descriptor_size_, base + 9U));
+        device_->CreateShaderResourceView(glyph_atlas_.Get(), &atlas_srv, cpu_handle(descriptors_.Get(), descriptor_size_, base + 9U));
         return true;
     }
 
@@ -305,8 +300,7 @@ struct OverlayRenderer::Impl {
         for (const Slot& slot : slots_) {
             const SaccadeResult status = fence_status(slot.fence_value_);
             if (status == SACCADE_ERROR_BACKEND ||
-                (status == SACCADE_ERROR_BUSY &&
-                 wait_fence(slot.fence_value_, UINT64_C(1'000'000'000)) != SACCADE_OK)) {
+                (status == SACCADE_ERROR_BUSY && wait_fence(slot.fence_value_, UINT64_C(1'000'000'000)) != SACCADE_OK)) {
                 return false;
             }
         }
@@ -322,8 +316,7 @@ struct OverlayRenderer::Impl {
         if (glyph_atlas_ == nullptr) {
             D3D12_HEAP_PROPERTIES heap{};
             heap.Type = D3D12_HEAP_TYPE_DEFAULT;
-            if (FAILED(device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &texture_desc,
-                                                        D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+            if (FAILED(device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &texture_desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
                                                         IID_PPV_ARGS(glyph_atlas_.GetAddressOf())))) {
                 return false;
             }
@@ -333,12 +326,13 @@ struct OverlayRenderer::Impl {
         UINT64 upload_bytes = 0;
         device_->GetCopyableFootprints(&texture_desc, 0, 1, 0, &footprint, nullptr, nullptr, &upload_bytes);
         ComPtr<ID3D12Resource> upload;
-        if (!create_buffer(device_.Get(), upload_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE,
-                           D3D12_RESOURCE_STATE_GENERIC_READ, &upload)) {
+        if (!create_buffer(device_.Get(), upload_bytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ,
+                           &upload)) {
             return false;
         }
         uint8_t* mapped = nullptr;
-        if (FAILED(upload->Map(0, nullptr, reinterpret_cast<void**>(&mapped)))) return false;
+        if (FAILED(upload->Map(0, nullptr, reinterpret_cast<void**>(&mapped))))
+            return false;
         if (pixels == nullptr) {
             fill_builtin_atlas(mapped + footprint.Offset, footprint.Footprint.RowPitch);
         } else {
@@ -351,8 +345,7 @@ struct OverlayRenderer::Impl {
 
         ComPtr<ID3D12CommandAllocator> allocator;
         ComPtr<ID3D12GraphicsCommandList> commands;
-        if (FAILED(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                                   IID_PPV_ARGS(allocator.GetAddressOf()))) ||
+        if (FAILED(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
             FAILED(device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr,
                                               IID_PPV_ARGS(commands.GetAddressOf())))) {
             return false;
@@ -381,12 +374,12 @@ struct OverlayRenderer::Impl {
         to_shader.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         to_shader.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
         commands->ResourceBarrier(1, &to_shader);
-        if (FAILED(commands->Close())) return false;
+        if (FAILED(commands->Close()))
+            return false;
         ID3D12CommandList* lists[]{commands.Get()};
         queue_->ExecuteCommandLists(1, lists);
         const uint64_t fence_value = next_fence_value_++;
-        if (FAILED(queue_->Signal(fence_.Get(), fence_value)) ||
-            wait_fence(fence_value, UINT64_C(1'000'000'000)) != SACCADE_OK) {
+        if (FAILED(queue_->Signal(fence_.Get(), fence_value)) || wait_fence(fence_value, UINT64_C(1'000'000'000)) != SACCADE_OK) {
             return false;
         }
         glyph_atlas_ready_ = true;
@@ -400,15 +393,18 @@ static_assert(alignof(OverlayRenderer::Impl) <= 64);
 OverlayRenderer::OverlayRenderer() noexcept = default;
 
 OverlayRenderer::~OverlayRenderer() {
-    if (!initialized_) return;
+    if (!initialized_)
+        return;
     Impl& state = impl();
     if (state.owns_thread()) {
         for (Impl::Slot& slot : state.slots_) {
             if (slot.fence_value_ != 0) {
                 (void)state.wait_fence(slot.fence_value_, UINT64_C(1'000'000'000));
             }
-            if (slot.targets_mapped_ != nullptr) slot.targets_->Unmap(0, nullptr);
-            if (slot.styles_mapped_ != nullptr) slot.styles_->Unmap(0, nullptr);
+            if (slot.targets_mapped_ != nullptr)
+                slot.targets_->Unmap(0, nullptr);
+            if (slot.styles_mapped_ != nullptr)
+                slot.styles_->Unmap(0, nullptr);
         }
     }
     if (state.completion_event_ != nullptr) {
@@ -425,9 +421,9 @@ const OverlayRenderer::Impl& OverlayRenderer::impl() const noexcept {
     return *std::launder(reinterpret_cast<const Impl*>(storage_.data()));
 }
 
-SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQueue* queue,
-                                          const char* shader_directory) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQueue* queue, const char* shader_directory) noexcept {
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (device == nullptr || queue == nullptr || shader_directory == nullptr || shader_directory[0] == '\0')
         return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl* state = new (storage_.data()) Impl{};
@@ -484,12 +480,12 @@ SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQue
     ComPtr<ID3DBlob> compute_root_blob;
     ComPtr<ID3DBlob> render_root_blob;
     ComPtr<ID3DBlob> root_error;
-    if (FAILED(D3D12SerializeRootSignature(&compute_root_desc, D3D_ROOT_SIGNATURE_VERSION_1,
-                                           compute_root_blob.GetAddressOf(), root_error.GetAddressOf())) ||
+    if (FAILED(D3D12SerializeRootSignature(&compute_root_desc, D3D_ROOT_SIGNATURE_VERSION_1, compute_root_blob.GetAddressOf(),
+                                           root_error.GetAddressOf())) ||
         FAILED(device->CreateRootSignature(0, compute_root_blob->GetBufferPointer(), compute_root_blob->GetBufferSize(),
                                            IID_PPV_ARGS(state->compute_root_.GetAddressOf()))) ||
-        FAILED(D3D12SerializeRootSignature(&render_root_desc, D3D_ROOT_SIGNATURE_VERSION_1,
-                                           render_root_blob.GetAddressOf(), root_error.ReleaseAndGetAddressOf())) ||
+        FAILED(D3D12SerializeRootSignature(&render_root_desc, D3D_ROOT_SIGNATURE_VERSION_1, render_root_blob.GetAddressOf(),
+                                           root_error.ReleaseAndGetAddressOf())) ||
         FAILED(device->CreateRootSignature(0, render_root_blob->GetBufferPointer(), render_root_blob->GetBufferSize(),
                                            IID_PPV_ARGS(state->render_root_.GetAddressOf())))) {
         state->~Impl();
@@ -514,14 +510,12 @@ SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQue
     D3D12_COMPUTE_PIPELINE_STATE_DESC compute_pipeline{};
     compute_pipeline.pRootSignature = state->compute_root_.Get();
     compute_pipeline.CS = {static_shader.data(), static_bytes};
-    if (FAILED(device->CreateComputePipelineState(&compute_pipeline,
-                                                  IID_PPV_ARGS(state->static_pipeline_.GetAddressOf())))) {
+    if (FAILED(device->CreateComputePipelineState(&compute_pipeline, IID_PPV_ARGS(state->static_pipeline_.GetAddressOf())))) {
         state->~Impl();
         return SACCADE_ERROR_BACKEND;
     }
     compute_pipeline.CS = {active_shader.data(), active_bytes};
-    if (FAILED(device->CreateComputePipelineState(&compute_pipeline,
-                                                  IID_PPV_ARGS(state->active_pipeline_.GetAddressOf())))) {
+    if (FAILED(device->CreateComputePipelineState(&compute_pipeline, IID_PPV_ARGS(state->active_pipeline_.GetAddressOf())))) {
         state->~Impl();
         return SACCADE_ERROR_BACKEND;
     }
@@ -547,8 +541,7 @@ SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQue
     render_pipeline.NumRenderTargets = 1;
     render_pipeline.RTVFormats[0] = DXGI_FORMAT_B8G8R8A8_UNORM;
     render_pipeline.SampleDesc.Count = 1;
-    if (FAILED(device->CreateGraphicsPipelineState(&render_pipeline,
-                                                   IID_PPV_ARGS(state->render_pipeline_.GetAddressOf())))) {
+    if (FAILED(device->CreateGraphicsPipelineState(&render_pipeline, IID_PPV_ARGS(state->render_pipeline_.GetAddressOf())))) {
         state->~Impl();
         return SACCADE_ERROR_BACKEND;
     }
@@ -564,8 +557,7 @@ SaccadeResult OverlayRenderer::initialize(ID3D12Device* device, ID3D12CommandQue
     signature_desc.NumArgumentDescs = 1;
     signature_desc.pArgumentDescs = &indirect_argument;
     if (FAILED(device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(state->descriptors_.GetAddressOf()))) ||
-        FAILED(device->CreateCommandSignature(&signature_desc, nullptr,
-                                              IID_PPV_ARGS(state->draw_signature_.GetAddressOf()))) ||
+        FAILED(device->CreateCommandSignature(&signature_desc, nullptr, IID_PPV_ARGS(state->draw_signature_.GetAddressOf()))) ||
         FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(state->fence_.GetAddressOf())))) {
         state->~Impl();
         return SACCADE_ERROR_BACKEND;
@@ -602,9 +594,11 @@ SaccadeResult OverlayRenderer::submit(const SaccadeOverlayFrameDesc& frame, Over
 }
 
 SaccadeResult OverlayRenderer::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
-    if (!initialized_ || !overlay::glyph_atlas_valid(atlas)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || !overlay::glyph_atlas_valid(atlas))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
     return state.upload_glyph_atlas(atlas.pixels) ? SACCADE_OK : SACCADE_ERROR_BACKEND;
 }
 
@@ -615,14 +609,14 @@ SaccadeResult OverlayRenderer::render(const SaccadeOverlayFrameDesc& frame, cons
     return submit_internal(frame, &target, output);
 }
 
-SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& frame,
-                                               const OverlayRenderTarget* render_target,
+SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& frame, const OverlayRenderTarget* render_target,
                                                OverlaySubmission* output) noexcept {
     if (!initialized_ || output == nullptr || !frame_valid(frame)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
     overlay::PacketView packet{};
     const bool cached = state.validated_bytes_ == frame.packet.data && state.validated_size_ == frame.packet.size &&
                         state.validated_packet_.header.scene_epoch == frame.scene_epoch &&
@@ -639,8 +633,7 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
         state.validated_bytes_ = frame.packet.data;
         state.validated_size_ = frame.packet.size;
     }
-    if ((frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) != 0 &&
-        frame.active_target_index >= packet.header.target_count) {
+    if ((frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) != 0 && frame.active_target_index >= packet.header.target_count) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     Impl::Slot* slot = nullptr;
@@ -663,8 +656,7 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
         ++state.stats_.busy_submissions;
         return SACCADE_ERROR_BUSY;
     }
-    const bool static_update =
-        slot->scene_epoch_ != frame.scene_epoch || slot->transform_epoch_ != frame.transform_epoch;
+    const bool static_update = slot->scene_epoch_ != frame.scene_epoch || slot->transform_epoch_ != frame.transform_epoch;
     if (static_update) {
         const size_t targets_size = static_cast<size_t>(packet.header.target_count) * sizeof(SaccadeOverlayTarget);
         const size_t styles_size = static_cast<size_t>(packet.header.style_count) * sizeof(SaccadeOverlayStyle);
@@ -688,8 +680,7 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
             barriers[index].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
             barriers[index].Transition.pResource = resources[index];
             barriers[index].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            barriers[index].Transition.StateBefore =
-                index < 2 ? shader_resource_state : D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+            barriers[index].Transition.StateBefore = index < 2 ? shader_resource_state : D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
             barriers[index].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
         }
         slot->commands_->ResourceBarrier(3, barriers);
@@ -697,8 +688,8 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
     ID3D12DescriptorHeap* heaps[]{state.descriptors_.Get()};
     slot->commands_->SetDescriptorHeaps(1, heaps);
     slot->commands_->SetComputeRootSignature(state.compute_root_.Get());
-    slot->commands_->SetComputeRootDescriptorTable(
-        0, gpu_handle(state.descriptors_.Get(), state.descriptor_size_, slot_index * descriptors_per_slot));
+    slot->commands_->SetComputeRootDescriptorTable(0, gpu_handle(state.descriptors_.Get(), state.descriptor_size_,
+                                                                 slot_index * descriptors_per_slot));
     slot->commands_->SetComputeRoot32BitConstants(1, 4, &parameters, 0);
     if (static_update && packet.header.target_count != 0) {
         slot->commands_->SetPipelineState(state.static_pipeline_.Get());
@@ -715,8 +706,7 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
         read_barriers[index].Transition.pResource = resources[index];
         read_barriers[index].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
         read_barriers[index].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        read_barriers[index].Transition.StateAfter =
-            index < 2 ? shader_resource_state : D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+        read_barriers[index].Transition.StateAfter = index < 2 ? shader_resource_state : D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
     }
     slot->commands_->ResourceBarrier(3, read_barriers);
     slot->read_state_ = true;
@@ -735,14 +725,13 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
         viewport.Width = static_cast<float>(render_target->width);
         viewport.Height = static_cast<float>(render_target->height);
         viewport.MaxDepth = 1.0F;
-        const D3D12_RECT scissor{0, 0, static_cast<LONG>(render_target->width),
-                                 static_cast<LONG>(render_target->height)};
+        const D3D12_RECT scissor{0, 0, static_cast<LONG>(render_target->width), static_cast<LONG>(render_target->height)};
         slot->commands_->RSSetViewports(1, &viewport);
         slot->commands_->RSSetScissorRects(1, &scissor);
         slot->commands_->SetGraphicsRootSignature(state.render_root_.Get());
         slot->commands_->SetPipelineState(state.render_pipeline_.Get());
-        slot->commands_->SetGraphicsRootDescriptorTable(
-            0, gpu_handle(state.descriptors_.Get(), state.descriptor_size_, slot_index * descriptors_per_slot + 5U));
+        slot->commands_->SetGraphicsRootDescriptorTable(0, gpu_handle(state.descriptors_.Get(), state.descriptor_size_,
+                                                                      slot_index * descriptors_per_slot + 5U));
         float animation_time = 0.0F;
         float scene_age = 1.0F;
         if (render_target->timestamp_ns != 0) {
@@ -754,8 +743,8 @@ SaccadeResult OverlayRenderer::submit_internal(const SaccadeOverlayFrameDesc& fr
             animation_time = static_cast<float>(render_target->timestamp_ns % animation_period_ns) * 1.0e-9F;
             scene_age = static_cast<float>(render_target->timestamp_ns - state.animation_scene_start_ns_) * 1.0e-9F;
         }
-        const DisplayConstants display{1.0F / static_cast<float>(render_target->width),
-                                       1.0F / static_cast<float>(render_target->height), animation_time, scene_age};
+        const DisplayConstants display{1.0F / static_cast<float>(render_target->width), 1.0F / static_cast<float>(render_target->height),
+                                       animation_time, scene_age};
         slot->commands_->SetGraphicsRoot32BitConstants(1, 4, &display, 0);
         slot->commands_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         slot->commands_->OMSetRenderTargets(1, &render_target->view, FALSE, nullptr);
@@ -790,7 +779,8 @@ SaccadeResult OverlayRenderer::poll(const OverlaySubmission& submission, bool* c
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
     const Impl::Slot& slot = state.slots_[submission.slot_index];
     if (slot.sequence_ != submission.sequence || slot.scene_epoch_ != submission.scene_epoch) {
         return SACCADE_ERROR_STALE_HANDLE;
@@ -803,15 +793,17 @@ SaccadeResult OverlayRenderer::poll(const OverlaySubmission& submission, bool* c
 SaccadeResult OverlayRenderer::wait(const OverlaySubmission& submission, uint64_t timeout_ns) const noexcept {
     bool complete = false;
     const SaccadeResult polled = poll(submission, &complete);
-    if (polled != SACCADE_OK || complete) return polled;
+    if (polled != SACCADE_OK || complete)
+        return polled;
     return impl().wait_fence(impl().slots_[submission.slot_index].fence_value_, timeout_ns);
 }
 
-SaccadeResult OverlayRenderer::copy_instances(const OverlaySubmission& submission, OverlayInstanceSpan output,
-                                              size_t* count) noexcept {
-    if (count == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult OverlayRenderer::copy_instances(const OverlaySubmission& submission, OverlayInstanceSpan output, size_t* count) noexcept {
+    if (count == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const SaccadeResult waited = wait(submission, UINT64_C(1'000'000'000));
-    if (waited != SACCADE_OK) return waited;
+    if (waited != SACCADE_OK)
+        return waited;
     Impl& state = impl();
     Impl::Slot& slot = state.slots_[submission.slot_index];
     *count = slot.instance_count_;
@@ -836,7 +828,8 @@ SaccadeResult OverlayRenderer::copy_instances(const OverlaySubmission& submissio
         std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
     }
     slot.commands_->ResourceBarrier(2, barriers);
-    if (FAILED(slot.commands_->Close())) return SACCADE_ERROR_BACKEND;
+    if (FAILED(slot.commands_->Close()))
+        return SACCADE_ERROR_BACKEND;
     ID3D12CommandList* lists[]{slot.commands_.Get()};
     state.queue_->ExecuteCommandLists(1, lists);
     slot.fence_value_ = state.next_fence_value_++;
@@ -848,9 +841,9 @@ SaccadeResult OverlayRenderer::copy_instances(const OverlaySubmission& submissio
     void* metadata = nullptr;
     D3D12_RANGE rect_range{0, slot.instance_count_ * sizeof(SaccadeOverlayRect)};
     D3D12_RANGE metadata_range{0, slot.instance_count_ * sizeof(SaccadeOverlayInstanceMeta)};
-    if (FAILED(slot.rects_readback_->Map(0, &rect_range, &rects)) ||
-        FAILED(slot.metadata_readback_->Map(0, &metadata_range, &metadata))) {
-        if (rects != nullptr) slot.rects_readback_->Unmap(0, nullptr);
+    if (FAILED(slot.rects_readback_->Map(0, &rect_range, &rects)) || FAILED(slot.metadata_readback_->Map(0, &metadata_range, &metadata))) {
+        if (rects != nullptr)
+            slot.rects_readback_->Unmap(0, nullptr);
         return SACCADE_ERROR_BACKEND;
     }
     std::memcpy(output.rects, rects, rect_range.End);
@@ -862,8 +855,7 @@ SaccadeResult OverlayRenderer::copy_instances(const OverlaySubmission& submissio
 }
 
 SaccadeResult OverlayRenderer::memory_stats(SaccadeMemoryStats* output) const noexcept {
-    if (!initialized_ || output == nullptr || output->struct_size != sizeof(*output) ||
-        output->api_version != SACCADE_API_VERSION) {
+    if (!initialized_ || output == nullptr || output->struct_size != sizeof(*output) || output->api_version != SACCADE_API_VERSION) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const uint64_t per_slot = target_bytes + style_bytes + static_cast<uint64_t>(rect_bytes) * 2U +

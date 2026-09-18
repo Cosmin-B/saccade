@@ -42,15 +42,13 @@ int main(int argc, char** argv) {
         saccade::platform::macos::SceneCaptureSet captures;
         if (captures.initialize(&provider, 1536, 0) != SACCADE_ERROR_INVALID_ARGUMENT ||
             captures.initialize(&provider, 1536, 1024) != SACCADE_OK ||
-            captures.initialize(&provider, 1536, 1024) != SACCADE_ERROR_ALREADY_EXISTS ||
-            captures.synchronize(original) != SACCADE_OK) {
+            captures.initialize(&provider, 1536, 1024) != SACCADE_ERROR_ALREADY_EXISTS || captures.synchronize(original) != SACCADE_OK) {
             return 3;
         }
 
         saccade::platform::macos::SceneCaptureStats stats{};
-        if (captures.read_stats(&stats) != SACCADE_OK || stats.topology_epoch != original.epoch ||
-            stats.active_streams != original.count || stats.streams_added != original.count ||
-            stats.leased_frames != 0 || captures.synchronize(original) != SACCADE_OK) {
+        if (captures.read_stats(&stats) != SACCADE_OK || stats.topology_epoch != original.epoch || stats.active_streams != original.count ||
+            stats.streams_added != original.count || stats.leased_frames != 0 || captures.synchronize(original) != SACCADE_OK) {
             return 4;
         }
         SaccadeResult foreign_result = SACCADE_OK;
@@ -81,10 +79,9 @@ int main(int argc, char** argv) {
                 (void)nanosleep(&pause, nullptr);
             }
         }
-        if (acquired != SACCADE_OK || frame.display_id != display_id || frame.topology_epoch != original.epoch ||
-            frame.frame.frame == 0 || frame.native.metal_texture == nullptr || frame.native.iosurface == nullptr ||
-            frame.native.width != frame.frame.width || frame.native.height != frame.frame.height ||
-            captures.acquire(display_id, &frame) != SACCADE_ERROR_BUSY) {
+        if (acquired != SACCADE_OK || frame.display_id != display_id || frame.topology_epoch != original.epoch || frame.frame.frame == 0 ||
+            frame.native.metal_texture == nullptr || frame.native.iosurface == nullptr || frame.native.width != frame.frame.width ||
+            frame.native.height != frame.frame.height || captures.acquire(display_id, &frame) != SACCADE_ERROR_BUSY) {
             return 7;
         }
 
@@ -104,8 +101,8 @@ int main(int argc, char** argv) {
         saccade::geometry::DisplaySnapshot empty{};
         empty.epoch = changed.epoch + 1U;
         empty.flags = original.flags;
-        if (captures.synchronize(empty) != SACCADE_OK || captures.read_stats(&stats) != SACCADE_OK ||
-            stats.active_streams != 0 || stats.streams_removed != static_cast<uint64_t>(original.count) + 1U) {
+        if (captures.synchronize(empty) != SACCADE_OK || captures.read_stats(&stats) != SACCADE_OK || stats.active_streams != 0 ||
+            stats.streams_removed != static_cast<uint64_t>(original.count) + 1U) {
             return 8;
         }
 
@@ -138,13 +135,14 @@ int main(int argc, char** argv) {
         runtime_desc.struct_size = sizeof(runtime_desc);
         runtime_desc.api_version = SACCADE_API_VERSION;
         SaccadeRuntimeHandle runtime = 0;
-        if (acquired != SACCADE_OK || display == nullptr ||
-            saccade_runtime_create(&runtime_desc, &runtime) != SACCADE_OK) {
+        if (acquired != SACCADE_OK || display == nullptr || saccade_runtime_create(&runtime_desc, &runtime) != SACCADE_OK) {
             return 11;
         }
         saccade::platform::macos::CoreMlImageBridge bridge;
-        const saccade::platform::macos::CoreMlImageBridgeConfig bridge_config{
-            runtime, (__bridge void*)device, argv[1], saccade::backend::metal::PathPreference::automatic, 320, 320, 0};
+        const saccade::platform::macos::CoreMlImageBridgeConfig bridge_config{runtime, (__bridge void*)device,
+                                                                              argv[1], saccade::backend::metal::PathPreference::automatic,
+                                                                              320,     320,
+                                                                              0};
         if (bridge.initialize(bridge_config) != SACCADE_OK || bridge.begin(&captures, frame, *display) != SACCADE_OK) {
             return 12;
         }
@@ -154,19 +152,16 @@ int main(int argc, char** argv) {
             if (bridge.poll(&neural, &ready) != SACCADE_OK) {
                 return 13;
             }
-            if (!ready) (void)nanosleep(&pause, nullptr);
+            if (!ready)
+                (void)nanosleep(&pause, nullptr);
         }
         const auto& transform = neural.source_to_desktop.descriptor();
-        if (!ready || neural.frame == 0 || neural.width != 320 || neural.height != 320 ||
-            neural.source_id != frame.frame.source_id || neural.topology_epoch != frame.topology_epoch ||
-            neural.transform_epoch != frame.frame.transform_epoch ||
+        if (!ready || neural.frame == 0 || neural.width != 320 || neural.height != 320 || neural.source_id != frame.frame.source_id ||
+            neural.topology_epoch != frame.topology_epoch || neural.transform_epoch != frame.frame.transform_epoch ||
             neural.capture_time_ns != frame.frame.timestamp_ns || transform.source.x < 0 || transform.source.y < 0 ||
-            transform.source.width <= 0 || transform.source.height <= 0 ||
-            transform.destination.x != display->desktop_bounds.x ||
-            transform.destination.y != display->desktop_bounds.y ||
-            transform.destination.width != display->desktop_bounds.width ||
-            transform.destination.height != display->desktop_bounds.height || !bridge.busy() ||
-            bridge.shutdown() != SACCADE_ERROR_BUSY) {
+            transform.source.width <= 0 || transform.source.height <= 0 || transform.destination.x != display->desktop_bounds.x ||
+            transform.destination.y != display->desktop_bounds.y || transform.destination.width != display->desktop_bounds.width ||
+            transform.destination.height != display->desktop_bounds.height || !bridge.busy() || bridge.shutdown() != SACCADE_ERROR_BUSY) {
             return 14;
         }
         if (saccade_frame_release(runtime, neural.frame) != SACCADE_OK) {
@@ -175,17 +170,15 @@ int main(int argc, char** argv) {
         neural.retire(neural.retire_context, neural.frame);
         neural = {};
         ready = false;
-        if (bridge.begin_cached() != SACCADE_OK || bridge.poll(&neural, &ready) != SACCADE_OK || !ready ||
-            neural.frame == 0 || neural.capture_time_ns != frame.frame.timestamp_ns ||
-            saccade_frame_release(runtime, neural.frame) != SACCADE_OK) {
+        if (bridge.begin_cached() != SACCADE_OK || bridge.poll(&neural, &ready) != SACCADE_OK || !ready || neural.frame == 0 ||
+            neural.capture_time_ns != frame.frame.timestamp_ns || saccade_frame_release(runtime, neural.frame) != SACCADE_OK) {
             return 16;
         }
         neural.retire(neural.retire_context, neural.frame);
         const auto bridge_stats = bridge.stats();
-        if (bridge.busy() || bridge_stats.submissions != 2 || bridge_stats.completions != 2 ||
-            bridge_stats.runtime_imports != 2 || bridge_stats.capture_releases != 1 ||
-            bridge_stats.output_retires != 2 || bridge_stats.cached_replays != 1 || bridge_stats.failures != 0 ||
-            bridge.shutdown() != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK ||
+        if (bridge.busy() || bridge_stats.submissions != 2 || bridge_stats.completions != 2 || bridge_stats.runtime_imports != 2 ||
+            bridge_stats.capture_releases != 1 || bridge_stats.output_retires != 2 || bridge_stats.cached_replays != 1 ||
+            bridge_stats.failures != 0 || bridge.shutdown() != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK ||
             captures.shutdown() != SACCADE_OK) {
             return 17;
         }

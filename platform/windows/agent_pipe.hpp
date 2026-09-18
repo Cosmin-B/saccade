@@ -15,8 +15,8 @@
 
 namespace saccade::platform::windows {
 
-using AgentRequestFn = SaccadeResult (*)(void*, SaccadeSpanU8, SaccadeAgentCapabilityBits, uint64_t,
-                                         SaccadeMutableSpanU8, size_t*) noexcept;
+using AgentRequestFn = SaccadeResult (*)(void*, SaccadeSpanU8, SaccadeAgentCapabilityBits, uint64_t, SaccadeMutableSpanU8,
+                                         size_t*) noexcept;
 using AgentDisconnectFn = SaccadeResult (*)(void*) noexcept;
 
 struct AgentPipeConfig {

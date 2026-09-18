@@ -66,9 +66,8 @@ bool config_valid(const kernels::targets::PostprocessConfig& config, const kerne
            config.coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 &&
            (config.coordinate_space == SACCADE_COORDINATE_SPACE_MODEL_Q8 ||
             config.coordinate_space == SACCADE_COORDINATE_SPACE_SOURCE_Q8) &&
-           kernels::targets::confidence_band_valid(config) && config.reserved == 0 && epochs.frame_id != 0 &&
-           epochs.model_epoch != 0 && epochs.session_epoch != 0 && epochs.transform_epoch != 0 &&
-           epochs.topology_epoch != 0 && epochs.source_id != 0;
+           kernels::targets::confidence_band_valid(config) && config.reserved == 0 && epochs.frame_id != 0 && epochs.model_epoch != 0 &&
+           epochs.session_epoch != 0 && epochs.transform_epoch != 0 && epochs.topology_epoch != 0 && epochs.source_id != 0;
 }
 
 } // namespace
@@ -159,22 +158,19 @@ struct TargetPostprocessor::Impl {
         scatter_ = create_pipeline("saccade_targets_radix_scatter");
         masks_pipeline_ = create_pipeline("saccade_targets_suppression_masks");
         finalize_ = create_pipeline("saccade_targets_finalize");
-        return prepare_ != nil && histogram_ != nil && scan_ != nil && scatter_ != nil && masks_pipeline_ != nil &&
-               finalize_ != nil;
+        return prepare_ != nil && histogram_ != nil && scan_ != nil && scatter_ != nil && masks_pipeline_ != nil && finalize_ != nil;
     }
 
     bool create_buffers() noexcept {
         constexpr MTLResourceOptions shared = MTLResourceStorageModeShared | MTLResourceHazardTrackingModeTracked;
-        constexpr MTLResourceOptions private_options =
-            MTLResourceStorageModePrivate | MTLResourceHazardTrackingModeTracked;
+        constexpr MTLResourceOptions private_options = MTLResourceStorageModePrivate | MTLResourceHazardTrackingModeTracked;
         const size_t entries_bytes = size_t(spec_.candidate_capacity) * sizeof(RadixEntry);
         const size_t block_count = (spec_.candidate_capacity + block_size - 1) / block_size;
         const size_t offsets_bytes = block_count * radix_bins * sizeof(uint32_t);
         const size_t ranks_bytes = size_t(spec_.candidate_capacity) * sizeof(uint32_t);
         const size_t words = (spec_.target_capacity + 31U) / 32U;
         const size_t masks_bytes = size_t(spec_.target_capacity) * words * sizeof(uint32_t);
-        output_capacity_ =
-            sizeof(SaccadeTargetPacketHeader) + size_t(spec_.target_capacity) * sizeof(SaccadeTargetRecord);
+        output_capacity_ = sizeof(SaccadeTargetPacketHeader) + size_t(spec_.target_capacity) * sizeof(SaccadeTargetRecord);
         parameters_ = [device_ newBufferWithLength:radix_passes * parameter_stride options:shared];
         entries_a_ = [device_ newBufferWithLength:entries_bytes options:private_options];
         entries_b_ = [device_ newBufferWithLength:entries_bytes options:private_options];
@@ -184,8 +180,8 @@ struct TargetPostprocessor::Impl {
         suppressed_ = [device_ newBufferWithLength:words * sizeof(uint32_t) options:private_options];
         output_ = [device_ newBufferWithLength:output_capacity_ options:shared];
         counters_ = [device_ newBufferWithLength:sizeof(PostprocessCounters) options:shared];
-        return parameters_ != nil && entries_a_ != nil && entries_b_ != nil && block_offsets_ != nil &&
-               local_ranks_ != nil && masks_ != nil && suppressed_ != nil && output_ != nil && counters_ != nil;
+        return parameters_ != nil && entries_a_ != nil && entries_b_ != nil && block_offsets_ != nil && local_ranks_ != nil &&
+               masks_ != nil && suppressed_ != nil && output_ != nil && counters_ != nil;
     }
 
     bool create_metal3() noexcept {
@@ -226,9 +222,8 @@ struct TargetPostprocessor::Impl {
         if (queue4_ == nil || allocator4_ == nil || command_buffer4_ == nil || residency_set4_ == nil) {
             return false;
         }
-        const std::array<id<MTLAllocation>, 10> allocations{candidate_buffer_, parameters_,  entries_a_, entries_b_,
-                                                            block_offsets_,    local_ranks_, masks_,     suppressed_,
-                                                            output_,           counters_};
+        const std::array<id<MTLAllocation>, 10> allocations{candidate_buffer_, parameters_, entries_a_,  entries_b_, block_offsets_,
+                                                            local_ranks_,      masks_,      suppressed_, output_,    counters_};
         [residency_set4_ addAllocations:allocations.data() count:allocations.size()];
         [residency_set4_ commit];
         [residency_set4_ requestResidency];
@@ -250,8 +245,7 @@ struct TargetPostprocessor::Impl {
 
     bool idle() const noexcept { return sequence_ == 0 || completion_event_.signaledValue >= sequence_; }
 
-    void fill_parameters(const kernels::targets::PostprocessConfig& config,
-                         const kernels::targets::PostprocessEpochs& epochs) noexcept {
+    void fill_parameters(const kernels::targets::PostprocessConfig& config, const kernels::targets::PostprocessEpochs& epochs) noexcept {
         auto* bytes = static_cast<uint8_t*>(parameters_.contents);
         const uint32_t blocks = (candidate_count_ + block_size - 1) / block_size;
         const uint32_t words = (config.maximum_targets + 31U) / 32U;
@@ -306,8 +300,7 @@ struct TargetPostprocessor::Impl {
                 [encoder dispatchThreads:MTLSizeMake(candidate_count_, 1, 1) threadsPerThreadgroup:block];
                 [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
                 [encoder setComputePipelineState:scan_];
-                [encoder dispatchThreads:MTLSizeMake(radix_bins, 1, 1)
-                    threadsPerThreadgroup:MTLSizeMake(radix_bins, 1, 1)];
+                [encoder dispatchThreads:MTLSizeMake(radix_bins, 1, 1) threadsPerThreadgroup:MTLSizeMake(radix_bins, 1, 1)];
                 [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
                 [encoder setComputePipelineState:scatter_];
                 [encoder dispatchThreads:MTLSizeMake(candidate_count_, 1, 1) threadsPerThreadgroup:block];
@@ -316,8 +309,7 @@ struct TargetPostprocessor::Impl {
             const auto* parameters = static_cast<const PostprocessParameters*>(parameters_.contents);
             const uint32_t selected = std::min(candidate_count_, parameters->maximum_targets);
             [encoder setComputePipelineState:masks_pipeline_];
-            [encoder dispatchThreads:MTLSizeMake(size_t(selected) * parameters->mask_word_count, 1, 1)
-                threadsPerThreadgroup:block];
+            [encoder dispatchThreads:MTLSizeMake(size_t(selected) * parameters->mask_word_count, 1, 1) threadsPerThreadgroup:block];
             [encoder memoryBarrierWithScope:MTLBarrierScopeBuffers];
         }
         bind_parameters_metal3(encoder, 0);
@@ -362,8 +354,7 @@ struct TargetPostprocessor::Impl {
                                beforeEncoderStages:MTLStageDispatch
                                  visibilityOptions:MTL4VisibilityOptionDevice];
                 [encoder setComputePipelineState:scan_];
-                [encoder dispatchThreads:MTLSizeMake(radix_bins, 1, 1)
-                    threadsPerThreadgroup:MTLSizeMake(radix_bins, 1, 1)];
+                [encoder dispatchThreads:MTLSizeMake(radix_bins, 1, 1) threadsPerThreadgroup:MTLSizeMake(radix_bins, 1, 1)];
                 [encoder barrierAfterEncoderStages:MTLStageDispatch
                                beforeEncoderStages:MTLStageDispatch
                                  visibilityOptions:MTL4VisibilityOptionDevice];
@@ -377,8 +368,7 @@ struct TargetPostprocessor::Impl {
             const uint32_t selected = std::min(candidate_count_, parameters->maximum_targets);
             [encoder setArgumentTable:argument_tables4_[0]];
             [encoder setComputePipelineState:masks_pipeline_];
-            [encoder dispatchThreads:MTLSizeMake(size_t(selected) * parameters->mask_word_count, 1, 1)
-                threadsPerThreadgroup:block];
+            [encoder dispatchThreads:MTLSizeMake(size_t(selected) * parameters->mask_word_count, 1, 1) threadsPerThreadgroup:block];
             [encoder barrierAfterEncoderStages:MTLStageDispatch
                            beforeEncoderStages:MTLStageDispatch
                              visibilityOptions:MTL4VisibilityOptionDevice];
@@ -425,11 +415,10 @@ const TargetPostprocessor::Impl& TargetPostprocessor::impl() const noexcept {
 SaccadeResult TargetPostprocessor::initialize(void* metal_device, const char* metallib_path, PathPreference preference,
                                               const TargetPostprocessorSpec& spec) noexcept {
     Impl& state = impl();
-    if (metal_device == nullptr || metallib_path == nullptr || metallib_path[0] == '\0' ||
-        spec.candidate_capacity == 0 || spec.candidate_capacity > kernels::targets::maximum_candidates ||
-        spec.target_capacity == 0 || spec.target_capacity > SACCADE_TARGET_PACKET_MAX_TARGETS ||
-        (preference != PathPreference::automatic && preference != PathPreference::metal3 &&
-         preference != PathPreference::metal4)) {
+    if (metal_device == nullptr || metallib_path == nullptr || metallib_path[0] == '\0' || spec.candidate_capacity == 0 ||
+        spec.candidate_capacity > kernels::targets::maximum_candidates || spec.target_capacity == 0 ||
+        spec.target_capacity > SACCADE_TARGET_PACKET_MAX_TARGETS ||
+        (preference != PathPreference::automatic && preference != PathPreference::metal3 && preference != PathPreference::metal4)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (state.initialized_) {
@@ -458,8 +447,7 @@ SaccadeResult TargetPostprocessor::initialize(void* metal_device, const char* me
     if (preference == PathPreference::metal4 && !supports_metal4) {
         return SACCADE_ERROR_UNSUPPORTED;
     }
-    const bool use_metal4 =
-        preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
+    const bool use_metal4 = preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
     if (use_metal4) {
         if (@available(macOS 26.0, *)) {
             if (!state.create_metal4()) {
@@ -474,10 +462,10 @@ SaccadeResult TargetPostprocessor::initialize(void* metal_device, const char* me
         }
         state.stats_.path = Path::metal3;
     }
-    state.stats_.workspace_bytes =
-        allocated_bytes(state.parameters_) + allocated_bytes(state.entries_a_) + allocated_bytes(state.entries_b_) +
-        allocated_bytes(state.block_offsets_) + allocated_bytes(state.local_ranks_) + allocated_bytes(state.masks_) +
-        allocated_bytes(state.suppressed_) + allocated_bytes(state.output_) + allocated_bytes(state.counters_);
+    state.stats_.workspace_bytes = allocated_bytes(state.parameters_) + allocated_bytes(state.entries_a_) +
+                                   allocated_bytes(state.entries_b_) + allocated_bytes(state.block_offsets_) +
+                                   allocated_bytes(state.local_ranks_) + allocated_bytes(state.masks_) +
+                                   allocated_bytes(state.suppressed_) + allocated_bytes(state.output_) + allocated_bytes(state.counters_);
     state.initialized_ = true;
     return SACCADE_OK;
 }
@@ -520,8 +508,8 @@ SaccadeResult TargetPostprocessor::submit(uint32_t candidate_count, const kernel
 
 SaccadeResult TargetPostprocessor::poll(const TargetPostprocessSubmission& submission, bool* complete) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || complete == nullptr || submission.sequence == 0 ||
-        submission.sequence != state.sequence_ || submission.frame_id != state.frame_id_) {
+    if (!state.initialized_ || complete == nullptr || submission.sequence == 0 || submission.sequence != state.sequence_ ||
+        submission.frame_id != state.frame_id_) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *complete = state.idle();
@@ -537,9 +525,9 @@ SaccadeResult TargetPostprocessor::wait(const TargetPostprocessSubmission& submi
     }
     const auto start = std::chrono::steady_clock::now();
     while (!state.idle()) {
-        if (timeout_ns != UINT64_MAX && static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                                  std::chrono::steady_clock::now() - start)
-                                                                  .count()) >= timeout_ns) {
+        if (timeout_ns != UINT64_MAX &&
+            static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count()) >=
+                timeout_ns) {
             return SACCADE_ERROR_TIMEOUT;
         }
         std::this_thread::yield();
@@ -548,11 +536,9 @@ SaccadeResult TargetPostprocessor::wait(const TargetPostprocessSubmission& submi
     return SACCADE_OK;
 }
 
-SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& submission,
-                                          TargetPacketSpan* packet) noexcept {
+SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& submission, TargetPacketSpan* packet) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || packet == nullptr || submission.sequence == 0 ||
-        submission.sequence != state.sequence_ || !state.idle()) {
+    if (!state.initialized_ || packet == nullptr || submission.sequence == 0 || submission.sequence != state.sequence_ || !state.idle()) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     state.count_completion();
@@ -563,8 +549,7 @@ SaccadeResult TargetPostprocessor::packet(const TargetPostprocessSubmission& sub
 
 SaccadeResult TargetPostprocessor::memory_stats(SaccadeMemoryStats* output) const noexcept {
     const Impl& state = impl();
-    if (!state.initialized_ || output == nullptr || output->struct_size != sizeof(*output) ||
-        output->api_version != SACCADE_API_VERSION) {
+    if (!state.initialized_ || output == nullptr || output->struct_size != sizeof(*output) || output->api_version != SACCADE_API_VERSION) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     SaccadeMemoryStats value{};

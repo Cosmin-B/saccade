@@ -115,18 +115,18 @@ const char* path_name(saccade::backend::metal::Path path) noexcept {
     return "unavailable";
 }
 
-bool append_result(saccade::core::StackStringBuilder<2048>* text, saccade::backend::metal::Path path,
-                   const char* operation, uint32_t iterations, uint64_t elapsed) noexcept {
+bool append_result(saccade::core::StackStringBuilder<2048>* text, saccade::backend::metal::Path path, const char* operation,
+                   uint32_t iterations, uint64_t elapsed) noexcept {
     return elapsed != 0 && text->append("path=") && text->append(path_name(path)) && text->append(" targets=") &&
-           text->append_unsigned(target_count) && text->append(" resolution=") &&
-           text->append_unsigned(drawable_width) && text->append("x") && text->append_unsigned(drawable_height) &&
-           text->append(" operation=") && text->append(operation) && text->append(" iterations=") &&
-           text->append_unsigned(iterations) && text->append(" total_ns=") && text->append_unsigned(elapsed) &&
-           text->append(" ns_per_frame=") && text->append_unsigned(elapsed / iterations) && text->append('\n');
+           text->append_unsigned(target_count) && text->append(" resolution=") && text->append_unsigned(drawable_width) &&
+           text->append("x") && text->append_unsigned(drawable_height) && text->append(" operation=") && text->append(operation) &&
+           text->append(" iterations=") && text->append_unsigned(iterations) && text->append(" total_ns=") &&
+           text->append_unsigned(elapsed) && text->append(" ns_per_frame=") && text->append_unsigned(elapsed / iterations) &&
+           text->append('\n');
 }
 
-bool run_path(const char* metallib, saccade::backend::metal::PathPreference preference,
-              saccade::core::StackStringBuilder<2048>* text, saccade::backend::metal::Path* selected) noexcept {
+bool run_path(const char* metallib, saccade::backend::metal::PathPreference preference, saccade::core::StackStringBuilder<2048>* text,
+              saccade::backend::metal::Path* selected) noexcept {
     using namespace saccade::backend::metal;
     OverlayExpander renderer;
     const SaccadeResult initialized = renderer.initialize(metallib, preference);
@@ -141,8 +141,7 @@ bool run_path(const char* metallib, saccade::backend::metal::PathPreference pref
                                                                                       mipmapped:NO];
     descriptor.storageMode = MTLStorageModePrivate;
     descriptor.usage = MTLTextureUsageRenderTarget;
-    std::array<id<MTLTexture>, 3> textures{[device newTextureWithDescriptor:descriptor],
-                                           [device newTextureWithDescriptor:descriptor],
+    std::array<id<MTLTexture>, 3> textures{[device newTextureWithDescriptor:descriptor], [device newTextureWithDescriptor:descriptor],
                                            [device newTextureWithDescriptor:descriptor]};
     if (textures[0] == nil || textures[1] == nil || textures[2] == nil) {
         return false;
@@ -164,8 +163,7 @@ bool run_path(const char* metallib, saccade::backend::metal::PathPreference pref
 
     for (uint32_t index = 0; index < 3; ++index) {
         Submission warmup{};
-        if (renderer.render(frame, targets[index], &warmup) != SACCADE_OK ||
-            renderer.wait(warmup, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (renderer.render(frame, targets[index], &warmup) != SACCADE_OK || renderer.wait(warmup, UINT64_C(1000000000)) != SACCADE_OK) {
             return false;
         }
     }
@@ -211,8 +209,8 @@ bool run_path(const char* metallib, saccade::backend::metal::PathPreference pref
             }
         }
     }
-    const uint64_t scene_ns = static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - scene_begin).count());
+    const uint64_t scene_ns =
+        static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - scene_begin).count());
     benchmark_sink = completed + renderer.stats().rendered_frames;
     const Stats stats = renderer.stats();
     return benchmark_sink != 0 && append_result(text, *selected, "active_render", active_iterations, active_ns) &&
@@ -241,8 +239,7 @@ int main(int argc, char** argv) {
         if (text.truncated()) {
             return exit_code(ExitCode::output_truncated);
         }
-        return exit_code(std::fwrite(text.view().data(), 1, text.view().size(), stdout) == text.view().size()
-                             ? ExitCode::success
-                             : ExitCode::output_failed);
+        return exit_code(std::fwrite(text.view().data(), 1, text.view().size(), stdout) == text.view().size() ? ExitCode::success
+                                                                                                              : ExitCode::output_failed);
     }
 }

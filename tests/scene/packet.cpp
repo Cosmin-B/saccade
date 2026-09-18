@@ -68,9 +68,8 @@ int main() {
     auto& bytes = storage.bytes;
     saccade::scene::PacketView view{};
     if (saccade::scene::validate_packet({bytes.data(), bytes.size()}, &view) != SACCADE_OK || view.header == nullptr ||
-        view.targets == nullptr || view.header->target_count != 2 || view.targets[1].target_id != 9 ||
-        view.byte_size != bytes.size() || view.text_size != text.size() || view.target_text(0).size != 2 ||
-        std::memcmp(view.target_text(1).data, text.data() + 2, 6) != 0) {
+        view.targets == nullptr || view.header->target_count != 2 || view.targets[1].target_id != 9 || view.byte_size != bytes.size() ||
+        view.text_size != text.size() || view.target_text(0).size != 2 || std::memcmp(view.target_text(1).data, text.data() + 2, 6) != 0) {
         return 1;
     }
 
@@ -115,8 +114,7 @@ int main() {
     header = reinterpret_cast<SaccadeTargetPacketHeader*>(invalid.data());
     header->target_stride = sizeof(SaccadeTargetRecord) + 8U;
     if (saccade::scene::validate_packet({invalid.data(), invalid.size()}, &view) != SACCADE_ERROR_INVALID_ARGUMENT ||
-        saccade::scene::validate_packet({bytes.data() + 1, bytes.size() - 1}, &view) !=
-            SACCADE_ERROR_INVALID_ARGUMENT ||
+        saccade::scene::validate_packet({bytes.data() + 1, bytes.size() - 1}, &view) != SACCADE_ERROR_INVALID_ARGUMENT ||
         saccade::scene::validate_packet({bytes.data(), bytes.size()}, nullptr) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 8;
     }

@@ -7,10 +7,10 @@
 namespace saccade::kernels::targets {
 namespace {
 
-constexpr uint32_t generic_visual_capabilities =
-    SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_SCROLL |
-    SACCADE_TARGET_CAPABILITY_DRAG_SOURCE | SACCADE_TARGET_CAPABILITY_DROP_TARGET | SACCADE_TARGET_CAPABILITY_TEXT |
-    SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
+constexpr uint32_t generic_visual_capabilities = SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
+                                                 SACCADE_TARGET_CAPABILITY_SCROLL | SACCADE_TARGET_CAPABILITY_DRAG_SOURCE |
+                                                 SACCADE_TARGET_CAPABILITY_DROP_TARGET | SACCADE_TARGET_CAPABILITY_TEXT |
+                                                 SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
 
 constexpr int32_t q8(uint16_t value) noexcept {
     return static_cast<int32_t>(value) << 5;
@@ -90,16 +90,14 @@ uint32_t capabilities_for_role(SaccadeTargetRole role) noexcept {
     case SACCADE_TARGET_ROLE_CHECKBOX:
     case SACCADE_TARGET_ROLE_RADIO:
     case SACCADE_TARGET_ROLE_MENU_ITEM:
-        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
-               SACCADE_TARGET_CAPABILITY_INVOKE;
+        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_INVOKE;
     case SACCADE_TARGET_ROLE_TEXT:
         return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
     case SACCADE_TARGET_ROLE_TEXT_FIELD:
-        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
-               SACCADE_TARGET_CAPABILITY_TEXT | SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
+        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_TEXT |
+               SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
     case SACCADE_TARGET_ROLE_SLIDER:
-        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
-               SACCADE_TARGET_CAPABILITY_SCROLL;
+        return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_SCROLL;
     case SACCADE_TARGET_ROLE_WINDOW:
         return SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_WINDOW_ACTIVATE;
     case SACCADE_TARGET_ROLE_IMAGE:
@@ -113,10 +111,8 @@ uint32_t capabilities_for_role(SaccadeTargetRole role) noexcept {
 uint64_t intersection(const DenseCandidate& a, const DenseCandidate& b) noexcept {
     const int64_t left = std::max<int64_t>(a.x_q3, b.x_q3);
     const int64_t top = std::max<int64_t>(a.y_q3, b.y_q3);
-    const int64_t right =
-        std::min<int64_t>(static_cast<int64_t>(a.x_q3) + a.width_q3, static_cast<int64_t>(b.x_q3) + b.width_q3);
-    const int64_t bottom =
-        std::min<int64_t>(static_cast<int64_t>(a.y_q3) + a.height_q3, static_cast<int64_t>(b.y_q3) + b.height_q3);
+    const int64_t right = std::min<int64_t>(static_cast<int64_t>(a.x_q3) + a.width_q3, static_cast<int64_t>(b.x_q3) + b.width_q3);
+    const int64_t bottom = std::min<int64_t>(static_cast<int64_t>(a.y_q3) + a.height_q3, static_cast<int64_t>(b.y_q3) + b.height_q3);
     if (left >= right || top >= bottom) {
         return 0;
     }
@@ -126,17 +122,14 @@ uint64_t intersection(const DenseCandidate& a, const DenseCandidate& b) noexcept
 } // namespace
 
 SaccadeResult postprocess(const DenseCandidate* candidates, uint32_t candidate_count, const PostprocessConfig& config,
-                          const PostprocessEpochs& epochs, PostprocessWorkspace* workspace, SaccadeMutableSpanU8 output,
-                          size_t* required, PostprocessStats* stats) noexcept {
-    if ((candidate_count != 0 && candidates == nullptr) || workspace == nullptr || required == nullptr ||
-        stats == nullptr || candidate_count > maximum_candidates || config.maximum_targets == 0 ||
-        config.maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS ||
+                          const PostprocessEpochs& epochs, PostprocessWorkspace* workspace, SaccadeMutableSpanU8 output, size_t* required,
+                          PostprocessStats* stats) noexcept {
+    if ((candidate_count != 0 && candidates == nullptr) || workspace == nullptr || required == nullptr || stats == nullptr ||
+        candidate_count > maximum_candidates || config.maximum_targets == 0 || config.maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS ||
         config.coordinate_space == SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
-        (config.coordinate_space != SACCADE_COORDINATE_SPACE_MODEL_Q8 &&
-         config.coordinate_space != SACCADE_COORDINATE_SPACE_SOURCE_Q8) ||
+        (config.coordinate_space != SACCADE_COORDINATE_SPACE_MODEL_Q8 && config.coordinate_space != SACCADE_COORDINATE_SPACE_SOURCE_Q8) ||
         !confidence_band_valid(config) || config.reserved != 0 || epochs.frame_id == 0 || epochs.model_epoch == 0 ||
-        epochs.session_epoch == 0 || epochs.transform_epoch == 0 || epochs.topology_epoch == 0 ||
-        epochs.source_id == 0) {
+        epochs.session_epoch == 0 || epochs.transform_epoch == 0 || epochs.topology_epoch == 0 || epochs.source_id == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *stats = {};
@@ -161,8 +154,7 @@ SaccadeResult postprocess(const DenseCandidate* candidates, uint32_t candidate_c
         sift_down(candidates, workspace->indices.data(), count - 1U, 0);
     }
 
-    const size_t maximum_required =
-        sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(heap_size) * sizeof(SaccadeTargetRecord);
+    const size_t maximum_required = sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(heap_size) * sizeof(SaccadeTargetRecord);
     *required = maximum_required;
     if (output.data == nullptr || output.size < maximum_required) {
         return SACCADE_ERROR_CAPACITY;

@@ -44,8 +44,7 @@ constexpr int to_process_exit_code(ExitCode code) noexcept {
 
 constexpr uint32_t width = 64;
 constexpr uint32_t height = 64;
-constexpr size_t packet_size =
-    sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
+constexpr size_t packet_size = sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 
 alignas(64) std::array<uint8_t, packet_size> packet{};
 alignas(64) std::array<uint8_t, width * height * 4U> pixels{};
@@ -131,7 +130,8 @@ bool white_glyph(uint32_t left, uint32_t top, uint32_t right, uint32_t bottom) n
     for (uint32_t y = top; y < bottom; ++y) {
         for (uint32_t x = left; x < right; ++x) {
             const uint8_t* value = pixel(x, y);
-            if (value[0] > 240 && value[1] > 240 && value[2] > 240 && value[3] > 240) return true;
+            if (value[0] > 240 && value[1] > 240 && value[2] > 240 && value[3] > 240)
+                return true;
         }
     }
     return false;
@@ -146,19 +146,17 @@ int main(int argc, char** argv) {
 
     @autoreleasepool {
         saccade::backend::metal::OverlayExpander renderer;
-        if (renderer.initialize(argv[1], saccade::backend::metal::PathPreference::metal3) ==
-            SACCADE_ERROR_UNSUPPORTED) {
+        if (renderer.initialize(argv[1], saccade::backend::metal::PathPreference::metal3) == SACCADE_ERROR_UNSUPPORTED) {
             return to_process_exit_code(ExitCode::unsupported);
         }
         if (renderer.native_device() == nullptr) {
             return to_process_exit_code(ExitCode::native_device);
         }
         id<MTLDevice> device = (__bridge id<MTLDevice>)renderer.native_device();
-        MTLTextureDescriptor* descriptor =
-            [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                               width:width
-                                                              height:height
-                                                           mipmapped:NO];
+        MTLTextureDescriptor* descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                                              width:width
+                                                                                             height:height
+                                                                                          mipmapped:NO];
         descriptor.storageMode = MTLStorageModeShared;
         descriptor.usage = MTLTextureUsageRenderTarget;
         id<MTLTexture> texture = [device newTextureWithDescriptor:descriptor];
@@ -172,40 +170,30 @@ int main(int argc, char** argv) {
         target.height = height;
         saccade::backend::metal::Submission submission{};
         SaccadeOverlayFrameDesc frame = make_frame(false);
-        if (renderer.render(frame, target, &submission) != SACCADE_OK ||
-            renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (renderer.render(frame, target, &submission) != SACCADE_OK || renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
             return to_process_exit_code(ExitCode::initial_render);
         }
-        [texture getBytes:pixels.data()
-              bytesPerRow:width * 4U
-               fromRegion:MTLRegionMake2D(0, 0, width, height)
-              mipmapLevel:0];
+        [texture getBytes:pixels.data() bytesPerRow:width * 4U fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
         const uint8_t* outline = pixel(12, 8);
         const uint8_t* label = pixel(9, 34);
         bool glyph = white_glyph(10, 36, 15, 43);
-        if (!transparent(63, 63) || outline[0] != 0 || outline[1] != 0 || outline[2] < 250 || outline[3] < 250 ||
-            label[0] != 0 || label[1] < 250 || label[2] != 0 || label[3] < 250 || !glyph) {
+        if (!transparent(63, 63) || outline[0] != 0 || outline[1] != 0 || outline[2] < 250 || outline[3] < 250 || label[0] != 0 ||
+            label[1] < 250 || label[2] != 0 || label[3] < 250 || !glyph) {
             return to_process_exit_code(ExitCode::initial_pixels);
         }
 
         frame = make_frame(true);
-        if (renderer.render(frame, target, &submission) != SACCADE_OK ||
-            renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (renderer.render(frame, target, &submission) != SACCADE_OK || renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
             return to_process_exit_code(ExitCode::active_render);
         }
-        [texture getBytes:pixels.data()
-              bytesPerRow:width * 4U
-               fromRegion:MTLRegionMake2D(0, 0, width, height)
-              mipmapLevel:0];
+        [texture getBytes:pixels.data() bytesPerRow:width * 4U fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
         const uint8_t* active = pixel(20, 16);
-        if (active[0] < 120 || active[0] > 136 || active[1] != 0 || active[2] != 0 || active[3] < 120 ||
-            active[3] > 136) {
+        if (active[0] < 120 || active[0] > 136 || active[1] != 0 || active[2] != 0 || active[3] < 120 || active[3] > 136) {
             return to_process_exit_code(ExitCode::active_pixels);
         }
 
         const auto stats = renderer.stats();
-        if (stats.rendered_frames != 2 || stats.draw_calls != 2 || stats.presented_frames != 0 ||
-            stats.render_failures != 0) {
+        if (stats.rendered_frames != 2 || stats.draw_calls != 2 || stats.presented_frames != 0 || stats.render_failures != 0) {
             return to_process_exit_code(ExitCode::stats);
         }
         target.texture = nullptr;
@@ -216,27 +204,19 @@ int main(int argc, char** argv) {
         target.texture = (__bridge void*)texture;
         target.target_presentation_time = 10.0;
         frame = make_frame(false, true, 3);
-        if (renderer.render(frame, target, &submission) != SACCADE_OK ||
-            renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (renderer.render(frame, target, &submission) != SACCADE_OK || renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
             return to_process_exit_code(ExitCode::animated_render);
         }
-        [texture getBytes:pixels.data()
-              bytesPerRow:width * 4U
-               fromRegion:MTLRegionMake2D(0, 0, width, height)
-              mipmapLevel:0];
+        [texture getBytes:pixels.data() bytesPerRow:width * 4U fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
         if (!transparent(12, 8)) {
             return to_process_exit_code(ExitCode::animated_clear);
         }
 
         target.target_presentation_time = 10.2;
-        if (renderer.render(frame, target, &submission) != SACCADE_OK ||
-            renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (renderer.render(frame, target, &submission) != SACCADE_OK || renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
             return to_process_exit_code(ExitCode::animated_render_again);
         }
-        [texture getBytes:pixels.data()
-              bytesPerRow:width * 4U
-               fromRegion:MTLRegionMake2D(0, 0, width, height)
-              mipmapLevel:0];
+        [texture getBytes:pixels.data() bytesPerRow:width * 4U fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
         outline = pixel(12, 8);
         if (outline[2] < 250 || outline[3] < 250) {
             return to_process_exit_code(ExitCode::animated_pixels);
@@ -244,11 +224,9 @@ int main(int argc, char** argv) {
         target.target_presentation_time = 0.0;
 
         saccade::backend::metal::OverlayExpander metal4_renderer;
-        const SaccadeResult metal4_initialized =
-            metal4_renderer.initialize(argv[1], saccade::backend::metal::PathPreference::metal4);
+        const SaccadeResult metal4_initialized = metal4_renderer.initialize(argv[1], saccade::backend::metal::PathPreference::metal4);
         if (metal4_initialized != SACCADE_ERROR_UNSUPPORTED) {
-            if (metal4_initialized != SACCADE_OK ||
-                metal4_renderer.stats().path != saccade::backend::metal::Path::metal4) {
+            if (metal4_initialized != SACCADE_OK || metal4_renderer.stats().path != saccade::backend::metal::Path::metal4) {
                 return to_process_exit_code(ExitCode::metal4_initialize);
             }
             id<MTLDevice> metal4_device = (__bridge id<MTLDevice>)metal4_renderer.native_device();
@@ -259,10 +237,7 @@ int main(int argc, char** argv) {
                 metal4_renderer.wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
                 return to_process_exit_code(ExitCode::metal4_render);
             }
-            [metal4_texture getBytes:pixels.data()
-                         bytesPerRow:width * 4U
-                          fromRegion:MTLRegionMake2D(0, 0, width, height)
-                         mipmapLevel:0];
+            [metal4_texture getBytes:pixels.data() bytesPerRow:width * 4U fromRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0];
             outline = pixel(12, 8);
             glyph = white_glyph(10, 36, 15, 43);
             if (!transparent(63, 63) || outline[2] < 250 || outline[3] < 250 || !glyph) {
@@ -282,8 +257,7 @@ int main(int argc, char** argv) {
                 }
             }
             const uint64_t final_allocator_bytes = metal4_renderer.stats().command_allocator_bytes;
-            if (allocator_plateau == 0 || final_allocator_bytes > allocator_plateau * 2U ||
-                final_allocator_bytes > 32U * 1024U * 1024U) {
+            if (allocator_plateau == 0 || final_allocator_bytes > allocator_plateau * 2U || final_allocator_bytes > 32U * 1024U * 1024U) {
                 return to_process_exit_code(ExitCode::metal4_allocator_limit);
             }
 

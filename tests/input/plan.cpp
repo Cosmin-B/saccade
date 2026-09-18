@@ -6,8 +6,8 @@
 int main() {
     auto fixture = saccade::test::input_plan(3);
     saccade::input::PlanView plan{};
-    if (saccade::input::validate_plan({fixture.bytes.data(), fixture.size}, &plan) != SACCADE_OK ||
-        plan.header->command_count != 3 || plan.commands[2].target_id != 3) {
+    if (saccade::input::validate_plan({fixture.bytes.data(), fixture.size}, &plan) != SACCADE_OK || plan.header->command_count != 3 ||
+        plan.commands[2].target_id != 3) {
         return 1;
     }
     auto* header = reinterpret_cast<SaccadeInputPlanHeader*>(fixture.bytes.data());

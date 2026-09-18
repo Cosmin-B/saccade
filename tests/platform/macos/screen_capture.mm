@@ -19,6 +19,14 @@ template <typename T> T output_structure() noexcept {
 
 int main() {
     @autoreleasepool {
+        constexpr uint64_t public_window_id = UINT64_C(0x12345678);
+        const uint64_t encoded_window_id = saccade::platform::macos::screen_capture_window_source_id(public_window_id);
+        if (saccade::platform::macos::screen_capture_window_source_id(0) != 0 || encoded_window_id == public_window_id ||
+            (encoded_window_id & UINT64_C(0x00FFFFFFFFFFFFFF)) != public_window_id ||
+            (encoded_window_id >> 56U) != SACCADE_CAPTURE_SOURCE_WINDOW) {
+            return 27;
+        }
+
         id<MTLDevice> device = MTLCreateSystemDefaultDevice();
         if (device == nil) {
             return 77;
@@ -27,8 +35,7 @@ int main() {
         saccade::platform::macos::ScreenCaptureProvider provider;
         saccade::platform::macos::ScreenCaptureStats uninitialized_stats{};
         saccade::platform::macos::NativeCapturedFrame uninitialized_frame{};
-        if (provider.descriptor().context != nullptr ||
-            provider.read_stats(1, &uninitialized_stats) != SACCADE_ERROR_STATE ||
+        if (provider.descriptor().context != nullptr || provider.read_stats(1, &uninitialized_stats) != SACCADE_ERROR_STATE ||
             provider.read_native_frame(1, 1, &uninitialized_frame) != SACCADE_ERROR_STATE) {
             return 1;
         }
@@ -53,8 +60,8 @@ int main() {
         if (result == SACCADE_ERROR_BACKEND) {
             return 77;
         }
-        if (result != SACCADE_OK || source.stable_id == 0 || source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY ||
-            source.name.data == nullptr || source.name.size == 0) {
+        if (result != SACCADE_OK || source.stable_id == 0 || source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY || source.name.data == nullptr ||
+            source.name.size == 0) {
             return 3;
         }
 
@@ -75,8 +82,8 @@ int main() {
 
         SaccadeCapturedFrame frame = output_structure<SaccadeCapturedFrame>();
         result = backend.ops.acquire(backend.context, stream, UINT64_C(3'000'000'000), &frame);
-        if (result != SACCADE_OK || frame.frame == 0 || frame.source_id != source.stable_id || frame.width == 0 ||
-            frame.height == 0 || frame.pixel_format != SACCADE_FORMAT_BGRA8 || frame.damage_count > 64) {
+        if (result != SACCADE_OK || frame.frame == 0 || frame.source_id != source.stable_id || frame.width == 0 || frame.height == 0 ||
+            frame.pixel_format != SACCADE_FORMAT_BGRA8 || frame.damage_count > 64) {
             (void)backend.ops.stop(backend.context, stream);
             (void)backend.ops.destroy(backend.context, stream);
             return 5;
@@ -84,15 +91,14 @@ int main() {
 
         saccade::platform::macos::NativeCapturedFrame native{};
         if (provider.read_native_frame(stream, frame.frame, &native) != SACCADE_OK || native.pixel_buffer == nullptr ||
-            native.iosurface == nullptr || native.metal_texture == nullptr || native.iosurface_id == 0 ||
-            native.width != frame.width || native.height != frame.height) {
+            native.iosurface == nullptr || native.metal_texture == nullptr || native.iosurface_id == 0 || native.width != frame.width ||
+            native.height != frame.height) {
             return 6;
         }
 
         std::array<SaccadeRectI32, 64> damage{};
         uint32_t required = 0;
-        if (backend.ops.copy_damage(backend.context, stream, frame.frame, damage.data(), damage.size(), &required) !=
-                SACCADE_OK ||
+        if (backend.ops.copy_damage(backend.context, stream, frame.frame, damage.data(), damage.size(), &required) != SACCADE_OK ||
             required != frame.damage_count) {
             return 7;
         }
@@ -115,11 +121,10 @@ int main() {
         }
 
         saccade::platform::macos::ScreenCaptureStats stats{};
-        if (provider.read_stats(stream, &stats) != SACCADE_OK || stats.callbacks == 0 || stats.published == 0 ||
-            stats.acquired != 1 || stats.released != 1 || stats.copied_bytes != 0 || stats.imported_bytes != 0 ||
-            stats.imported_high_water == 0 || stats.latest_callback_sequence < stats.callbacks ||
-            stats.latest_status_sequence == 0 || stats.latest_status_sequence > stats.latest_callback_sequence ||
-            stats.did_stop_with_error != 0) {
+        if (provider.read_stats(stream, &stats) != SACCADE_OK || stats.callbacks == 0 || stats.published == 0 || stats.acquired != 1 ||
+            stats.released != 1 || stats.copied_bytes != 0 || stats.imported_bytes != 0 || stats.imported_high_water == 0 ||
+            stats.latest_callback_sequence < stats.callbacks || stats.latest_status_sequence == 0 ||
+            stats.latest_status_sequence > stats.latest_callback_sequence || stats.did_stop_with_error != 0) {
             return 11;
         }
         if (backend.ops.destroy(backend.context, stream) != SACCADE_OK ||
@@ -139,8 +144,8 @@ int main() {
         }
         frame = output_structure<SaccadeCapturedFrame>();
         if (backend.ops.acquire(backend.context, stream, UINT64_C(3'000'000'000), &frame) != SACCADE_OK ||
-            frame.width > stream_desc.max_width || frame.height > stream_desc.max_height ||
-            frame.width >= native_width || frame.height >= native_height) {
+            frame.width > stream_desc.max_width || frame.height > stream_desc.max_height || frame.width >= native_width ||
+            frame.height >= native_height) {
             return 14;
         }
         memory = output_structure<SaccadeMemoryStats>();
@@ -150,8 +155,7 @@ int main() {
             return 15;
         }
         if (backend.ops.release(backend.context, stream, frame.frame) != SACCADE_OK ||
-            backend.ops.stop(backend.context, stream) != SACCADE_OK ||
-            backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
+            backend.ops.stop(backend.context, stream) != SACCADE_OK || backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
             return 16;
         }
 
@@ -179,13 +183,11 @@ int main() {
         }
         frame = output_structure<SaccadeCapturedFrame>();
         result = backend.ops.acquire(backend.context, stream, UINT64_C(250'000'000), &frame);
-        if ((result != SACCADE_ERROR_TIMEOUT && result != SACCADE_ERROR_BUSY) ||
-            backend.ops.stop(backend.context, stream) != SACCADE_OK) {
+        if ((result != SACCADE_ERROR_TIMEOUT && result != SACCADE_ERROR_BUSY) || backend.ops.stop(backend.context, stream) != SACCADE_OK) {
             return 21;
         }
         stats = {};
-        if (provider.read_stats(stream, &stats) != SACCADE_OK || stats.acquired != held.size() ||
-            stats.dropped_capacity == 0) {
+        if (provider.read_stats(stream, &stats) != SACCADE_OK || stats.acquired != held.size() || stats.dropped_capacity == 0) {
             return 22;
         }
         for (SaccadeFrameHandle held_frame : held) {
@@ -206,8 +208,8 @@ int main() {
             if (result == SACCADE_ERROR_NOT_FOUND) {
                 break;
             }
-            if (result != SACCADE_OK || window.kind != SACCADE_CAPTURE_SOURCE_WINDOW ||
-                window.desktop_bounds.width < 64 || window.desktop_bounds.height < 64) {
+            if (result != SACCADE_OK || window.kind != SACCADE_CAPTURE_SOURCE_WINDOW || window.desktop_bounds.width < 64 ||
+                window.desktop_bounds.height < 64) {
                 continue;
             }
             found_window = true;
@@ -230,8 +232,7 @@ int main() {
                                   native.metal_texture != nullptr &&
                                   backend.ops.release(backend.context, stream, frame.frame) == SACCADE_OK;
             }
-            if (backend.ops.stop(backend.context, stream) != SACCADE_OK ||
-                backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
+            if (backend.ops.stop(backend.context, stream) != SACCADE_OK || backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
                 return 25;
             }
         }

@@ -29,32 +29,33 @@ constexpr uint64_t model_stable_id = 0x5341434341444501;
 constexpr uint32_t candidate_capacity = 3;
 constexpr uint32_t target_capacity = 3;
 constexpr uint32_t expected_target_count = 2;
-constexpr uint32_t maximum_output_bytes =
-    sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord);
+constexpr uint32_t maximum_output_bytes = sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord);
 constexpr uint32_t required_capabilities =
     SACCADE_PROVIDER_CAPABILITY_GPU | SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT | SACCADE_PROVIDER_CAPABILITY_ASYNC;
 constexpr char input_name[] = "input";
 constexpr char candidate_name[] = "candidates";
-constexpr std::array<uint8_t, 301> graph{
-    0x08, 0x07, 0x12, 0x0c, 0x73, 0x61, 0x63, 0x63, 0x61, 0x64, 0x65, 0x2d, 0x74, 0x65, 0x73, 0x74, 0x3a, 0x94, 0x02,
-    0x0a, 0x21, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x0a, 0x05, 0x73, 0x68, 0x61, 0x70, 0x65, 0x12, 0x08, 0x72,
-    0x65, 0x73, 0x68, 0x61, 0x70, 0x65, 0x64, 0x22, 0x07, 0x52, 0x65, 0x73, 0x68, 0x61, 0x70, 0x65, 0x0a, 0x1e, 0x0a,
-    0x08, 0x72, 0x65, 0x73, 0x68, 0x61, 0x70, 0x65, 0x64, 0x0a, 0x04, 0x7a, 0x65, 0x72, 0x6f, 0x12, 0x07, 0x63, 0x6c,
-    0x65, 0x61, 0x72, 0x65, 0x64, 0x22, 0x03, 0x4d, 0x75, 0x6c, 0x0a, 0x20, 0x0a, 0x07, 0x63, 0x6c, 0x65, 0x61, 0x72,
-    0x65, 0x64, 0x0a, 0x04, 0x72, 0x6f, 0x77, 0x73, 0x12, 0x0a, 0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65,
-    0x73, 0x22, 0x03, 0x41, 0x64, 0x64, 0x12, 0x19, 0x73, 0x61, 0x63, 0x63, 0x61, 0x64, 0x65, 0x5f, 0x64, 0x69, 0x72,
-    0x65, 0x63, 0x74, 0x6d, 0x6c, 0x5f, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x2a, 0x0f, 0x08, 0x02, 0x10,
-    0x07, 0x3a, 0x02, 0x03, 0x06, 0x42, 0x05, 0x73, 0x68, 0x61, 0x70, 0x65, 0x2a, 0x0e, 0x08, 0x01, 0x10, 0x0a, 0x42,
-    0x04, 0x7a, 0x65, 0x72, 0x6f, 0x4a, 0x02, 0x00, 0x00, 0x2a, 0x32, 0x08, 0x03, 0x08, 0x06, 0x10, 0x0a, 0x42, 0x04,
-    0x72, 0x6f, 0x77, 0x73, 0x4a, 0x24, 0x66, 0x2e, 0x66, 0x2e, 0x66, 0x32, 0x66, 0x32, 0x33, 0x3b, 0x00, 0x3c, 0x66,
-    0x36, 0x66, 0x36, 0x66, 0x32, 0x66, 0x32, 0x66, 0x3a, 0x00, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x5a, 0x1f, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x12, 0x16, 0x0a, 0x14, 0x08, 0x0a,
-    0x12, 0x10, 0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02, 0x08, 0x03, 0x0a, 0x02, 0x08, 0x02, 0x0a, 0x02, 0x08, 0x03, 0x62,
-    0x1c, 0x0a, 0x0a, 0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x73, 0x12, 0x0e, 0x0a, 0x0c, 0x08, 0x0a,
-    0x12, 0x08, 0x0a, 0x02, 0x08, 0x03, 0x0a, 0x02, 0x08, 0x06, 0x42, 0x04, 0x0a, 0x00, 0x10, 0x0d};
+constexpr std::array<uint8_t, 301> graph{0x08, 0x07, 0x12, 0x0c, 0x73, 0x61, 0x63, 0x63, 0x61, 0x64, 0x65, 0x2d, 0x74, 0x65, 0x73, 0x74,
+                                         0x3a, 0x94, 0x02, 0x0a, 0x21, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x0a, 0x05, 0x73, 0x68,
+                                         0x61, 0x70, 0x65, 0x12, 0x08, 0x72, 0x65, 0x73, 0x68, 0x61, 0x70, 0x65, 0x64, 0x22, 0x07, 0x52,
+                                         0x65, 0x73, 0x68, 0x61, 0x70, 0x65, 0x0a, 0x1e, 0x0a, 0x08, 0x72, 0x65, 0x73, 0x68, 0x61, 0x70,
+                                         0x65, 0x64, 0x0a, 0x04, 0x7a, 0x65, 0x72, 0x6f, 0x12, 0x07, 0x63, 0x6c, 0x65, 0x61, 0x72, 0x65,
+                                         0x64, 0x22, 0x03, 0x4d, 0x75, 0x6c, 0x0a, 0x20, 0x0a, 0x07, 0x63, 0x6c, 0x65, 0x61, 0x72, 0x65,
+                                         0x64, 0x0a, 0x04, 0x72, 0x6f, 0x77, 0x73, 0x12, 0x0a, 0x63, 0x61, 0x6e, 0x64, 0x69, 0x64, 0x61,
+                                         0x74, 0x65, 0x73, 0x22, 0x03, 0x41, 0x64, 0x64, 0x12, 0x19, 0x73, 0x61, 0x63, 0x63, 0x61, 0x64,
+                                         0x65, 0x5f, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6d, 0x6c, 0x5f, 0x70, 0x72, 0x6f, 0x76, 0x69,
+                                         0x64, 0x65, 0x72, 0x2a, 0x0f, 0x08, 0x02, 0x10, 0x07, 0x3a, 0x02, 0x03, 0x06, 0x42, 0x05, 0x73,
+                                         0x68, 0x61, 0x70, 0x65, 0x2a, 0x0e, 0x08, 0x01, 0x10, 0x0a, 0x42, 0x04, 0x7a, 0x65, 0x72, 0x6f,
+                                         0x4a, 0x02, 0x00, 0x00, 0x2a, 0x32, 0x08, 0x03, 0x08, 0x06, 0x10, 0x0a, 0x42, 0x04, 0x72, 0x6f,
+                                         0x77, 0x73, 0x4a, 0x24, 0x66, 0x2e, 0x66, 0x2e, 0x66, 0x32, 0x66, 0x32, 0x33, 0x3b, 0x00, 0x3c,
+                                         0x66, 0x36, 0x66, 0x36, 0x66, 0x32, 0x66, 0x32, 0x66, 0x3a, 0x00, 0x42, 0x00, 0x00, 0x00, 0x00,
+                                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5a, 0x1f, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75,
+                                         0x74, 0x12, 0x16, 0x0a, 0x14, 0x08, 0x0a, 0x12, 0x10, 0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02, 0x08,
+                                         0x03, 0x0a, 0x02, 0x08, 0x02, 0x0a, 0x02, 0x08, 0x03, 0x62, 0x1c, 0x0a, 0x0a, 0x63, 0x61, 0x6e,
+                                         0x64, 0x69, 0x64, 0x61, 0x74, 0x65, 0x73, 0x12, 0x0e, 0x0a, 0x0c, 0x08, 0x0a, 0x12, 0x08, 0x0a,
+                                         0x02, 0x08, 0x03, 0x0a, 0x02, 0x08, 0x06, 0x42, 0x04, 0x0a, 0x00, 0x10, 0x0d};
 
-constexpr size_t payload_size = saccade::model::directml::payload_header_bytes + sizeof(input_name) - 1U +
-                                sizeof(candidate_name) - 1U + graph.size();
+constexpr size_t payload_size =
+    saccade::model::directml::payload_header_bytes + sizeof(input_name) - 1U + sizeof(candidate_name) - 1U + graph.size();
 constexpr size_t payload_offset = saccade::model::artifact_header_bytes;
 constexpr size_t signature_offset = payload_offset + payload_size;
 constexpr size_t artifact_size = signature_offset + saccade::model::artifact_signature_bytes;
@@ -178,9 +179,9 @@ SaccadeResult verify(void* context, const saccade::model::ArtifactView& artifact
 TestResult verify_software_model(const char* shader_directory, Verification* verification,
                                  const std::array<uint8_t, artifact_size>& artifact) noexcept {
     static DirectMlInferenceProvider provider;
-    const DirectMlProviderConfig config{
-        shader_directory, {verification, verify}, DirectMlExecutionPolicy::software_only};
-    if (provider.initialize(config) != SACCADE_OK) return TestResult::software_provider_failed;
+    const DirectMlProviderConfig config{shader_directory, {verification, verify}, DirectMlExecutionPolicy::software_only};
+    if (provider.initialize(config) != SACCADE_OK)
+        return TestResult::software_provider_failed;
 
     const SaccadeInferenceProviderDesc descriptor = provider.descriptor();
     SaccadeDeviceInfo device = output_structure<SaccadeDeviceInfo>();
@@ -195,8 +196,7 @@ TestResult verify_software_model(const char* shader_directory, Verification* ver
     runtime_desc.api_version = SACCADE_API_VERSION;
     SaccadeRuntimeHandle runtime = 0;
     if (saccade_runtime_create(&runtime_desc, &runtime) != SACCADE_OK ||
-        saccade_register_inference_provider(runtime, &descriptor) != SACCADE_OK ||
-        saccade_runtime_freeze(runtime) != SACCADE_OK) {
+        saccade_register_inference_provider(runtime, &descriptor) != SACCADE_OK || saccade_runtime_freeze(runtime) != SACCADE_OK) {
         return TestResult::software_runtime_failed;
     }
 
@@ -221,8 +221,8 @@ TestResult verify_software_model(const char* shader_directory, Verification* ver
         return TestResult::worker_scheduling_failed;
     }
 
-    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK ||
-        saccade_runtime_destroy(runtime) != SACCADE_OK || provider.shutdown() != SACCADE_OK) {
+    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK ||
+        provider.shutdown() != SACCADE_OK) {
         return TestResult::software_cleanup_failed;
     }
     if (provider.initialize(config) != SACCADE_OK || provider.shutdown() != SACCADE_OK)
@@ -233,25 +233,26 @@ TestResult verify_software_model(const char* shader_directory, Verification* ver
 TestResult verify_provider_policies(const char* shader_directory) noexcept {
     Verification verification{};
     static DirectMlInferenceProvider provider;
-    const DirectMlProviderConfig hardware_config{
-        shader_directory, {&verification, verify}, DirectMlExecutionPolicy::hardware_only};
-    if (provider.initialize(hardware_config) != SACCADE_OK) return TestResult::provider_unavailable;
+    const DirectMlProviderConfig hardware_config{shader_directory, {&verification, verify}, DirectMlExecutionPolicy::hardware_only};
+    if (provider.initialize(hardware_config) != SACCADE_OK)
+        return TestResult::provider_unavailable;
 
     const SaccadeInferenceProviderDesc descriptor = provider.descriptor();
     SaccadeDeviceInfo device = output_structure<SaccadeDeviceInfo>();
-    const bool hardware_valid = descriptor.ops.enumerate_devices(descriptor.context, 0, &device) == SACCADE_OK &&
-                                device.stable_id == provider.adapter_luid() &&
-                                (device.capability_bits & SACCADE_PROVIDER_CAPABILITY_GPU) != 0 &&
-                                (device.capability_bits & SACCADE_PROVIDER_CAPABILITY_CPU) == 0;
+    const bool hardware_valid =
+        descriptor.ops.enumerate_devices(descriptor.context, 0, &device) == SACCADE_OK && device.stable_id == provider.adapter_luid() &&
+        (device.capability_bits & SACCADE_PROVIDER_CAPABILITY_GPU) != 0 && (device.capability_bits & SACCADE_PROVIDER_CAPABILITY_CPU) == 0;
     if (!hardware_valid) {
         (void)provider.shutdown();
         return TestResult::provider_device_failed;
     }
-    if (provider.shutdown() != SACCADE_OK) return TestResult::cleanup_failed;
+    if (provider.shutdown() != SACCADE_OK)
+        return TestResult::cleanup_failed;
 
     const auto artifact = make_artifact();
     const TestResult software = verify_software_model(shader_directory, &verification, artifact);
-    if (software != TestResult::success) return software;
+    if (software != TestResult::success)
+        return software;
     return verification.calls == 1 ? TestResult::success : TestResult::verification_failed;
 }
 
@@ -261,14 +262,14 @@ int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--headless") == 0) {
         return result(verify_provider_policies(argv[2]));
     }
-    if (argc != 4 || std::strcmp(argv[1], "--live") != 0) return result(TestResult::usage);
+    if (argc != 4 || std::strcmp(argv[1], "--live") != 0)
+        return result(TestResult::usage);
 
     const char* shader_directory = argv[2];
     const char* artifact_path = argv[3];
     Verification verification{};
     static DirectMlInferenceProvider inference_provider;
-    if (inference_provider.initialize(DirectMlProviderConfig{shader_directory, {&verification, verify}}) !=
-        SACCADE_OK) {
+    if (inference_provider.initialize(DirectMlProviderConfig{shader_directory, {&verification, verify}}) != SACCADE_OK) {
         return result(TestResult::provider_unavailable);
     }
     const SaccadeInferenceProviderDesc inference = inference_provider.descriptor();
@@ -305,8 +306,7 @@ int main(int argc, char** argv) {
         return result(TestResult::runtime_failed);
     }
     const SaccadeInferenceProviderDesc provider = inference_provider.descriptor();
-    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK ||
-        saccade_runtime_freeze(runtime) != SACCADE_OK) {
+    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK || saccade_runtime_freeze(runtime) != SACCADE_OK) {
         return result(TestResult::registration_failed);
     }
     auto artifact = make_artifact();
@@ -337,10 +337,10 @@ int main(int argc, char** argv) {
         captured = output_structure<SaccadeCapturedFrame>();
         acquired = capture.ops.acquire(capture.context, stream, 0, &captured);
     }
-    if (acquired != SACCADE_OK) return result(TestResult::capture_failed);
+    if (acquired != SACCADE_OK)
+        return result(TestResult::capture_failed);
     NativeCapturedFrame native{};
-    if (capture_provider.read_native_frame(stream, captured.frame, &native) != SACCADE_OK ||
-        native.d3d11_texture == nullptr) {
+    if (capture_provider.read_native_frame(stream, captured.frame, &native) != SACCADE_OK || native.d3d11_texture == nullptr) {
         return result(TestResult::native_frame_failed);
     }
     SaccadeWin32CaptureFrameDesc frame_desc{};
@@ -381,25 +381,25 @@ int main(int argc, char** argv) {
     }
     alignas(8) std::array<uint8_t, maximum_output_bytes> packet{};
     size_t packet_size = 0;
-    if (saccade_inference_collect(runtime, session, ticket, {packet.data(), packet.size()}, &packet_size) !=
-        SACCADE_OK) {
+    if (saccade_inference_collect(runtime, session, ticket, {packet.data(), packet.size()}, &packet_size) != SACCADE_OK) {
         return result(TestResult::collect_failed);
     }
     saccade::scene::PacketView packet_view{};
     if (saccade::scene::validate_packet({packet.data(), packet_size}, &packet_view) != SACCADE_OK ||
-        packet_view.header->target_count != expected_target_count ||
-        packet_view.header->frame_id != captured.frame_id) {
+        packet_view.header->target_count != expected_target_count || packet_view.header->frame_id != captured.frame_id) {
         return result(TestResult::packet_failed);
     }
-    const bool cleaned =
-        saccade_frame_release(runtime, frame) == SACCADE_OK &&
-        saccade_inference_session_destroy(runtime, session) == SACCADE_OK &&
-        saccade_runtime_destroy(runtime) == SACCADE_OK && capture.ops.stop(capture.context, stream) == SACCADE_OK &&
-        capture.ops.destroy(capture.context, stream) == SACCADE_OK && inference_provider.shutdown() == SACCADE_OK;
-    if (!cleaned) return result(TestResult::cleanup_failed);
-    if (verification.calls != 1) return result(TestResult::verification_failed);
+    const bool cleaned = saccade_frame_release(runtime, frame) == SACCADE_OK &&
+                         saccade_inference_session_destroy(runtime, session) == SACCADE_OK &&
+                         saccade_runtime_destroy(runtime) == SACCADE_OK && capture.ops.stop(capture.context, stream) == SACCADE_OK &&
+                         capture.ops.destroy(capture.context, stream) == SACCADE_OK && inference_provider.shutdown() == SACCADE_OK;
+    if (!cleaned)
+        return result(TestResult::cleanup_failed);
+    if (verification.calls != 1)
+        return result(TestResult::verification_failed);
     const TestResult software_result = verify_software_model(shader_directory, &verification, artifact);
-    if (software_result != TestResult::success) return result(software_result);
+    if (software_result != TestResult::success)
+        return result(software_result);
     std::FILE* file = nullptr;
     if (fopen_s(&file, artifact_path, "wb") != 0 || file == nullptr ||
         std::fwrite(artifact.data(), 1, artifact.size(), file) != artifact.size() || std::fclose(file) != 0)
@@ -414,7 +414,8 @@ int main(int argc, char** argv) {
     pipeline_config.verifier = {&verification, verify};
     pipeline_config.start_time_ns = 1;
     const DPI_AWARENESS_CONTEXT previous_dpi = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    if (previous_dpi == nullptr) return result(TestResult::pipeline_initialization_failed);
+    if (previous_dpi == nullptr)
+        return result(TestResult::pipeline_initialization_failed);
     const SaccadeResult pipeline_initialized = pipeline.initialize(pipeline_config);
     if (pipeline_initialized != SACCADE_OK) {
         std::fprintf(stderr, "pipeline initialization result: %d stage: %u\n", pipeline_initialized,

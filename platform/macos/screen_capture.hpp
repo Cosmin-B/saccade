@@ -47,6 +47,8 @@ struct NativeCapturedFrame {
 static_assert(sizeof(ScreenCaptureStats) == 152);
 static_assert(sizeof(NativeCapturedFrame) == 48);
 
+uint64_t screen_capture_window_source_id(uint64_t public_window_id) noexcept;
+
 class ScreenCaptureProvider final {
   public:
     struct Impl;
@@ -64,8 +66,7 @@ class ScreenCaptureProvider final {
     SaccadeResult initialize(void* metal_device) noexcept;
     [[nodiscard]] SaccadeCaptureProviderDesc descriptor() noexcept;
     SaccadeResult read_stats(SaccadeCaptureStreamHandle, ScreenCaptureStats*) const noexcept;
-    SaccadeResult read_native_frame(SaccadeCaptureStreamHandle, SaccadeFrameHandle,
-                                    NativeCapturedFrame*) const noexcept;
+    SaccadeResult read_native_frame(SaccadeCaptureStreamHandle, SaccadeFrameHandle, NativeCapturedFrame*) const noexcept;
 
   private:
     [[nodiscard]] Impl& impl() noexcept;

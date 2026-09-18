@@ -44,12 +44,10 @@ _Static_assert(sizeof(((SaccadeOverlayFrameDesc*)0)->active_target_index) == 4, 
 
 _Static_assert(sizeof(SaccadeAccessibilityOps) == 144, "accessibility operations ABI");
 _Static_assert(sizeof(SaccadeAccessibilityQueryDesc) == 88, "accessibility query ABI");
-_Static_assert(offsetof(SaccadeAccessibilityQueryDesc, topology_epoch) == 56,
-               "accessibility query topology epoch offset");
+_Static_assert(offsetof(SaccadeAccessibilityQueryDesc, topology_epoch) == 56, "accessibility query topology epoch offset");
 _Static_assert(offsetof(SaccadeAccessibilityQueryDesc, frame_id) == 64, "accessibility query frame offset");
 _Static_assert(sizeof(SaccadeAccessibilityStatus) == 88, "accessibility status ABI");
-_Static_assert(offsetof(SaccadeAccessibilityStatus, topology_epoch) == 56,
-               "accessibility status topology epoch offset");
+_Static_assert(offsetof(SaccadeAccessibilityStatus, topology_epoch) == 56, "accessibility status topology epoch offset");
 _Static_assert(offsetof(SaccadeAccessibilityOps, enumerate_windows) == 8, "accessibility first operation offset");
 _Static_assert(offsetof(SaccadeAccessibilityOps, reserved) == 80, "accessibility reserve offset");
 

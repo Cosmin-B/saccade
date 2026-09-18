@@ -125,15 +125,13 @@ class ProviderRegistry final {
                          SaccadeProviderHandle*) noexcept;
 
     template <typename Operations>
-    SaccadeResult select(const FamilyStore<Operations>&, uint32_t, uint32_t, uint32_t,
-                         ProviderSelection*) const noexcept;
+    SaccadeResult select(const FamilyStore<Operations>&, uint32_t, uint32_t, uint32_t, ProviderSelection*) const noexcept;
 
     template <typename Operations>
     SaccadeResult select_by_id(const FamilyStore<Operations>&, uint32_t, uint64_t, ProviderSelection*) const noexcept;
 
     template <typename Operations>
-    const ProviderRecord<Operations>* lookup(const FamilyStore<Operations>&, uint32_t,
-                                             SaccadeProviderHandle) const noexcept;
+    const ProviderRecord<Operations>* lookup(const FamilyStore<Operations>&, uint32_t, SaccadeProviderHandle) const noexcept;
 
     FamilyStore<SaccadeInferenceOps> inference_{};
     FamilyStore<SaccadeCaptureOps> capture_{};

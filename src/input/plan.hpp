@@ -10,9 +10,8 @@
 namespace saccade::input {
 
 constexpr size_t maximum_plan_payload_bytes = 16384;
-constexpr size_t maximum_plan_bytes = sizeof(SaccadeInputPlanHeader) +
-                                      SACCADE_INPUT_PLAN_MAX_COMMANDS * sizeof(SaccadeInputCommand) +
-                                      maximum_plan_payload_bytes;
+constexpr size_t maximum_plan_bytes =
+    sizeof(SaccadeInputPlanHeader) + SACCADE_INPUT_PLAN_MAX_COMMANDS * sizeof(SaccadeInputCommand) + maximum_plan_payload_bytes;
 
 struct PlanStorage {
     alignas(8) std::array<uint8_t, maximum_plan_bytes> bytes{};

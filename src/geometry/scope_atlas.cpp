@@ -40,9 +40,9 @@ bool intersection(const RectQ8& left, const RectQ8& right, RectQ8* output) noexc
     const int64_t edge_x = std::min(left_right, right_right);
     const int64_t edge_y = std::min(left_bottom, right_bottom);
 
-    if (x >= edge_x || y >= edge_y) return false;
-    *output = {static_cast<int32_t>(x), static_cast<int32_t>(y), static_cast<int32_t>(edge_x - x),
-               static_cast<int32_t>(edge_y - y)};
+    if (x >= edge_x || y >= edge_y)
+        return false;
+    *output = {static_cast<int32_t>(x), static_cast<int32_t>(y), static_cast<int32_t>(edge_x - x), static_cast<int32_t>(edge_y - y)};
     return true;
 }
 
@@ -63,13 +63,12 @@ PixelRect map_rect(const RectQ8& rect, const RectQ8& source, const PixelRect& de
 
 } // namespace
 
-SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width, uint32_t output_height,
-                                      const AtlasSurface* surfaces, uint32_t surface_count,
-                                      ScopeAtlasLayout* output) noexcept {
+SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width, uint32_t output_height, const AtlasSurface* surfaces,
+                                      uint32_t surface_count, ScopeAtlasLayout* output) noexcept {
     if (!rect_valid(scope) || output_width == 0 || output_height == 0 ||
         output_width > (static_cast<uint32_t>(INT32_MAX) >> coordinate_fraction_bits) ||
-        output_height > (static_cast<uint32_t>(INT32_MAX) >> coordinate_fraction_bits) || surfaces == nullptr ||
-        surface_count == 0 || surface_count > display_capacity || output == nullptr) {
+        output_height > (static_cast<uint32_t>(INT32_MAX) >> coordinate_fraction_bits) || surfaces == nullptr || surface_count == 0 ||
+        surface_count > display_capacity || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
@@ -83,7 +82,8 @@ SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width
         }
 
         RectQ8 visible{};
-        if (!intersection(scope, surface.desktop_bounds, &visible)) continue;
+        if (!intersection(scope, surface.desktop_bounds, &visible))
+            continue;
 
         const PixelRect source_bounds{0, 0, surface.image_width, surface.image_height};
         AtlasPlacement& placement = result.placements[result.count++];
@@ -92,7 +92,8 @@ SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width
         placement.surface_index = index;
     }
 
-    if (result.count == 0) return SACCADE_ERROR_NOT_FOUND;
+    if (result.count == 0)
+        return SACCADE_ERROR_NOT_FOUND;
     *output = result;
     return SACCADE_OK;
 }

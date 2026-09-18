@@ -43,8 +43,7 @@ bool snapshot_valid(const geometry::DisplaySnapshot& snapshot) noexcept {
     return true;
 }
 
-const geometry::DisplaySurface* snapshot_display(const geometry::DisplaySnapshot& snapshot,
-                                                 uint64_t display_id) noexcept {
+const geometry::DisplaySurface* snapshot_display(const geometry::DisplaySnapshot& snapshot, uint64_t display_id) noexcept {
     for (uint32_t index = 0; index < snapshot.count; ++index) {
         if (snapshot.displays[index].display_id == display_id) {
             return &snapshot.displays[index];
@@ -92,8 +91,7 @@ const SceneCaptureSet::StreamSlot* SceneCaptureSet::find(uint64_t display_id) co
     return nullptr;
 }
 
-SaccadeResult SceneCaptureSet::initialize(ScreenCaptureProvider* provider, uint32_t max_width,
-                                          uint32_t max_height) noexcept {
+SaccadeResult SceneCaptureSet::initialize(ScreenCaptureProvider* provider, uint32_t max_width, uint32_t max_height) noexcept {
     if (initialized_) {
         return SACCADE_ERROR_ALREADY_EXISTS;
     }
@@ -101,9 +99,9 @@ SaccadeResult SceneCaptureSet::initialize(ScreenCaptureProvider* provider, uint3
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const SaccadeCaptureProviderDesc descriptor = provider->descriptor();
-    if (descriptor.context == nullptr || descriptor.ops.enumerate_sources == nullptr ||
-        descriptor.ops.create == nullptr || descriptor.ops.start == nullptr || descriptor.ops.acquire == nullptr ||
-        descriptor.ops.release == nullptr || descriptor.ops.stop == nullptr || descriptor.ops.destroy == nullptr) {
+    if (descriptor.context == nullptr || descriptor.ops.enumerate_sources == nullptr || descriptor.ops.create == nullptr ||
+        descriptor.ops.start == nullptr || descriptor.ops.acquire == nullptr || descriptor.ops.release == nullptr ||
+        descriptor.ops.stop == nullptr || descriptor.ops.destroy == nullptr) {
         return SACCADE_ERROR_STATE;
     }
     provider_ = provider;
@@ -230,21 +228,26 @@ SaccadeResult SceneCaptureSet::synchronize(const geometry::DisplaySnapshot& snap
 }
 
 SaccadeResult SceneCaptureSet::set_running(bool enabled) noexcept {
-    if (!initialized_ || !owns_thread()) return SACCADE_ERROR_STATE;
-    if (running_ == enabled) return SACCADE_OK;
+    if (!initialized_ || !owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (running_ == enabled)
+        return SACCADE_OK;
     if (!enabled) {
         for (const StreamSlot& slot : streams_) {
-            if (slot.active_ && slot.leased_) return SACCADE_ERROR_BUSY;
+            if (slot.active_ && slot.leased_)
+                return SACCADE_ERROR_BUSY;
         }
     }
     uint32_t changed = 0;
     for (StreamSlot& slot : streams_) {
-        if (!slot.active_) continue;
-        const SaccadeResult result = enabled ? backend_.ops.start(backend_.context, slot.stream_)
-                                             : backend_.ops.stop(backend_.context, slot.stream_);
+        if (!slot.active_)
+            continue;
+        const SaccadeResult result =
+            enabled ? backend_.ops.start(backend_.context, slot.stream_) : backend_.ops.stop(backend_.context, slot.stream_);
         if (result != SACCADE_OK) {
             for (StreamSlot& rollback : streams_) {
-                if (!rollback.active_ || changed == 0) continue;
+                if (!rollback.active_ || changed == 0)
+                    continue;
                 (void)(enabled ? backend_.ops.stop(backend_.context, rollback.stream_)
                                : backend_.ops.start(backend_.context, rollback.stream_));
                 rollback.running_ = !enabled;
@@ -271,7 +274,8 @@ SaccadeResult SceneCaptureSet::acquire(uint64_t display_id, SceneCaptureFrame* o
     if (slot == nullptr) {
         return SACCADE_ERROR_NOT_FOUND;
     }
-    if (!slot->running_) return SACCADE_ERROR_STATE;
+    if (!slot->running_)
+        return SACCADE_ERROR_STATE;
     if (slot->leased_) {
         return SACCADE_ERROR_BUSY;
     }
@@ -312,8 +316,7 @@ SaccadeResult SceneCaptureSet::release(const SceneCaptureFrame& frame) noexcept 
         return SACCADE_ERROR_STALE_HANDLE;
     }
     StreamSlot& slot = streams_[frame.slot];
-    if (!slot.active_ || !slot.leased_ || slot.generation_ != frame.generation ||
-        slot.display_id_ != frame.display_id) {
+    if (!slot.active_ || !slot.leased_ || slot.generation_ != frame.generation || slot.display_id_ != frame.display_id) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     const SaccadeResult result = backend_.ops.release(backend_.context, slot.stream_, frame.frame.frame);
@@ -328,14 +331,18 @@ SaccadeResult SceneCaptureSet::release(const SceneCaptureFrame& frame) noexcept 
 }
 
 SaccadeResult SceneCaptureSet::shutdown() noexcept {
-    if (!initialized_ || !owns_thread()) return SACCADE_ERROR_STATE;
+    if (!initialized_ || !owns_thread())
+        return SACCADE_ERROR_STATE;
     for (const StreamSlot& slot : streams_) {
-        if (slot.active_ && slot.leased_) return SACCADE_ERROR_BUSY;
+        if (slot.active_ && slot.leased_)
+            return SACCADE_ERROR_BUSY;
     }
     for (StreamSlot& slot : streams_) {
-        if (!slot.active_) continue;
+        if (!slot.active_)
+            continue;
         const SaccadeResult result = remove(slot);
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
     }
     provider_ = nullptr;
     backend_ = {};
@@ -379,18 +386,22 @@ SaccadeResult SceneCaptureSet::read_stats(SceneCaptureStats* output) const noexc
 }
 
 SaccadeResult SceneCaptureSet::read_memory_stats(SaccadeMemoryStats* output) const noexcept {
-    if (!initialized_ || !owns_thread()) return SACCADE_ERROR_STATE;
-    if (output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || !owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *output = {};
     output->struct_size = sizeof(*output);
     output->api_version = SACCADE_API_VERSION;
     for (const StreamSlot& slot : streams_) {
-        if (!slot.active_) continue;
+        if (!slot.active_)
+            continue;
         SaccadeMemoryStats current{};
         current.struct_size = sizeof(current);
         current.api_version = SACCADE_API_VERSION;
         const SaccadeResult result = backend_.ops.memory_stats(backend_.context, slot.stream_, &current);
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
         output->host_committed += current.host_committed;
         output->host_reserved += current.host_reserved;
         output->device_imported += current.device_imported;

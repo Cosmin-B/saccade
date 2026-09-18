@@ -33,15 +33,17 @@ struct NativeEmitter {
 
     static bool keyboard_release(const INPUT& down, const INPUT& event) noexcept {
         constexpr DWORD identity_flags = KEYEVENTF_EXTENDEDKEY | KEYEVENTF_SCANCODE | KEYEVENTF_UNICODE;
-        return down.type == INPUT_KEYBOARD && event.type == INPUT_KEYBOARD &&
-               (event.ki.dwFlags & KEYEVENTF_KEYUP) != 0 && down.ki.wScan == event.ki.wScan &&
-               (down.ki.dwFlags & identity_flags) == (event.ki.dwFlags & identity_flags);
+        return down.type == INPUT_KEYBOARD && event.type == INPUT_KEYBOARD && (event.ki.dwFlags & KEYEVENTF_KEYUP) != 0 &&
+               down.ki.wScan == event.ki.wScan && (down.ki.dwFlags & identity_flags) == (event.ki.dwFlags & identity_flags);
     }
 
     static DWORD mouse_up_for(DWORD flags) noexcept {
-        if ((flags & MOUSEEVENTF_LEFTDOWN) != 0) return MOUSEEVENTF_LEFTUP;
-        if ((flags & MOUSEEVENTF_RIGHTDOWN) != 0) return MOUSEEVENTF_RIGHTUP;
-        if ((flags & MOUSEEVENTF_MIDDLEDOWN) != 0) return MOUSEEVENTF_MIDDLEUP;
+        if ((flags & MOUSEEVENTF_LEFTDOWN) != 0)
+            return MOUSEEVENTF_LEFTUP;
+        if ((flags & MOUSEEVENTF_RIGHTDOWN) != 0)
+            return MOUSEEVENTF_RIGHTUP;
+        if ((flags & MOUSEEVENTF_MIDDLEDOWN) != 0)
+            return MOUSEEVENTF_MIDDLEUP;
         return 0;
     }
 
@@ -70,16 +72,17 @@ struct NativeEmitter {
     void observe(const INPUT& event) noexcept {
         if (event.type == INPUT_KEYBOARD && (event.ki.dwFlags & KEYEVENTF_KEYUP) != 0) {
             for (uint32_t index = held_count; index != 0; --index) {
-                if (!keyboard_release(held[index - 1U], event)) continue;
+                if (!keyboard_release(held[index - 1U], event))
+                    continue;
                 held[index - 1U] = held[--held_count];
                 return;
             }
             return;
         }
-        if (event.type == INPUT_MOUSE &&
-            (event.mi.dwFlags & (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_RIGHTUP | MOUSEEVENTF_MIDDLEUP)) != 0) {
+        if (event.type == INPUT_MOUSE && (event.mi.dwFlags & (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_RIGHTUP | MOUSEEVENTF_MIDDLEUP)) != 0) {
             for (uint32_t index = held_count; index != 0; --index) {
-                if (!mouse_release(held[index - 1U], event)) continue;
+                if (!mouse_release(held[index - 1U], event))
+                    continue;
                 held[index - 1U] = held[--held_count];
                 return;
             }
@@ -95,8 +98,10 @@ struct NativeEmitter {
     }
 
     bool flush() noexcept {
-        if (failed) return false;
-        if (count == 0) return true;
+        if (failed)
+            return false;
+        if (count == 0)
+            return true;
         ++submit_calls;
         const uint32_t submitted = sink.submit(sink.context, events.data(), count);
         for (uint32_t index = 0; index < submitted; ++index)
@@ -186,8 +191,8 @@ bool modifier_scan(uint32_t modifier, ScanCode* output) noexcept {
 }
 
 bool emit_modifiers(NativeEmitter* emitter, uint32_t modifiers, bool up) noexcept {
-    constexpr std::array<uint32_t, 4> order{SACCADE_INPUT_MODIFIER_SHIFT, SACCADE_INPUT_MODIFIER_CONTROL,
-                                            SACCADE_INPUT_MODIFIER_ALT, SACCADE_INPUT_MODIFIER_META};
+    constexpr std::array<uint32_t, 4> order{SACCADE_INPUT_MODIFIER_SHIFT, SACCADE_INPUT_MODIFIER_CONTROL, SACCADE_INPUT_MODIFIER_ALT,
+                                            SACCADE_INPUT_MODIFIER_META};
     for (uint32_t offset = 0; offset < order.size(); ++offset) {
         const uint32_t index = up ? static_cast<uint32_t>(order.size()) - 1U - offset : offset;
         if ((modifiers & order[index]) == 0) {
@@ -211,8 +216,7 @@ bool emit_move(NativeEmitter* emitter, const VirtualDesktop& desktop, int32_t x_
         return false;
     }
     return emitter->append(mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, 0,
-                                       normalized_axis(x_q8, desktop.x, desktop.width),
-                                       normalized_axis(y_q8, desktop.y, desktop.height)));
+                                       normalized_axis(x_q8, desktop.x, desktop.width), normalized_axis(y_q8, desktop.y, desktop.height)));
 }
 
 bool emit_text(NativeEmitter* emitter, const uint8_t* data, size_t size) noexcept {
@@ -241,10 +245,8 @@ bool emit_text(NativeEmitter* emitter, const uint8_t* data, size_t size) noexcep
     return true;
 }
 
-bool command_supported(const SaccadeInputCommand& command, const VirtualDesktop& desktop,
-                       const SaccadeSpanU8& bytes) noexcept {
-    if ((command.flags & SACCADE_INPUT_COMMAND_ABSOLUTE) != 0 &&
-        !point_in_desktop(desktop, command.x_q8, command.y_q8)) {
+bool command_supported(const SaccadeInputCommand& command, const VirtualDesktop& desktop, const SaccadeSpanU8& bytes) noexcept {
+    if ((command.flags & SACCADE_INPUT_COMMAND_ABSOLUTE) != 0 && !point_in_desktop(desktop, command.x_q8, command.y_q8)) {
         return false;
     }
     if (command.kind == SACCADE_INPUT_COMMAND_KEY_DOWN || command.kind == SACCADE_INPUT_COMMAND_KEY_UP) {
@@ -264,15 +266,14 @@ bool command_supported(const SaccadeInputCommand& command, const VirtualDesktop&
     return true;
 }
 
-bool emit_command(NativeEmitter* emitter, const VirtualDesktop& desktop, const SaccadeSpanU8& bytes,
-                  const SaccadeInputPlanHeader& header, const SaccadeInputCommand& command) noexcept {
+bool emit_command(NativeEmitter* emitter, const VirtualDesktop& desktop, const SaccadeSpanU8& bytes, const SaccadeInputPlanHeader& header,
+                  const SaccadeInputCommand& command) noexcept {
     switch (command.kind) {
     case SACCADE_INPUT_COMMAND_POINTER_MOVE:
         return emit_move(emitter, desktop, command.x_q8, command.y_q8);
     case SACCADE_INPUT_COMMAND_BUTTON_DOWN:
     case SACCADE_INPUT_COMMAND_BUTTON_UP: {
-        if ((command.flags & SACCADE_INPUT_COMMAND_ABSOLUTE) != 0 &&
-            !emit_move(emitter, desktop, command.x_q8, command.y_q8)) {
+        if ((command.flags & SACCADE_INPUT_COMMAND_ABSOLUTE) != 0 && !emit_move(emitter, desktop, command.x_q8, command.y_q8)) {
             return false;
         }
         DWORD flags = 0;
@@ -280,8 +281,7 @@ bool emit_command(NativeEmitter* emitter, const VirtualDesktop& desktop, const S
         return emitter->append(mouse_event(flags));
     }
     case SACCADE_INPUT_COMMAND_CLICK: {
-        if (!emit_move(emitter, desktop, command.x_q8, command.y_q8) ||
-            !emit_modifiers(emitter, command.data2, false)) {
+        if (!emit_move(emitter, desktop, command.x_q8, command.y_q8) || !emit_modifiers(emitter, command.data2, false)) {
             return false;
         }
         DWORD down = 0;
@@ -301,20 +301,17 @@ bool emit_command(NativeEmitter* emitter, const VirtualDesktop& desktop, const S
         }
         const int64_t vertical = static_cast<int64_t>(command.delta_y_q8) * WHEEL_DELTA / 256;
         const int64_t horizontal = static_cast<int64_t>(command.delta_x_q8) * WHEEL_DELTA / 256;
-        if (vertical != 0 &&
-            !emitter->append(mouse_event(MOUSEEVENTF_WHEEL, static_cast<DWORD>(static_cast<int32_t>(vertical))))) {
+        if (vertical != 0 && !emitter->append(mouse_event(MOUSEEVENTF_WHEEL, static_cast<DWORD>(static_cast<int32_t>(vertical))))) {
             return false;
         }
-        return horizontal == 0 ||
-               emitter->append(mouse_event(MOUSEEVENTF_HWHEEL, static_cast<DWORD>(static_cast<int32_t>(horizontal))));
+        return horizontal == 0 || emitter->append(mouse_event(MOUSEEVENTF_HWHEEL, static_cast<DWORD>(static_cast<int32_t>(horizontal))));
     }
     case SACCADE_INPUT_COMMAND_KEY_DOWN:
     case SACCADE_INPUT_COMMAND_KEY_UP: {
         ScanCode scan{};
         (void)physical_scan(command.data0, &scan);
         const bool up = command.kind == SACCADE_INPUT_COMMAND_KEY_UP;
-        return emit_modifiers(emitter, command.data1, false) &&
-               emitter->append(key_event(scan.value, scan.extended, up)) &&
+        return emit_modifiers(emitter, command.data1, false) && emitter->append(key_event(scan.value, scan.extended, up)) &&
                emit_modifiers(emitter, command.data1, true);
     }
     case SACCADE_INPUT_COMMAND_TEXT:
@@ -335,8 +332,7 @@ uint32_t submit_with_send_input(void*, const INPUT* events, uint32_t count) noex
 
 SaccadeResult InputExecutor::initialize(const VirtualDesktop& desktop, const InputSink& sink, uint64_t permission_epoch,
                                         int32_t pointer_x_q8, int32_t pointer_y_q8) noexcept {
-    if (initialized_ || !desktop_valid(desktop) || sink.submit == nullptr ||
-        !point_in_desktop(desktop, pointer_x_q8, pointer_y_q8)) {
+    if (initialized_ || !desktop_valid(desktop) || sink.submit == nullptr || !point_in_desktop(desktop, pointer_x_q8, pointer_y_q8)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const SaccadeResult result = physical_.initialize(permission_epoch, pointer_x_q8, pointer_y_q8);
@@ -357,7 +353,8 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {};
-    if (shutdown_pending_) return SACCADE_ERROR_STATE;
+    if (shutdown_pending_)
+        return SACCADE_ERROR_STATE;
     input::PlanView plan{};
     SaccadeResult result = input::validate_plan(bytes, &plan);
     if (result != SACCADE_OK) {
@@ -367,9 +364,11 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
         // A dry run must not inject anything, and flushing the queued release
         // events here would. Report busy so the caller retries after a live
         // call has recovered them.
-        if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0) return SACCADE_ERROR_BUSY;
+        if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0)
+            return SACCADE_ERROR_BUSY;
         const SaccadeResult recovered = retry_pending_releases();
-        if (recovered != SACCADE_OK) return recovered;
+        if (recovered != SACCADE_OK)
+            return recovered;
     }
     if (plan.header->topology_epoch != desktop_.topology_epoch) {
         return SACCADE_ERROR_STALE_HANDLE;
@@ -385,12 +384,14 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
         // dry run must check every command too, not only the first.
         for (uint32_t index = 0; index < plan.header->command_count; ++index) {
             result = sink_.preflight(sink_.context, plan, index, now_ns);
-            if (result != SACCADE_OK) return result;
+            if (result != SACCADE_OK)
+                return result;
         }
     }
     if ((plan.header->flags & SACCADE_INPUT_PLAN_DRY_RUN) != 0) {
         result = physical_.begin(plan, available_permissions, now_ns);
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
         ++stats_.plans;
         ++stats_.dry_runs;
         (void)physical_.advance(plan.header->command_count);
@@ -399,8 +400,10 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
         return SACCADE_OK;
     }
 
-    if (active_plan_.header != nullptr) return SACCADE_ERROR_BUSY;
-    if (plan.byte_size > active_storage_.bytes.size()) return SACCADE_ERROR_CAPACITY;
+    if (active_plan_.header != nullptr)
+        return SACCADE_ERROR_BUSY;
+    if (plan.byte_size > active_storage_.bytes.size())
+        return SACCADE_ERROR_CAPACITY;
     std::memcpy(active_storage_.bytes.data(), bytes.data, plan.byte_size);
     active_bytes_ = {active_storage_.bytes.data(), plan.byte_size};
     result = input::validate_plan(active_bytes_, &active_plan_);
@@ -421,7 +424,8 @@ SaccadeResult InputExecutor::execute(SaccadeSpanU8 bytes, uint32_t available_per
 
 SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionResult* output) noexcept {
     *output = {};
-    if (active_plan_.header == nullptr) return SACCADE_ERROR_NOT_FOUND;
+    if (active_plan_.header == nullptr)
+        return SACCADE_ERROR_NOT_FOUND;
     output->plan_id = active_plan_.header->plan_id;
     NativeEmitter emitter{};
     emitter.sink = sink_;
@@ -434,7 +438,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
             for (uint32_t offset = 0; offset < emitter.held_count; ++offset) {
                 const INPUT release = NativeEmitter::release_event(emitter.held[emitter.held_count - offset - 1U]);
                 const SaccadeResult queued = append_pending_release(release);
-                if (queued != SACCADE_OK && recovery == SACCADE_OK) recovery = queued;
+                if (queued != SACCADE_OK && recovery == SACCADE_OK)
+                    recovery = queued;
             }
             emitter.held_count = 0;
         }
@@ -442,12 +447,14 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
         const SaccadeResult reduced = physical_.backend_failure(&release);
         if (reduced == SACCADE_OK) {
             const SaccadeResult queued = queue_release(release);
-            if (queued != SACCADE_OK && recovery == SACCADE_OK) recovery = queued;
+            if (queued != SACCADE_OK && recovery == SACCADE_OK)
+                recovery = queued;
         } else if (recovery == SACCADE_OK) {
             recovery = reduced;
         }
         const SaccadeResult retried = retry_pending_releases();
-        if (retried != SACCADE_OK && recovery == SACCADE_OK) recovery = retried;
+        if (retried != SACCADE_OK && recovery == SACCADE_OK)
+            recovery = retried;
         active_plan_ = {};
         active_bytes_ = {};
         next_command_ = 0;
@@ -458,7 +465,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
     if (now_ns >= active_plan_.header->deadline_ns) {
         input::SyntheticRelease release{};
         SaccadeResult result = physical_.expire(now_ns, &release);
-        if (result == SACCADE_OK) result = emit_release(release);
+        if (result == SACCADE_OK)
+            result = emit_release(release);
         active_plan_ = {};
         active_bytes_ = {};
         next_command_ = 0;
@@ -468,7 +476,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
     for (;;) {
         if (sink_.preflight != nullptr) {
             const SaccadeResult result = sink_.preflight(sink_.context, active_plan_, next_command_, now_ns);
-            if (result != SACCADE_OK) return fail(result);
+            if (result != SACCADE_OK)
+                return fail(result);
         }
         if (timed_kind_ != TimedKind::none) {
             if (now_ns < next_tick_ns_) {
@@ -487,7 +496,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 }
                 input::SyntheticRelease release{};
                 SaccadeResult result = physical_.abort(&release);
-                if (result == SACCADE_OK) result = emit_release(release);
+                if (result == SACCADE_OK)
+                    result = emit_release(release);
                 timed_kind_ = TimedKind::none;
                 active_plan_ = {};
                 active_bytes_ = {};
@@ -499,14 +509,12 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 SaccadeInputCommand command = source;
                 const uint64_t elapsed = complete ? timed_end_ns_ - timed_start_ns_ : now_ns - timed_start_ns_;
                 const uint64_t duration = timed_end_ns_ - timed_start_ns_;
-                command.x_q8 =
-                    static_cast<int32_t>(timed_start_x_q8_ + ((static_cast<int64_t>(source.x_q8) - timed_start_x_q8_) *
-                                                              static_cast<int64_t>(elapsed)) /
-                                                                 static_cast<int64_t>(duration));
-                command.y_q8 =
-                    static_cast<int32_t>(timed_start_y_q8_ + ((static_cast<int64_t>(source.y_q8) - timed_start_y_q8_) *
-                                                              static_cast<int64_t>(elapsed)) /
-                                                                 static_cast<int64_t>(duration));
+                command.x_q8 = static_cast<int32_t>(
+                    timed_start_x_q8_ + ((static_cast<int64_t>(source.x_q8) - timed_start_x_q8_) * static_cast<int64_t>(elapsed)) /
+                                            static_cast<int64_t>(duration));
+                command.y_q8 = static_cast<int32_t>(
+                    timed_start_y_q8_ + ((static_cast<int64_t>(source.y_q8) - timed_start_y_q8_) * static_cast<int64_t>(elapsed)) /
+                                            static_cast<int64_t>(duration));
                 command.duration_ns = 0;
                 if (!emit_command(&emitter, desktop_, active_bytes_, *active_plan_.header, command))
                     return fail(SACCADE_ERROR_BACKEND);
@@ -514,7 +522,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 if (!emit_command(&emitter, desktop_, active_bytes_, *active_plan_.header, source))
                     return fail(SACCADE_ERROR_BACKEND);
             }
-            if (!emitter.flush()) return fail(SACCADE_ERROR_BACKEND);
+            if (!emitter.flush())
+                return fail(SACCADE_ERROR_BACKEND);
             stats_.native_events += emitter.total;
             stats_.submit_calls += emitter.submit_calls;
             output->native_events += emitter.total;
@@ -529,7 +538,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 return SACCADE_OK;
             }
             const SaccadeResult advanced = physical_.advance(next_command_ + 1U);
-            if (advanced != SACCADE_OK) return fail(advanced);
+            if (advanced != SACCADE_OK)
+                return fail(advanced);
             emitter.commit();
             ++next_command_;
             ++stats_.commands;
@@ -547,7 +557,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
         if (command.duration_ns != 0) {
             timed_start_ns_ = now_ns;
             timed_end_ns_ = now_ns + command.duration_ns;
-            if (timed_end_ns_ <= now_ns) return fail(SACCADE_ERROR_CAPACITY);
+            if (timed_end_ns_ <= now_ns)
+                return fail(SACCADE_ERROR_CAPACITY);
             next_tick_ns_ = now_ns + timed_tick_ns;
             const SaccadePhysicalInputState state = physical_.state();
             timed_start_x_q8_ = state.pointer_x_q8;
@@ -558,8 +569,7 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 timed_kind_ = TimedKind::scroll;
             else if (command.kind == SACCADE_INPUT_COMMAND_WAIT)
                 timed_kind_ = TimedKind::wait;
-            else if (command.kind == SACCADE_INPUT_COMMAND_BUTTON_DOWN &&
-                     (command.flags & SACCADE_INPUT_COMMAND_CONTINUOUS) != 0) {
+            else if (command.kind == SACCADE_INPUT_COMMAND_BUTTON_DOWN && (command.flags & SACCADE_INPUT_COMMAND_CONTINUOUS) != 0) {
                 if (!emit_command(&emitter, desktop_, active_bytes_, *active_plan_.header, command) || !emitter.flush())
                     return fail(SACCADE_ERROR_BACKEND);
                 stats_.native_events += emitter.total;
@@ -568,7 +578,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
                 emitter.total = 0;
                 emitter.submit_calls = 0;
                 const SaccadeResult advanced = physical_.advance(next_command_ + 1U);
-                if (advanced != SACCADE_OK) return fail(advanced);
+                if (advanced != SACCADE_OK)
+                    return fail(advanced);
                 emitter.commit();
                 ++next_command_;
                 ++stats_.commands;
@@ -590,7 +601,8 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
         emitter.total = 0;
         emitter.submit_calls = 0;
         const SaccadeResult advanced = physical_.advance(next_command_ + 1U);
-        if (advanced != SACCADE_OK) return fail(advanced);
+        if (advanced != SACCADE_OK)
+            return fail(advanced);
         emitter.commit();
         ++next_command_;
         ++stats_.commands;
@@ -598,35 +610,41 @@ SaccadeResult InputExecutor::continue_execution(uint64_t now_ns, InputExecutionR
 }
 
 SaccadeResult InputExecutor::advance(uint64_t now_ns, InputExecutionResult* output) noexcept {
-    if (!initialized_ || now_ns == 0 || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (shutdown_pending_) return SACCADE_ERROR_STATE;
+    if (!initialized_ || now_ns == 0 || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (shutdown_pending_)
+        return SACCADE_ERROR_STATE;
     if (pending_release_count_ != 0) {
         const SaccadeResult recovered = retry_pending_releases();
-        if (recovered != SACCADE_OK) return recovered;
+        if (recovered != SACCADE_OK)
+            return recovered;
     }
     return continue_execution(now_ns, output);
 }
 
 SaccadeResult InputExecutor::append_pending_release(const INPUT& event) noexcept {
-    if (pending_release_count_ == pending_releases_.size()) return SACCADE_ERROR_CAPACITY;
+    if (pending_release_count_ == pending_releases_.size())
+        return SACCADE_ERROR_CAPACITY;
     pending_releases_[pending_release_count_++] = event;
     return SACCADE_OK;
 }
 
 SaccadeResult InputExecutor::queue_release(const input::SyntheticRelease& release) noexcept {
     uint32_t required = release.held_key_count;
-    constexpr std::array<uint32_t, 3> buttons{SACCADE_INPUT_BUTTON_LEFT, SACCADE_INPUT_BUTTON_RIGHT,
-                                              SACCADE_INPUT_BUTTON_MIDDLE};
-    constexpr std::array<uint32_t, 4> modifiers{SACCADE_INPUT_MODIFIER_META, SACCADE_INPUT_MODIFIER_ALT,
-                                                SACCADE_INPUT_MODIFIER_CONTROL, SACCADE_INPUT_MODIFIER_SHIFT};
+    constexpr std::array<uint32_t, 3> buttons{SACCADE_INPUT_BUTTON_LEFT, SACCADE_INPUT_BUTTON_RIGHT, SACCADE_INPUT_BUTTON_MIDDLE};
+    constexpr std::array<uint32_t, 4> modifiers{SACCADE_INPUT_MODIFIER_META, SACCADE_INPUT_MODIFIER_ALT, SACCADE_INPUT_MODIFIER_CONTROL,
+                                                SACCADE_INPUT_MODIFIER_SHIFT};
     for (uint32_t button : buttons)
         required += (release.buttons & button) != 0 ? 1U : 0U;
     for (uint32_t modifier : modifiers)
         required += (release.modifiers & modifier) != 0 ? 1U : 0U;
-    if (required > pending_releases_.size() - pending_release_count_) return SACCADE_ERROR_CAPACITY;
-    if (required != 0) ++stats_.releases;
+    if (required > pending_releases_.size() - pending_release_count_)
+        return SACCADE_ERROR_CAPACITY;
+    if (required != 0)
+        ++stats_.releases;
     for (uint32_t button : buttons) {
-        if ((release.buttons & button) == 0) continue;
+        if ((release.buttons & button) == 0)
+            continue;
         DWORD flags = 0;
         (void)mouse_button(button, true, &flags);
         (void)append_pending_release(mouse_event(flags));
@@ -637,7 +655,8 @@ SaccadeResult InputExecutor::queue_release(const input::SyntheticRelease& releas
             (void)append_pending_release(key_event(scan.value, scan.extended, true));
     }
     for (uint32_t modifier : modifiers) {
-        if ((release.modifiers & modifier) == 0) continue;
+        if ((release.modifiers & modifier) == 0)
+            continue;
         ScanCode scan{};
         (void)modifier_scan(modifier, &scan);
         (void)append_pending_release(key_event(scan.value, scan.extended, true));
@@ -646,10 +665,12 @@ SaccadeResult InputExecutor::queue_release(const input::SyntheticRelease& releas
 }
 
 SaccadeResult InputExecutor::retry_pending_releases() noexcept {
-    if (pending_release_count_ == 0) return SACCADE_OK;
+    if (pending_release_count_ == 0)
+        return SACCADE_OK;
     ++stats_.submit_calls;
     const uint32_t submitted = sink_.submit(sink_.context, pending_releases_.data(), pending_release_count_);
-    if (submitted > pending_release_count_) return SACCADE_ERROR_BACKEND;
+    if (submitted > pending_release_count_)
+        return SACCADE_ERROR_BACKEND;
     stats_.native_events += submitted;
     pending_release_count_ -= submitted;
     if (submitted != 0 && pending_release_count_ != 0) {
@@ -668,7 +689,8 @@ SaccadeResult InputExecutor::release_all() noexcept {
     if (!initialized_) {
         return SACCADE_ERROR_STATE;
     }
-    if (shutdown_pending_) return retry_pending_releases();
+    if (shutdown_pending_)
+        return retry_pending_releases();
     input::SyntheticRelease release{};
     const SaccadeResult result = physical_.abort(&release);
     active_plan_ = {};
@@ -679,9 +701,12 @@ SaccadeResult InputExecutor::release_all() noexcept {
 }
 
 SaccadeResult InputExecutor::update_desktop(const VirtualDesktop& desktop) noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
-    if (!desktop_valid(desktop)) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (synthetic_input_active()) return SACCADE_ERROR_BUSY;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
+    if (!desktop_valid(desktop))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (synthetic_input_active())
+        return SACCADE_ERROR_BUSY;
     desktop_ = desktop;
     return SACCADE_OK;
 }
@@ -719,9 +744,11 @@ SaccadeResult InputExecutor::shutdown() noexcept {
     if (!shutdown_pending_) {
         input::SyntheticRelease release{};
         const SaccadeResult result = physical_.shutdown(&release);
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
         const SaccadeResult queued = queue_release(release);
-        if (queued != SACCADE_OK) return queued;
+        if (queued != SACCADE_OK)
+            return queued;
         active_plan_ = {};
         active_bytes_ = {};
         next_command_ = 0;
@@ -729,7 +756,8 @@ SaccadeResult InputExecutor::shutdown() noexcept {
         shutdown_pending_ = true;
     }
     const SaccadeResult release_result = retry_pending_releases();
-    if (release_result != SACCADE_OK) return release_result;
+    if (release_result != SACCADE_OK)
+        return release_result;
     shutdown_pending_ = false;
     initialized_ = false;
     return SACCADE_OK;

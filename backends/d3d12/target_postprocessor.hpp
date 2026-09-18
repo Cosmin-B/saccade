@@ -64,8 +64,8 @@ class TargetPostprocessor final {
 
     SaccadeResult initialize(ID3D12Device*, ID3D12CommandQueue*, const char*, const TargetPostprocessorSpec&) noexcept;
     SaccadeResult adopt_current_thread() noexcept;
-    SaccadeResult submit(uint32_t candidate_count, const kernels::targets::PostprocessConfig&,
-                         const kernels::targets::PostprocessEpochs&, TargetPostprocessSubmission*) noexcept;
+    SaccadeResult submit(uint32_t candidate_count, const kernels::targets::PostprocessConfig&, const kernels::targets::PostprocessEpochs&,
+                         TargetPostprocessSubmission*) noexcept;
     SaccadeResult submit(uint32_t candidate_count, uint32_t source_width, uint32_t source_height,
                          const kernels::targets::PostprocessConfig&, const kernels::targets::PostprocessEpochs&,
                          TargetPostprocessSubmission*) noexcept;

@@ -4,6 +4,7 @@
 #include "scene/fusion.hpp"
 #include "scene/grid.hpp"
 #include "scene/store.hpp"
+#include "scene/visual_target_tracker.hpp"
 #include "scene/windows.hpp"
 
 #include <array>
@@ -35,6 +36,7 @@ struct TargetFilterConfig {
 struct SceneCoordinatorStorage {
     alignas(64) std::array<uint8_t, scene::target_packet_max_bytes> semantic_packet{};
     scene::FusionWorkspace fusion{};
+    scene::VisualTargetTrackerStorage visual_tracker{};
 };
 
 struct SceneCoordinatorConfig {
@@ -42,6 +44,7 @@ struct SceneCoordinatorConfig {
     scene::SceneStore* output_scenes = nullptr;
     SaccadeAccessibilityProviderDesc accessibility{};
     scene::FusionConfig fusion{};
+    scene::VisualTargetTrackerConfig visual_tracker{};
     TargetFilterConfig filter{};
     SemanticFreshness semantic_freshness{};
     SceneSource source = SceneSource::pixel;
@@ -107,8 +110,7 @@ class SceneCoordinator final {
     SaccadeResult set_filter(TargetFilterConfig) noexcept;
     SaccadeResult set_fusion(scene::FusionConfig) noexcept;
     SaccadeResult publish_grid(scene::GridSceneConfig, SceneCoordinatorAdvance*) noexcept;
-    SaccadeResult publish_windows(scene::WindowSceneConfig, const SaccadeWindowInfo*, uint32_t,
-                                  SceneCoordinatorAdvance*) noexcept;
+    SaccadeResult publish_windows(scene::WindowSceneConfig, const SaccadeWindowInfo*, uint32_t, SceneCoordinatorAdvance*) noexcept;
     SaccadeResult advance(SceneCoordinatorAdvance*) noexcept;
     SaccadeResult shutdown() noexcept;
 
@@ -123,6 +125,8 @@ class SceneCoordinator final {
     [[nodiscard]] scene::FusionStats latest_fusion_stats() const noexcept { return latest_fusion_stats_; }
 
     [[nodiscard]] uint32_t latest_fusion_input_count() const noexcept { return latest_fusion_input_count_; }
+
+    [[nodiscard]] scene::VisualTargetTrackerStats latest_visual_tracker_stats() const noexcept { return latest_visual_tracker_stats_; }
 
   private:
     SaccadeResult poll_semantic(bool*) noexcept;
@@ -139,6 +143,8 @@ class SceneCoordinator final {
     SceneCoordinatorStats stats_{};
     SceneCoordinatorStatus status_{};
     scene::FusionStats latest_fusion_stats_{};
+    scene::VisualTargetTracker visual_tracker_{};
+    scene::VisualTargetTrackerStats latest_visual_tracker_stats_{};
     SaccadeTicketHandle semantic_ticket_ = 0;
     SaccadeSnapshotHandle semantic_snapshot_ = 0;
     uint64_t next_scene_epoch_ = 1;
@@ -158,7 +164,7 @@ static_assert(sizeof(SceneCoordinatorAdvance) == 32);
 static_assert(sizeof(SceneCoordinatorStatus) == 56);
 static_assert(sizeof(SceneCoordinatorStats) == 112);
 static_assert(sizeof(TargetFilterConfig) == 12);
-static_assert(sizeof(SceneCoordinatorStorage) == 1'347'584);
+static_assert(sizeof(SceneCoordinatorStorage) >= 1'347'584 + sizeof(scene::VisualTargetTrackerStorage));
 
 } // namespace saccade::application
 

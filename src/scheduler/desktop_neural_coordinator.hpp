@@ -84,8 +84,7 @@ class DesktopNeuralCoordinator final {
     DesktopNeuralCoordinator(DesktopNeuralCoordinator&&) = delete;
     DesktopNeuralCoordinator& operator=(DesktopNeuralCoordinator&&) = delete;
 
-    SaccadeResult initialize(const DesktopNeuralCoordinatorConfig&, DesktopNeuralCoordinatorStorage*,
-                             scene::SceneStore*) noexcept;
+    SaccadeResult initialize(const DesktopNeuralCoordinatorConfig&, DesktopNeuralCoordinatorStorage*, scene::SceneStore*) noexcept;
     SaccadeResult offer(DesktopNeuralFrame) noexcept;
     SaccadeResult advance(uint64_t now_ns, DesktopNeuralAdvance*) noexcept;
     SaccadeResult shutdown() noexcept;

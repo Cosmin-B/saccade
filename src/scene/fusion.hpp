@@ -60,8 +60,8 @@ struct FusionWorkspace {
 static_assert(sizeof(FusionNode) == 8);
 static_assert(sizeof(FusionStats) == 64);
 
-SaccadeResult fuse(const PacketView*, uint32_t, const FusionConfig&, const FusionEpochs&, FusionWorkspace*,
-                   SaccadeMutableSpanU8, size_t*, FusionStats*) noexcept;
+SaccadeResult fuse(const PacketView*, uint32_t, const FusionConfig&, const FusionEpochs&, FusionWorkspace*, SaccadeMutableSpanU8, size_t*,
+                   FusionStats*) noexcept;
 
 } // namespace saccade::scene
 

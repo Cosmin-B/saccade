@@ -34,8 +34,8 @@ class NeuralBridge final {
 
     SaccadeResult initialize(SaccadeRuntimeHandle) noexcept;
     SaccadeResult initialize(const NeuralBridgeConfig&) noexcept;
-    SaccadeResult import(SceneCaptureSet*, const SceneCaptureFrame&, const geometry::DisplaySurface&,
-                         uint64_t scene_transform_epoch, scheduler::DesktopNeuralFrame*) noexcept;
+    SaccadeResult import(SceneCaptureSet*, const SceneCaptureFrame&, const geometry::DisplaySurface&, uint64_t scene_transform_epoch,
+                         scheduler::DesktopNeuralFrame*) noexcept;
     SaccadeResult shutdown() noexcept;
 
     [[nodiscard]] NeuralBridgeStats stats() const noexcept { return stats_; }

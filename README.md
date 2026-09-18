@@ -23,6 +23,10 @@ controls without sending screen contents over the network.
 - Rejects stale scenes, wrong-window actions, protected surfaces, permission loss, and
   physical-user overrides before input execution.
 
+The optional [Jev decision client](integrations/jev/README.md) lets TypeSafe Jev choose
+from bounded actions over Saccade observations. It runs outside the native runtime and
+sends selected UI text and geometry to TypeSafe only when explicitly invoked.
+
 The complete version 0.1 behavior is defined by the
 [version 0.1 product contract](docs/product/version-0.1.md).
 

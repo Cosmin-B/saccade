@@ -41,9 +41,8 @@ static_assert(sizeof(AtlasSurface) == 24);
 static_assert(sizeof(AtlasPlacement) == 40);
 static_assert(sizeof(ScopeAtlasLayout) == 664);
 
-SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width, uint32_t output_height,
-                                      const AtlasSurface* surfaces, uint32_t surface_count,
-                                      ScopeAtlasLayout* output) noexcept;
+SaccadeResult make_scope_atlas_layout(const RectQ8& scope, uint32_t output_width, uint32_t output_height, const AtlasSurface* surfaces,
+                                      uint32_t surface_count, ScopeAtlasLayout* output) noexcept;
 
 } // namespace saccade::geometry
 

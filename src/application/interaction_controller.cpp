@@ -11,9 +11,8 @@ bool mode_valid(interaction::SelectionMode mode) noexcept {
 
 bool profile_valid(const InteractionProfile& profile) noexcept {
     return profile.timeout_ns != 0 && profile.scroll_vertical_q8 != 0 && profile.scroll_vertical_q8 != INT32_MIN &&
-           profile.scroll_horizontal_q8 != 0 && profile.scroll_horizontal_q8 != INT32_MIN &&
-           mode_valid(profile.initial_mode) && profile.final_pointer >= PointerFinalPosition::target &&
-           profile.final_pointer <= PointerFinalPosition::anchor;
+           profile.scroll_horizontal_q8 != 0 && profile.scroll_horizontal_q8 != INT32_MIN && mode_valid(profile.initial_mode) &&
+           profile.final_pointer >= PointerFinalPosition::target && profile.final_pointer <= PointerFinalPosition::anchor;
 }
 
 uint64_t continuous_scroll_duration(const InteractionProfile& profile) noexcept {
@@ -28,8 +27,8 @@ int32_t negative_magnitude(int32_t value) noexcept {
     return value < 0 ? value : -value;
 }
 
-bool action_for_command(Command command, const InteractionProfile& profile, interaction::SelectionMode current_mode,
-                        SessionAction* action, interaction::SelectionMode* mode) noexcept {
+bool action_for_command(Command command, const InteractionProfile& profile, interaction::SelectionMode current_mode, SessionAction* action,
+                        interaction::SelectionMode* mode) noexcept {
     *action = {};
     *mode = interaction::SelectionMode::single;
 
@@ -152,10 +151,10 @@ bool adjustment_command(Command command) noexcept {
 
 } // namespace
 
-SaccadeResult InteractionController::initialize(SessionEngine* session, InteractionProfile profile,
-                                                InteractionStateSource state_source,
+SaccadeResult InteractionController::initialize(SessionEngine* session, InteractionProfile profile, InteractionStateSource state_source,
                                                 InteractionControllerSink sink) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
 
     if (session == nullptr || state_source.read == nullptr || !profile_valid(profile) ||
         (sink.input_lease_active == nullptr) != (sink.neutralize_input == nullptr)) {
@@ -177,16 +176,19 @@ SaccadeResult InteractionController::set_text(SaccadeSpanU8 text) noexcept {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
-    if (text.size != 0) std::memcpy(text_.data(), text.data, text.size);
+    if (text.size != 0)
+        std::memcpy(text_.data(), text.data, text.size);
     text_size_ = static_cast<uint32_t>(text.size);
 
     return SACCADE_OK;
 }
 
 SaccadeResult InteractionController::set_profile(InteractionProfile profile) noexcept {
-    if (!initialized_ || !profile_valid(profile)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || !profile_valid(profile))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
-    if (session_->active()) return SACCADE_ERROR_BUSY;
+    if (session_->active())
+        return SACCADE_ERROR_BUSY;
 
     profile_ = profile;
     selection_mode_ = profile.initial_mode;
@@ -198,13 +200,14 @@ uint64_t InteractionController::next_plan_id() noexcept {
     const uint64_t result = next_plan_id_;
     ++next_plan_id_;
 
-    if (next_plan_id_ == 0) ++next_plan_id_;
+    if (next_plan_id_ == 0)
+        ++next_plan_id_;
 
     return result;
 }
 
-SaccadeResult InteractionController::begin_action(const SessionAction& source, interaction::SelectionMode mode,
-                                                  uint64_t timestamp_ns, InteractionCommandResult* output) noexcept {
+SaccadeResult InteractionController::begin_action(const SessionAction& source, interaction::SelectionMode mode, uint64_t timestamp_ns,
+                                                  InteractionCommandResult* output) noexcept {
     if (session_->active() || timestamp_ns == 0 || !mode_valid(mode)) {
         return SACCADE_ERROR_STATE;
     }
@@ -212,7 +215,8 @@ SaccadeResult InteractionController::begin_action(const SessionAction& source, i
     InteractionState state{};
     const SaccadeResult read = state_source_.read(state_source_.context, &state);
 
-    if (read != SACCADE_OK) return read;
+    if (read != SACCADE_OK)
+        return read;
 
     if (state.permission_epoch == 0 || state.permissions == 0) {
         return SACCADE_ERROR_PERMISSION;
@@ -227,7 +231,8 @@ SaccadeResult InteractionController::begin_action(const SessionAction& source, i
     config.action.now_ns = timestamp_ns;
     config.action.deadline_ns = timestamp_ns + profile_.timeout_ns;
 
-    if (config.action.deadline_ns <= timestamp_ns) return SACCADE_ERROR_CAPACITY;
+    if (config.action.deadline_ns <= timestamp_ns)
+        return SACCADE_ERROR_CAPACITY;
 
     config.action.permissions = state.permissions;
     config.action.expected_buttons = state.expected_buttons;
@@ -243,13 +248,15 @@ SaccadeResult InteractionController::begin_action(const SessionAction& source, i
     }
 
     if (config.request.kind == interaction::ActionKind::text) {
-        if (text_size_ == 0) return SACCADE_ERROR_STATE;
+        if (text_size_ == 0)
+            return SACCADE_ERROR_STATE;
         config.request.text = {text_.data(), text_size_};
     }
 
     const SaccadeResult begun = session_->begin_latest(config);
 
-    if (begun != SACCADE_OK) return begun;
+    if (begun != SACCADE_OK)
+        return begun;
 
     last_action_ = config.request;
     last_mode_ = mode;
@@ -261,18 +268,20 @@ SaccadeResult InteractionController::begin_action(const SessionAction& source, i
     return SACCADE_OK;
 }
 
-SaccadeResult InteractionController::change_mode(interaction::SelectionMode mode,
-                                                 InteractionCommandResult* output) noexcept {
-    if (!mode_valid(mode)) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult InteractionController::change_mode(interaction::SelectionMode mode, InteractionCommandResult* output) noexcept {
+    if (!mode_valid(mode))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     if (session_->active()) {
         const SaccadeResult cancelled = session_->cancel(interaction::SelectionCancelReason::user);
-        if (cancelled != SACCADE_OK) return cancelled;
+        if (cancelled != SACCADE_OK)
+            return cancelled;
         ++stats_.sessions_cancelled;
     }
 
     selection_mode_ = mode;
-    if (has_last_action_) last_mode_ = mode;
+    if (has_last_action_)
+        last_mode_ = mode;
     output->mode_changed = true;
 
     ++stats_.modes_changed;
@@ -280,13 +289,14 @@ SaccadeResult InteractionController::change_mode(interaction::SelectionMode mode
     return SACCADE_OK;
 }
 
-SaccadeResult InteractionController::forward(Command command, uint64_t timestamp_ns,
-                                             InteractionCommandResult* output) noexcept {
-    if (sink_.forward == nullptr) return SACCADE_ERROR_NOT_FOUND;
+SaccadeResult InteractionController::forward(Command command, uint64_t timestamp_ns, InteractionCommandResult* output) noexcept {
+    if (sink_.forward == nullptr)
+        return SACCADE_ERROR_NOT_FOUND;
 
     const SaccadeResult result = sink_.forward(sink_.context, command, timestamp_ns);
 
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
 
     output->forwarded = true;
     ++stats_.commands_forwarded;
@@ -294,9 +304,9 @@ SaccadeResult InteractionController::forward(Command command, uint64_t timestamp
     return SACCADE_OK;
 }
 
-SaccadeResult InteractionController::dispatch(Command command, uint64_t timestamp_ns,
-                                              InteractionCommandResult* output) noexcept {
-    if (!initialized_ || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult InteractionController::dispatch(Command command, uint64_t timestamp_ns, InteractionCommandResult* output) noexcept {
+    if (!initialized_ || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     *output = {};
     ++stats_.commands;
@@ -342,8 +352,7 @@ SaccadeResult InteractionController::dispatch(Command command, uint64_t timestam
         case Command::target_position_7:
         case Command::target_position_8:
         case Command::target_position_9:
-            result = session_->set_target_position(static_cast<uint32_t>(command) -
-                                                   static_cast<uint32_t>(Command::target_position_1));
+            result = session_->set_target_position(static_cast<uint32_t>(command) - static_cast<uint32_t>(Command::target_position_1));
             break;
         default:
             result = SACCADE_ERROR_INVALID_ARGUMENT;
@@ -356,8 +365,7 @@ SaccadeResult InteractionController::dispatch(Command command, uint64_t timestam
     } else if (mode_for_command(command, &mode)) {
         result = change_mode(mode, output);
     } else if (command == Command::repeat_action) {
-        result =
-            has_last_action_ ? begin_action(last_action_, last_mode_, timestamp_ns, output) : SACCADE_ERROR_NOT_FOUND;
+        result = has_last_action_ ? begin_action(last_action_, last_mode_, timestamp_ns, output) : SACCADE_ERROR_NOT_FOUND;
     } else {
         SessionAction action{};
         if (action_for_command(command, profile_, selection_mode_, &action, &mode)) {
@@ -367,7 +375,8 @@ SaccadeResult InteractionController::dispatch(Command command, uint64_t timestam
         }
     }
 
-    if (result != SACCADE_OK) ++stats_.failures;
+    if (result != SACCADE_OK)
+        ++stats_.failures;
 
     return result;
 }
@@ -377,7 +386,8 @@ bool InteractionController::input_lease_active() const noexcept {
 }
 
 SaccadeResult InteractionController::observe_physical_input(uint64_t timestamp_ns) noexcept {
-    if (!initialized_ || timestamp_ns == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || timestamp_ns == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     ++stats_.physical_inputs;
 
@@ -394,18 +404,22 @@ SaccadeResult InteractionController::observe_physical_input(uint64_t timestamp_n
 
     if (input_lease_active()) {
         result = sink_.neutralize_input(sink_.context);
-        if (result == SACCADE_OK) ++stats_.input_neutralizations;
+        if (result == SACCADE_OK)
+            ++stats_.input_neutralizations;
     }
 
-    if (result != SACCADE_OK) ++stats_.failures;
+    if (result != SACCADE_OK)
+        ++stats_.failures;
 
     return result;
 }
 
 SaccadeResult InteractionController::tick(uint64_t timestamp_ns) noexcept {
-    if (!initialized_ || timestamp_ns == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || timestamp_ns == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
-    if (!session_->active()) return SACCADE_OK;
+    if (!session_->active())
+        return SACCADE_OK;
 
     InteractionState state{};
     const SaccadeResult read = state_source_.read(state_source_.context, &state);
@@ -424,8 +438,7 @@ SaccadeResult InteractionController::tick(uint64_t timestamp_ns) noexcept {
         return SACCADE_ERROR_PERMISSION;
     }
 
-    const SessionEpochs epochs{state.scene_epoch, state.transform_epoch, state.topology_epoch, state.permission_epoch,
-                               state.focus_id};
+    const SessionEpochs epochs{state.scene_epoch, state.transform_epoch, state.topology_epoch, state.permission_epoch, state.focus_id};
     const SaccadeResult result = session_->tick(epochs, timestamp_ns);
 
     if (result != SACCADE_OK && result != SACCADE_ERROR_STALE_HANDLE) {
@@ -436,18 +449,21 @@ SaccadeResult InteractionController::tick(uint64_t timestamp_ns) noexcept {
 }
 
 SaccadeResult InteractionController::shutdown() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
 
     SaccadeResult result = SACCADE_OK;
 
     if (session_->active()) {
         result = session_->cancel(interaction::SelectionCancelReason::user);
-        if (result == SACCADE_OK) ++stats_.sessions_cancelled;
+        if (result == SACCADE_OK)
+            ++stats_.sessions_cancelled;
     }
 
     if (result == SACCADE_OK && input_lease_active()) {
         result = sink_.neutralize_input(sink_.context);
-        if (result == SACCADE_OK) ++stats_.input_neutralizations;
+        if (result == SACCADE_OK)
+            ++stats_.input_neutralizations;
     }
 
     if (result != SACCADE_OK) {
@@ -472,7 +488,8 @@ SaccadeResult InteractionController::shutdown() noexcept {
 SaccadeResult start_interaction_command(void* context, Command command, uint64_t timestamp_ns) noexcept {
     auto* controller = static_cast<InteractionController*>(context);
 
-    if (controller == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (controller == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     InteractionCommandResult result{};
     return controller->dispatch(command, timestamp_ns, &result);
@@ -480,7 +497,8 @@ SaccadeResult start_interaction_command(void* context, Command command, uint64_t
 
 void observe_interaction_input(void* context, uint64_t timestamp_ns) noexcept {
     auto* controller = static_cast<InteractionController*>(context);
-    if (controller != nullptr) (void)controller->observe_physical_input(timestamp_ns);
+    if (controller != nullptr)
+        (void)controller->observe_physical_input(timestamp_ns);
 }
 
 } // namespace saccade::application

@@ -126,8 +126,7 @@ int main() {
         return 10;
     }
 
-    const SaccadeResult guarded =
-        saccade::core::abi_guard([]() -> SaccadeResult { throw std::runtime_error("test exception"); });
+    const SaccadeResult guarded = saccade::core::abi_guard([]() -> SaccadeResult { throw std::runtime_error("test exception"); });
     if (guarded != SACCADE_ERROR_BACKEND || saccade_last_error().size == 0) {
         return 11;
     }

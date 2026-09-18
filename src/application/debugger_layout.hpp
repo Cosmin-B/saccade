@@ -12,16 +12,7 @@ constexpr uint32_t debugger_view_count = 8;
 constexpr int32_t debugger_minimum_width = 480;
 constexpr int32_t debugger_minimum_height = 260;
 
-enum class DebuggerView : uint32_t {
-    overview = 0,
-    displays,
-    runtime,
-    overlay_gpu,
-    memory,
-    trace,
-    frames_transforms,
-    scene_fusion
-};
+enum class DebuggerView : uint32_t { overview = 0, displays, runtime, overlay_gpu, memory, trace, frames_transforms, scene_fusion };
 
 struct DebuggerLayoutRect {
     int32_t x = 0;

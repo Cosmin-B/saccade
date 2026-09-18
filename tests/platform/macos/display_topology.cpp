@@ -33,27 +33,22 @@ int main() {
         for (uint32_t index = 0; index < snapshot.count; ++index) {
             const saccade::geometry::DisplaySurface& display = snapshot.displays[index];
             main_count += (display.flags & saccade::geometry::display_surface_main) != 0 ? 1U : 0U;
-            if (display.display_id == 0 || display.backing_width == 0 || display.backing_height == 0 ||
-                display.maximum_fps == 0 ||
-                !saccade::geometry::rect_contains(display.desktop_bounds, display.work_bounds) ||
-                display.safe_insets.top < 0 || display.safe_insets.left < 0 || display.safe_insets.bottom < 0 ||
-                display.safe_insets.right < 0) {
+            if (display.display_id == 0 || display.backing_width == 0 || display.backing_height == 0 || display.maximum_fps == 0 ||
+                !saccade::geometry::rect_contains(display.desktop_bounds, display.work_bounds) || display.safe_insets.top < 0 ||
+                display.safe_insets.left < 0 || display.safe_insets.bottom < 0 || display.safe_insets.right < 0) {
                 return 3;
             }
 
             CoordinateTransform transform;
-            if (saccade::geometry::make_desktop_to_surface_transform(display, snapshot.epoch, &transform) !=
-                SACCADE_OK) {
+            if (saccade::geometry::make_desktop_to_surface_transform(display, snapshot.epoch, &transform) != SACCADE_OK) {
                 return 4;
             }
             PointQ8 mapped{};
             const PointQ8 bottom_right{display.desktop_bounds.x + display.desktop_bounds.width,
                                        display.desktop_bounds.y + display.desktop_bounds.height};
             if (transform.map_point(bottom_right, &mapped) != SACCADE_OK ||
-                mapped.x !=
-                    static_cast<int32_t>(display.backing_width << saccade::geometry::coordinate_fraction_bits) ||
-                mapped.y !=
-                    static_cast<int32_t>(display.backing_height << saccade::geometry::coordinate_fraction_bits)) {
+                mapped.x != static_cast<int32_t>(display.backing_width << saccade::geometry::coordinate_fraction_bits) ||
+                mapped.y != static_cast<int32_t>(display.backing_height << saccade::geometry::coordinate_fraction_bits)) {
                 return 5;
             }
         }
@@ -66,8 +61,7 @@ int main() {
             return 7;
         }
         saccade::platform::macos::DisplayCollectorStats stats{};
-        if (collector.read_stats(nullptr) != SACCADE_ERROR_INVALID_ARGUMENT ||
-            collector.read_stats(&stats) != SACCADE_OK) {
+        if (collector.read_stats(nullptr) != SACCADE_ERROR_INVALID_ARGUMENT || collector.read_stats(&stats) != SACCADE_OK) {
             return 8;
         }
         if (stats.refresh_attempts != 3 || stats.topology_changes != 1 || stats.failures != 1 ||

@@ -22,22 +22,15 @@ using saccade::backend::image::TensorFormat;
 using saccade::backend::image::TensorSpec;
 using saccade::backend::image::TensorView;
 
-enum class TestResult : int {
-    success,
-    usage,
-    device_unavailable = 77,
-    texture_failed = 2,
-    fp16_failed,
-    int8_failed,
-    device_loss_failed
-};
+enum class TestResult : int { success, usage, device_unavailable = 77, texture_failed = 2, fp16_failed, int8_failed, device_loss_failed };
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
 }
 
 bool execute_and_wait(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12GraphicsCommandList* commands) noexcept {
-    if (FAILED(commands->Close())) return false;
+    if (FAILED(commands->Close()))
+        return false;
     ID3D12CommandList* command_lists[]{commands};
     queue->ExecuteCommandLists(1, command_lists);
     ComPtr<ID3D12Fence> fence;
@@ -46,9 +39,9 @@ bool execute_and_wait(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Gra
         return false;
     }
     const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (event == nullptr) return false;
-    const bool completed =
-        SUCCEEDED(fence->SetEventOnCompletion(1, event)) && WaitForSingleObject(event, 1'000) == WAIT_OBJECT_0;
+    if (event == nullptr)
+        return false;
+    const bool completed = SUCCEEDED(fence->SetEventOnCompletion(1, event)) && WaitForSingleObject(event, 1'000) == WAIT_OBJECT_0;
     (void)CloseHandle(event);
     return completed;
 }
@@ -65,8 +58,7 @@ ComPtr<ID3D12Resource> make_texture(ID3D12Device* device, ID3D12CommandQueue* qu
     texture_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     texture_desc.SampleDesc.Count = 1;
     ComPtr<ID3D12Resource> texture;
-    if (FAILED(device->CreateCommittedResource(&default_heap, D3D12_HEAP_FLAG_NONE, &texture_desc,
-                                               D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+    if (FAILED(device->CreateCommittedResource(&default_heap, D3D12_HEAP_FLAG_NONE, &texture_desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
                                                IID_PPV_ARGS(texture.GetAddressOf())))) {
         return {};
     }
@@ -84,14 +76,14 @@ ComPtr<ID3D12Resource> make_texture(ID3D12Device* device, ID3D12CommandQueue* qu
     upload_desc.SampleDesc.Count = 1;
     upload_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     ComPtr<ID3D12Resource> upload;
-    if (FAILED(device->CreateCommittedResource(&upload_heap, D3D12_HEAP_FLAG_NONE, &upload_desc,
-                                               D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+    if (FAILED(device->CreateCommittedResource(&upload_heap, D3D12_HEAP_FLAG_NONE, &upload_desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
                                                IID_PPV_ARGS(upload.GetAddressOf())))) {
         return {};
     }
     constexpr std::array<uint8_t, 16> pixels{0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 255};
     void* mapped = nullptr;
-    if (FAILED(upload->Map(0, nullptr, &mapped))) return {};
+    if (FAILED(upload->Map(0, nullptr, &mapped)))
+        return {};
     auto* destination = static_cast<uint8_t*>(mapped);
     std::memcpy(destination, pixels.data(), 8);
     std::memcpy(destination + footprint.Footprint.RowPitch, pixels.data() + 8, 8);
@@ -99,8 +91,7 @@ ComPtr<ID3D12Resource> make_texture(ID3D12Device* device, ID3D12CommandQueue* qu
 
     ComPtr<ID3D12CommandAllocator> allocator;
     ComPtr<ID3D12GraphicsCommandList> commands;
-    if (FAILED(
-            device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
+    if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
         FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr,
                                          IID_PPV_ARGS(commands.GetAddressOf())))) {
         return {};
@@ -124,8 +115,7 @@ ComPtr<ID3D12Resource> make_texture(ID3D12Device* device, ID3D12CommandQueue* qu
 }
 
 template <size_t Size>
-bool read_buffer(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* source,
-                 std::array<uint8_t, Size>* output) noexcept {
+bool read_buffer(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* source, std::array<uint8_t, Size>* output) noexcept {
     D3D12_HEAP_PROPERTIES readback_heap{};
     readback_heap.Type = D3D12_HEAP_TYPE_READBACK;
     D3D12_RESOURCE_DESC readback_desc{};
@@ -139,11 +129,9 @@ bool read_buffer(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource
     ComPtr<ID3D12Resource> readback;
     ComPtr<ID3D12CommandAllocator> allocator;
     ComPtr<ID3D12GraphicsCommandList> commands;
-    if (FAILED(device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc,
-                                               D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                               IID_PPV_ARGS(readback.GetAddressOf()))) ||
-        FAILED(
-            device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
+    if (FAILED(device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &readback_desc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                               nullptr, IID_PPV_ARGS(readback.GetAddressOf()))) ||
+        FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(allocator.GetAddressOf()))) ||
         FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr,
                                          IID_PPV_ARGS(commands.GetAddressOf())))) {
         return false;
@@ -158,10 +146,12 @@ bool read_buffer(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource
     commands->CopyResource(readback.Get(), source);
     std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
     commands->ResourceBarrier(1, &barrier);
-    if (!execute_and_wait(device, queue, commands.Get())) return false;
+    if (!execute_and_wait(device, queue, commands.Get()))
+        return false;
     void* mapped = nullptr;
     D3D12_RANGE read_range{0, Size};
-    if (FAILED(readback->Map(0, &read_range, &mapped))) return false;
+    if (FAILED(readback->Map(0, &read_range, &mapped)))
+        return false;
     std::memcpy(output->data(), mapped, Size);
     D3D12_RANGE written_range{0, 0};
     readback->Unmap(0, &written_range);
@@ -178,9 +168,9 @@ bool run_fp16(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* t
     TensorView view{};
     if (preprocessor.initialize(device, queue, shaders, spec) != SACCADE_OK ||
         preprocessor.submit(texture, 2, 2, {}, 1, 2, &submission) != SACCADE_OK ||
-        preprocessor.wait(&submission, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        preprocessor.tensor(&submission, &view) != SACCADE_OK || view.byte_size != 24 || view.plane_stride_bytes != 8 ||
-        view.width != 2 || view.height != 2 || view.channels != 3 || view.format != TensorFormat::planar_fp16) {
+        preprocessor.wait(&submission, UINT64_C(1'000'000'000)) != SACCADE_OK || preprocessor.tensor(&submission, &view) != SACCADE_OK ||
+        view.byte_size != 24 || view.plane_stride_bytes != 8 || view.width != 2 || view.height != 2 || view.channels != 3 ||
+        view.format != TensorFormat::planar_fp16) {
         return false;
     }
     std::array<uint8_t, 24> bytes{};
@@ -191,8 +181,7 @@ bool run_fp16(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* t
     std::memcpy(actual.data(), bytes.data(), bytes.size());
     constexpr std::array<uint16_t, 12> expected{0x3c00, 0, 0, 0x3c00, 0, 0x3c00, 0, 0x3c00, 0, 0, 0x3c00, 0x3c00};
     const auto stats = preprocessor.stats();
-    return actual == expected && stats.submissions == 1 && stats.completions == 1 &&
-           stats.output_bytes == view.byte_size;
+    return actual == expected && stats.submissions == 1 && stats.completions == 1 && stats.output_bytes == view.byte_size;
 }
 
 bool run_int8(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* texture, const char* shaders) noexcept {
@@ -207,8 +196,8 @@ bool run_int8(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* t
     TensorView view{};
     if (preprocessor.initialize(device, queue, shaders, spec) != SACCADE_OK ||
         preprocessor.submit(texture, 2, 2, {}, 9, 10, &first) != SACCADE_OK ||
-        preprocessor.wait(&first, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        preprocessor.tensor(&first, &view) != SACCADE_OK || view.byte_size != 12) {
+        preprocessor.wait(&first, UINT64_C(1'000'000'000)) != SACCADE_OK || preprocessor.tensor(&first, &view) != SACCADE_OK ||
+        view.byte_size != 12) {
         return false;
     }
     std::array<uint8_t, 12> bytes{};
@@ -223,8 +212,7 @@ bool run_int8(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* t
     const SourceRegion right_column{1, 0, 1, 2};
     if (preprocessor.submit(texture, 2, 2, right_column, 10, 10, &second) != SACCADE_OK ||
         preprocessor.wait(&second, UINT64_C(1'000'000'000)) != SACCADE_OK ||
-        preprocessor.tensor(&first, &view) != SACCADE_ERROR_INVALID_ARGUMENT ||
-        preprocessor.tensor(&second, &view) != SACCADE_OK ||
+        preprocessor.tensor(&first, &view) != SACCADE_ERROR_INVALID_ARGUMENT || preprocessor.tensor(&second, &view) != SACCADE_OK ||
         !read_buffer(device, queue, static_cast<ID3D12Resource*>(view.buffer), &bytes)) {
         return false;
     }
@@ -232,8 +220,7 @@ bool run_int8(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* t
     return std::memcmp(bytes.data(), cropped.data(), bytes.size()) == 0;
 }
 
-bool run_device_loss(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* texture,
-                     const char* shaders) noexcept {
+bool run_device_loss(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Resource* texture, const char* shaders) noexcept {
     TensorSpec spec{};
     spec.width = 2;
     spec.height = 2;
@@ -254,13 +241,15 @@ bool run_device_loss(ID3D12Device* device, ID3D12CommandQueue* queue, ID3D12Reso
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) return result(TestResult::usage);
+    if (argc != 2)
+        return result(TestResult::usage);
     GraphicsDevice graphics;
     if (graphics.initialize() != SACCADE_OK) {
         return result(TestResult::device_unavailable);
     }
     const ComPtr<ID3D12Resource> texture = make_texture(graphics.device(), graphics.queue());
-    if (texture == nullptr) return result(TestResult::texture_failed);
+    if (texture == nullptr)
+        return result(TestResult::texture_failed);
     if (!run_fp16(graphics.device(), graphics.queue(), texture.Get(), argv[1])) {
         return result(TestResult::fp16_failed);
     }

@@ -51,8 +51,8 @@ bool register_overlay_class() noexcept {
 }
 
 bool display_valid(const geometry::DisplaySurface& display) noexcept {
-    return display.display_id != 0 && display.backing_width != 0 && display.backing_height != 0 &&
-           display.desktop_bounds.width > 0 && display.desktop_bounds.height > 0;
+    return display.display_id != 0 && display.backing_width != 0 && display.backing_height != 0 && display.desktop_bounds.width > 0 &&
+           display.desktop_bounds.height > 0;
 }
 
 int whole_q8(int32_t value) noexcept {
@@ -86,7 +86,8 @@ struct OverlaySurface::Impl {
     bool owns_thread() const noexcept { return GetCurrentThreadId() == owner_thread_; }
 
     HRESULT current_target(backend::d3d12::OverlayRenderTarget* output) noexcept {
-        if (output == nullptr || views_ == nullptr) return E_INVALIDARG;
+        if (output == nullptr || views_ == nullptr)
+            return E_INVALIDARG;
         const uint32_t index = swapchain_->GetCurrentBackBufferIndex();
         if (index >= swapchain_buffer_count || textures_[index] == nullptr) {
             return E_FAIL;
@@ -102,12 +103,14 @@ struct OverlaySurface::Impl {
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         desc.NumDescriptors = swapchain_buffer_count;
         HRESULT result = device_->CreateDescriptorHeap(&desc, IID_PPV_ARGS(views_.GetAddressOf()));
-        if (FAILED(result)) return result;
+        if (FAILED(result))
+            return result;
         view_stride_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
         D3D12_CPU_DESCRIPTOR_HANDLE view = views_->GetCPUDescriptorHandleForHeapStart();
         for (uint32_t index = 0; index < swapchain_buffer_count; ++index) {
             result = swapchain_->GetBuffer(index, IID_PPV_ARGS(textures_[index].GetAddressOf()));
-            if (FAILED(result)) return result;
+            if (FAILED(result))
+                return result;
             device_->CreateRenderTargetView(textures_[index].Get(), nullptr, view);
             view.ptr += view_stride_;
         }
@@ -134,8 +137,8 @@ struct OverlaySurface::Impl {
         const int y = whole_q8(display_.desktop_bounds.y);
         const int width = whole_q8(display_.desktop_bounds.width);
         const int height = whole_q8(display_.desktop_bounds.height);
-        return SetWindowPos(window_, HWND_TOPMOST, x, y, width, height,
-                            SWP_NOACTIVATE | (visible_ ? SWP_SHOWWINDOW : SWP_NOREDRAW)) != FALSE
+        return SetWindowPos(window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | (visible_ ? SWP_SHOWWINDOW : SWP_NOREDRAW)) !=
+                       FALSE
                    ? SACCADE_OK
                    : SACCADE_ERROR_BACKEND;
     }
@@ -179,9 +182,8 @@ const OverlaySurface::Impl& OverlaySurface::impl() const noexcept {
     return *std::launder(reinterpret_cast<const Impl*>(storage_.data()));
 }
 
-SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display, ID3D12Device* device,
-                                         ID3D12CommandQueue* queue, const char* shader_directory,
-                                         OverlaySurfaceCallbacks callbacks) noexcept {
+SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display, ID3D12Device* device, ID3D12CommandQueue* queue,
+                                         const char* shader_directory, OverlaySurfaceCallbacks callbacks) noexcept {
     static_assert(sizeof(Impl) <= storage_size);
     if (initialized_) {
         return SACCADE_ERROR_STATE;
@@ -196,11 +198,11 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
     state->callbacks_ = callbacks;
     state->device_ = device;
     state->queue_ = queue;
-    state->window_ = CreateWindowExW(
-        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_NOREDIRECTIONBITMAP,
-        overlay_class_name, L"", WS_POPUP, whole_q8(display.desktop_bounds.x), whole_q8(display.desktop_bounds.y),
-        whole_q8(display.desktop_bounds.width), whole_q8(display.desktop_bounds.height), nullptr, nullptr,
-        GetModuleHandleW(nullptr), &state->click_through_);
+    state->window_ =
+        CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_NOREDIRECTIONBITMAP,
+                        overlay_class_name, L"", WS_POPUP, whole_q8(display.desktop_bounds.x), whole_q8(display.desktop_bounds.y),
+                        whole_q8(display.desktop_bounds.width), whole_q8(display.desktop_bounds.height), nullptr, nullptr,
+                        GetModuleHandleW(nullptr), &state->click_through_);
     if (state->window_ == nullptr) {
         last_native_error_ = static_cast<int32_t>(HRESULT_FROM_WIN32(GetLastError()));
         last_native_stage_ = OverlaySurfaceNativeStage::window;
@@ -263,8 +265,7 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
     if (FAILED(result) || state->frame_latency_ == nullptr) {
         return fail(OverlaySurfaceNativeStage::frame_latency, FAILED(result) ? result : E_FAIL);
     }
-    result = DCompositionCreateDevice(nullptr, __uuidof(IDCompositionDevice),
-                                      reinterpret_cast<void**>(state->composition_.GetAddressOf()));
+    result = DCompositionCreateDevice(nullptr, __uuidof(IDCompositionDevice), reinterpret_cast<void**>(state->composition_.GetAddressOf()));
     if (FAILED(result)) {
         return fail(OverlaySurfaceNativeStage::composition_device, result);
     }
@@ -274,8 +275,7 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
     }
     result = state->composition_->CreateVisual(state->visual_.GetAddressOf());
     if (FAILED(result) || FAILED(result = state->visual_->SetContent(state->swapchain_.Get())) ||
-        FAILED(result = state->composition_target_->SetRoot(state->visual_.Get())) ||
-        FAILED(result = state->composition_->Commit())) {
+        FAILED(result = state->composition_target_->SetRoot(state->visual_.Get())) || FAILED(result = state->composition_->Commit())) {
         return fail(OverlaySurfaceNativeStage::composition_visual, result);
     }
     result = state->warm_views();
@@ -290,7 +290,8 @@ SaccadeResult OverlaySurface::initialize(const geometry::DisplaySurface& display
 }
 
 SaccadeResult OverlaySurface::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
-    if (!initialized_ || !impl().owns_thread()) return SACCADE_ERROR_STATE;
+    if (!initialized_ || !impl().owns_thread())
+        return SACCADE_ERROR_STATE;
     return impl().renderer_.set_glyph_atlas(atlas);
 }
 
@@ -302,19 +303,19 @@ SaccadeResult OverlaySurface::update_display(const geometry::DisplaySurface& dis
     if (!state.owns_thread()) {
         return SACCADE_ERROR_STATE;
     }
-    const bool resize = display.backing_width != state.display_.backing_width ||
-                        display.backing_height != state.display_.backing_height;
+    const bool resize = display.backing_width != state.display_.backing_width || display.backing_height != state.display_.backing_height;
     state.display_ = display;
     if (resize) {
         if (state.last_submission_.sequence != 0) {
             const SaccadeResult waited = state.renderer_.wait(state.last_submission_, UINT64_C(1'000'000'000));
-            if (waited != SACCADE_OK) return waited;
+            if (waited != SACCADE_OK)
+                return waited;
             state.last_submission_ = {};
         }
         state.release_views();
-        const HRESULT result = state.swapchain_->ResizeBuffers(swapchain_buffer_count, display.backing_width,
-                                                               display.backing_height, DXGI_FORMAT_B8G8R8A8_UNORM,
-                                                               DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
+        const HRESULT result =
+            state.swapchain_->ResizeBuffers(swapchain_buffer_count, display.backing_width, display.backing_height,
+                                            DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT);
         const HRESULT views = SUCCEEDED(result) ? state.warm_views() : result;
         if (FAILED(views)) {
             return SACCADE_ERROR_BACKEND;
@@ -372,8 +373,7 @@ SaccadeResult OverlaySurface::present(uint64_t now_ns) noexcept {
         return SACCADE_ERROR_BACKEND;
     }
     SaccadeOverlayFrameDesc frame{};
-    const SaccadeResult loaded =
-        state.callbacks_.load_frame(state.callbacks_.context, state.display_.display_id, &frame);
+    const SaccadeResult loaded = state.callbacks_.load_frame(state.callbacks_.context, state.display_.display_id, &frame);
     if (loaded != SACCADE_OK) {
         state.stats_.no_frame_ticks += loaded == SACCADE_ERROR_NOT_FOUND ? 1U : 0U;
         state.stats_.failures += loaded != SACCADE_ERROR_NOT_FOUND ? 1U : 0U;
@@ -445,9 +445,9 @@ SaccadeResult OverlaySurface::read_info(OverlaySurfaceInfo* output) const noexce
     output->drawable_height = state.display_.backing_height;
     output->buffer_count = swapchain_buffer_count;
     output->flags = overlay_surface_initialized | (state.visible_ ? overlay_surface_visible : 0U) |
-                    (state.click_through_ ? overlay_surface_click_through : 0U) | overlay_surface_nonactivating |
-                    overlay_surface_topmost | overlay_surface_excluded_from_capture |
-                    (state.color_managed_ ? overlay_surface_color_managed : 0U) | overlay_surface_display_paced;
+                    (state.click_through_ ? overlay_surface_click_through : 0U) | overlay_surface_nonactivating | overlay_surface_topmost |
+                    overlay_surface_excluded_from_capture | (state.color_managed_ ? overlay_surface_color_managed : 0U) |
+                    overlay_surface_display_paced;
     return SACCADE_OK;
 }
 
@@ -478,11 +478,10 @@ SaccadeResult OverlaySurface::read_memory_stats(OverlaySurfaceMemoryStats* outpu
     if (result != SACCADE_OK) {
         return result;
     }
-    output->swapchain_bytes_estimate = static_cast<uint64_t>(impl().display_.backing_width) *
-                                       impl().display_.backing_height * 4U * swapchain_buffer_count;
+    output->swapchain_bytes_estimate =
+        static_cast<uint64_t>(impl().display_.backing_width) * impl().display_.backing_height * 4U * swapchain_buffer_count;
     output->surface_host_bytes = sizeof(Impl);
-    output->total_known_and_estimated =
-        output->renderer.device_owned + output->swapchain_bytes_estimate + output->surface_host_bytes;
+    output->total_known_and_estimated = output->renderer.device_owned + output->swapchain_bytes_estimate + output->surface_host_bytes;
     return SACCADE_OK;
 }
 
@@ -560,8 +559,8 @@ const OverlaySurfaceSet::Impl& OverlaySurfaceSet::impl() const noexcept {
     return *std::launder(reinterpret_cast<const Impl*>(storage_.data()));
 }
 
-SaccadeResult OverlaySurfaceSet::initialize(ID3D12Device* device, ID3D12CommandQueue* queue,
-                                            const char* shader_directory, OverlaySurfaceCallbacks callbacks) noexcept {
+SaccadeResult OverlaySurfaceSet::initialize(ID3D12Device* device, ID3D12CommandQueue* queue, const char* shader_directory,
+                                            OverlaySurfaceCallbacks callbacks) noexcept {
     static_assert(sizeof(Impl) <= storage_size);
     if (initialized_) {
         return SACCADE_ERROR_STATE;
@@ -584,10 +583,12 @@ SaccadeResult OverlaySurfaceSet::initialize(ID3D12Device* device, ID3D12CommandQ
 }
 
 SaccadeResult OverlaySurfaceSet::shutdown() noexcept {
-    if (!initialized_ || !impl().owns_thread()) return SACCADE_ERROR_STATE;
+    if (!initialized_ || !impl().owns_thread())
+        return SACCADE_ERROR_STATE;
     if (impl().stats_.running != 0) {
         const SaccadeResult stopped = stop();
-        if (stopped != SACCADE_OK) return stopped;
+        if (stopped != SACCADE_OK)
+            return stopped;
     }
     impl().~Impl();
     initialized_ = false;
@@ -595,14 +596,17 @@ SaccadeResult OverlaySurfaceSet::shutdown() noexcept {
 }
 
 SaccadeResult OverlaySurfaceSet::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
-    if (!initialized_ || !impl().owns_thread()) return SACCADE_ERROR_STATE;
-    if (!overlay::glyph_atlas_valid(atlas)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!initialized_ || !impl().owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (!overlay::glyph_atlas_valid(atlas))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl& state = impl();
 
     std::array<bool, geometry::display_capacity> updated{};
     for (size_t index = 0; index < state.slots_.size(); ++index) {
         Impl::Slot& slot = state.slots_[index];
-        if (!slot.active_) continue;
+        if (!slot.active_)
+            continue;
         const SaccadeResult result = slot.surface_.set_glyph_atlas(atlas);
         if (result != SACCADE_OK) {
             if (state.has_glyph_atlas_) {
@@ -616,8 +620,7 @@ SaccadeResult OverlaySurfaceSet::set_glyph_atlas(overlay::GlyphAtlasView atlas) 
         updated[index] = true;
     }
     std::memcpy(state.glyph_atlas_.pixels.data(), atlas.pixels, overlay::glyph_atlas_bytes);
-    std::memcpy(state.glyph_atlas_.symbols.data(), atlas.symbols,
-                static_cast<size_t>(atlas.glyph_count) * sizeof(uint16_t));
+    std::memcpy(state.glyph_atlas_.symbols.data(), atlas.symbols, static_cast<size_t>(atlas.glyph_count) * sizeof(uint16_t));
     state.glyph_atlas_.glyph_count = atlas.glyph_count;
     state.has_glyph_atlas_ = true;
     return SACCADE_OK;
@@ -675,8 +678,8 @@ SaccadeResult OverlaySurfaceSet::synchronize(const geometry::DisplaySnapshot& sn
             ++state.stats_.failures;
             return SACCADE_ERROR_CAPACITY;
         }
-        SaccadeResult result = slot->surface_.initialize(display, state.device_.Get(), state.queue_.Get(),
-                                                         state.shader_directory_.data(), state.callbacks_);
+        SaccadeResult result =
+            slot->surface_.initialize(display, state.device_.Get(), state.queue_.Get(), state.shader_directory_.data(), state.callbacks_);
         if (result == SACCADE_OK && state.has_glyph_atlas_) {
             result = slot->surface_.set_glyph_atlas(state.glyph_atlas_.view());
         }
@@ -781,16 +784,16 @@ SaccadeResult OverlaySurfaceSet::read_surface_stats(uint64_t display_id, Overlay
     return slot == nullptr ? SACCADE_ERROR_NOT_FOUND : slot->surface_.read_stats(output);
 }
 
-SaccadeResult OverlaySurfaceSet::read_surface_memory_stats(uint64_t display_id,
-                                                           OverlaySurfaceMemoryStats* output) const noexcept {
-    if (!initialized_ || output == nullptr || !impl().owns_thread()) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult OverlaySurfaceSet::read_surface_memory_stats(uint64_t display_id, OverlaySurfaceMemoryStats* output) const noexcept {
+    if (!initialized_ || output == nullptr || !impl().owns_thread())
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const Impl::Slot* slot = impl().find(display_id);
     return slot == nullptr ? SACCADE_ERROR_NOT_FOUND : slot->surface_.read_memory_stats(output);
 }
 
-SaccadeResult OverlaySurfaceSet::read_surface_renderer_stats(uint64_t display_id,
-                                                             backend::d3d12::OverlayStats* output) const noexcept {
-    if (!initialized_ || output == nullptr || !impl().owns_thread()) return SACCADE_ERROR_INVALID_ARGUMENT;
+SaccadeResult OverlaySurfaceSet::read_surface_renderer_stats(uint64_t display_id, backend::d3d12::OverlayStats* output) const noexcept {
+    if (!initialized_ || output == nullptr || !impl().owns_thread())
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const Impl::Slot* slot = impl().find(display_id);
     return slot == nullptr ? SACCADE_ERROR_NOT_FOUND : slot->surface_.read_renderer_stats(output);
 }
