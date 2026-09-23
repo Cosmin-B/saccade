@@ -9,8 +9,13 @@ description = "Optional bounded TypeSafe Jev decision client for Saccade"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+game = ["Pillow>=10"]
+voice = ["moondream>=2.4.1", "sounddevice>=0.5"]
+
 [project.scripts]
 saccade-jev = "saccade_jev.__main__:main"
+saccade-game-healer = "saccade_jev.game_healer:main"
 
 [tool.setuptools.packages.find]
 include = ["saccade_jev*"]

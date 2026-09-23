@@ -131,3 +131,70 @@ explicit point pairs, and long-running actions are not offered as Jev candidates
 
 The provider follows the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart)
 and [HTTP API](https://docs.typesafe.ai/api).
+
+## Calibrated game healing on macOS
+
+The optional `saccade-game-healer` command reads **visible, fixed-position health
+bars** from a small macOS screen capture and uses native Saccade input to hover
+a frame and press a game key bound to a mouseover healing action. It does not
+read game memory or private combat data. The fast healing choice is local and
+threshold-based; Jev's network decision call is not in the time-critical action
+path. This is a configurable healing adapter, not general game understanding.
+
+Install the screen reader extra with
+`python -m pip install './integrations/jev[game]'`. Give the terminal macOS
+Screen Recording permission, and run Saccade with its native input permissions.
+Use a stable game UI layout. Calibrate each bar's on-screen rectangle, a hover
+point inside that rectangle, and representative filled and empty RGB colors.
+Screen coordinates are macOS display coordinates; the capture reader handles a
+uniform Retina backing scale. In-game healing bindings must act on the hovered frame;
+the configured `keyUsage` is a USB HID keyboard usage. For example, usage 4 is
+the A key and usage 5 is B. Replace every sample coordinate and color below
+with values from your own UI before use:
+
+```json
+{
+  "process": "ExampleGame",
+  "bars": [
+    {"name": "tank", "rect": [100, 200, 120, 12], "hover": [150, 206],
+     "fill": [20, 180, 20], "empty": [30, 30, 30]}
+  ],
+  "heals": [
+    {"name": "emergency", "keyUsage": 5, "below": 0.3},
+    {"name": "regular", "keyUsage": 4, "below": 0.8}
+  ]
+}
+```
+
+Save this as a local JSON file. The default run prints the selected ally and
+heal without sending input. Add `--execute` only after the readings agree with
+the visible bars:
+
+```sh
+saccade-game-healer healer.json --mcp build/dev/tools/saccade-mcp
+saccade-game-healer healer.json --mcp build/dev/tools/saccade-mcp --execute
+```
+
+The run lasts at most 60 seconds or 30 emitted heal inputs by default. It
+requires the configured game executable in the foreground, no active user input, recent and
+unambiguous captures, and the same heal decision after hover. A physical
+takeover, focus change, stale capture, or failed Saccade action stops the run.
+`input-sent` means the guarded key action completed; it does not prove a spell
+cast, healing effect, cooldown readiness, or encounter success. Fullscreen
+capture and input behavior depend on the game and macOS permissions. This
+adapter has synthetic tests but has not been calibrated or exercised against a
+live game session.
+
+### Local voice commands
+
+Install `python -m pip install './integrations/jev[game,voice]'` to use
+[Parakeet Redux](https://moondream.ai/blog/introducing-parakeet-redux-and-ultra)
+through Moondream Photon and your microphone. Add `--voice` to
+the healer command. It starts paused and accepts only these exact spoken
+commands: “Saccade start healing”, “Saccade resume healing”, “Saccade pause
+healing”, and “Saccade stop healing”. Microphone access is required. `--voice`
+does not imply `--execute`; both flags are needed to emit input. The model may
+download on first use. Voice is for session control, not urgent casts: it
+transcribes local four-second clips, and commands may be missed when speech
+crosses a clip boundary. The microphone audio and transcripts are not sent to
+TypeSafe by this feature.
