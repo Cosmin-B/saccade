@@ -28,7 +28,8 @@ int main() {
         return 1;
     }
     for (uint32_t index = 0; index < regular.glyph_count; ++index) {
-        if (regular.symbols[index] != settings.hints.alphabet[index] || !glyph_nonempty(regular, index)) return 2;
+        if (regular.symbols[index] != settings.hints.alphabet[index] || !glyph_nonempty(regular, index))
+            return 2;
     }
 
     settings.appearance.font_weight = 900;

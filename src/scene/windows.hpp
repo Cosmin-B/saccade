@@ -18,8 +18,8 @@ struct WindowSceneConfig {
     uint64_t source_id = 0;
 };
 
-SaccadeResult build_window_scene(const WindowSceneConfig&, const SaccadeWindowInfo*, uint32_t count,
-                                 SaccadeMutableSpanU8, size_t*) noexcept;
+SaccadeResult build_window_scene(const WindowSceneConfig&, const SaccadeWindowInfo*, uint32_t count, SaccadeMutableSpanU8,
+                                 size_t*) noexcept;
 
 static_assert(sizeof(WindowSceneConfig) == 56);
 

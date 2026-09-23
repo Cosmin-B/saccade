@@ -5,11 +5,13 @@ add_library(saccade_platform_macos STATIC
     coreml_model.mm
     coreml_provider.mm
     display_topology.mm
+    explicit_window_session.cpp
     glyph_atlas.mm
     global_hotkeys.cpp
     keyboard.cpp
     input_monitor.mm
     input_executor.mm
+    permission_status.cpp
     surface_qualifier.mm)
 target_include_directories(saccade_platform_macos
     PUBLIC "${PROJECT_SOURCE_DIR}"
@@ -36,7 +38,9 @@ target_link_libraries(saccade_platform_macos PRIVATE
 if(TARGET saccade_backend_metal)
     add_library(saccade_platform_macos_capture STATIC
         coreml_image_bridge.cpp
+        explicit_window_capture.cpp
         scene_capture.cpp
+        screen_capture_lifecycle.mm
         screen_capture.mm)
     target_include_directories(saccade_platform_macos_capture
         PUBLIC "${PROJECT_SOURCE_DIR}"

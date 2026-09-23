@@ -72,12 +72,10 @@ void report_packet_failure(SaccadeResult packet_result, const TargetPacketSpan& 
     (void)text.append_signed(device->GetDeviceRemovedReason());
     (void)text.append('\n');
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written,
-                    nullptr);
+    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
-void report_submission_failure(uint32_t candidate_count_value, SaccadeResult submit_result,
-                               SaccadeResult wait_result) noexcept {
+void report_submission_failure(uint32_t candidate_count_value, SaccadeResult submit_result, SaccadeResult wait_result) noexcept {
     saccade::core::StackStringBuilder<160> text;
     (void)text.append("candidates=");
     (void)text.append_unsigned(candidate_count_value);
@@ -87,8 +85,7 @@ void report_submission_failure(uint32_t candidate_count_value, SaccadeResult sub
     (void)text.append_signed(wait_result);
     (void)text.append('\n');
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written,
-                    nullptr);
+    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
 void report_parity_failure(uint32_t candidate_count_value, const TargetPacketSpan& packet, const uint8_t* expected,
@@ -111,10 +108,8 @@ void report_parity_failure(uint32_t candidate_count_value, const TargetPacketSpa
             (void)text.append_unsigned(expected[index]);
             if (index >= sizeof(SaccadeTargetPacketHeader)) {
                 const size_t target_index = (index - sizeof(SaccadeTargetPacketHeader)) / sizeof(SaccadeTargetRecord);
-                const auto* actual_targets =
-                    reinterpret_cast<const SaccadeTargetRecord*>(packet.data + sizeof(SaccadeTargetPacketHeader));
-                const auto* expected_targets =
-                    reinterpret_cast<const SaccadeTargetRecord*>(expected + sizeof(SaccadeTargetPacketHeader));
+                const auto* actual_targets = reinterpret_cast<const SaccadeTargetRecord*>(packet.data + sizeof(SaccadeTargetPacketHeader));
+                const auto* expected_targets = reinterpret_cast<const SaccadeTargetRecord*>(expected + sizeof(SaccadeTargetPacketHeader));
                 (void)text.append(" target=");
                 (void)text.append_unsigned(target_index);
                 (void)text.append(" confidence=");
@@ -131,8 +126,7 @@ void report_parity_failure(uint32_t candidate_count_value, const TargetPacketSpa
     }
     (void)text.append('\n');
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written,
-                    nullptr);
+    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
 void make_candidates(std::array<DenseCandidate, candidate_count>* output) noexcept {
@@ -150,28 +144,13 @@ void make_candidates(std::array<DenseCandidate, candidate_count>* output) noexce
         candidate.flags = SACCADE_TARGET_ACTIONABLE;
         (*output)[index] = candidate;
     }
-    (*output)[13] = {
-        40, 40, 800, 600, 65535, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[29] = {
-        80, 80, 100, 100, 65534, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[47] = {
-        44, 44, 800, 600, 65533, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE,
-        0};
-    (*output)[5] = {12000,
-                    12000,
-                    16,
-                    16,
-                    65532,
-                    SACCADE_TARGET_ROLE_BUTTON,
-                    SACCADE_TARGET_SOURCE_NEURAL,
-                    SACCADE_TARGET_ACTIONABLE,
-                    0};
+    (*output)[13] = {40, 40, 800, 600, 65535, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[29] = {80, 80, 100, 100, 65534, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[47] = {44, 44, 800, 600, 65533, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
+    (*output)[5] = {12000, 12000, 16, 16, 65532, SACCADE_TARGET_ROLE_BUTTON, SACCADE_TARGET_SOURCE_NEURAL, SACCADE_TARGET_ACTIONABLE, 0};
 }
 
-ComPtr<ID3D12Resource> candidate_buffer(ID3D12Device* device,
-                                        const std::array<DenseCandidate, candidate_count>& candidates) noexcept {
+ComPtr<ID3D12Resource> candidate_buffer(ID3D12Device* device, const std::array<DenseCandidate, candidate_count>& candidates) noexcept {
     D3D12_HEAP_PROPERTIES heap{};
     heap.Type = D3D12_HEAP_TYPE_UPLOAD;
     D3D12_RESOURCE_DESC desc{};
@@ -183,12 +162,13 @@ ComPtr<ID3D12Resource> candidate_buffer(ID3D12Device* device,
     desc.SampleDesc.Count = 1;
     desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     ComPtr<ID3D12Resource> output;
-    if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ,
-                                               nullptr, IID_PPV_ARGS(output.GetAddressOf())))) {
+    if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                               IID_PPV_ARGS(output.GetAddressOf())))) {
         return {};
     }
     void* mapped = nullptr;
-    if (FAILED(output->Map(0, nullptr, &mapped))) return {};
+    if (FAILED(output->Map(0, nullptr, &mapped)))
+        return {};
     std::memcpy(mapped, candidates.data(), sizeof(candidates));
     output->Unmap(0, nullptr);
     return output;
@@ -197,7 +177,8 @@ ComPtr<ID3D12Resource> candidate_buffer(ID3D12Device* device,
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) return result(TestResult::usage);
+    if (argc != 2)
+        return result(TestResult::usage);
     GraphicsDevice graphics;
     if (graphics.initialize() != SACCADE_OK) {
         return result(TestResult::device_unavailable);
@@ -222,21 +203,18 @@ int main(int argc, char** argv) {
     config.iou_threshold_q16 = 32768;
     const PostprocessEpochs epochs{101, 202, 303, 404, 505, 606};
     static PostprocessWorkspace workspace;
-    alignas(8) std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord)>
-        expected{};
+    alignas(8) std::array<uint8_t, sizeof(SaccadeTargetPacketHeader) + target_capacity * sizeof(SaccadeTargetRecord)> expected{};
     size_t expected_size = 0;
     PostprocessStats scalar_stats{};
     constexpr std::array<uint32_t, 5> counts{0, 1, 256, 257, candidate_count};
     for (uint32_t active_candidates : counts) {
         if (saccade::kernels::targets::postprocess(candidates.data(), active_candidates, config, epochs, &workspace,
-                                                   {expected.data(), expected.size()}, &expected_size,
-                                                   &scalar_stats) != SACCADE_OK) {
+                                                   {expected.data(), expected.size()}, &expected_size, &scalar_stats) != SACCADE_OK) {
             return result(TestResult::scalar_failed);
         }
         TargetPostprocessSubmission submission{};
         const SaccadeResult submit_result = postprocessor.submit(active_candidates, config, epochs, &submission);
-        const SaccadeResult wait_result =
-            submit_result == SACCADE_OK ? postprocessor.wait(submission, UINT64_MAX) : SACCADE_OK;
+        const SaccadeResult wait_result = submit_result == SACCADE_OK ? postprocessor.wait(submission, UINT64_MAX) : SACCADE_OK;
         if (submit_result != SACCADE_OK || wait_result != SACCADE_OK) {
             report_submission_failure(active_candidates, submit_result, wait_result);
             return result(TestResult::submission_failed);
@@ -247,17 +225,15 @@ int main(int argc, char** argv) {
             report_packet_failure(packet_result, packet, graphics.device());
             return result(TestResult::packet_failed);
         }
-        if (packet.size != expected_size ||
-            std::memcmp(packet.data, expected.data(), std::min(packet.size, expected_size)) != 0) {
+        if (packet.size != expected_size || std::memcmp(packet.data, expected.data(), std::min(packet.size, expected_size)) != 0) {
             report_parity_failure(active_candidates, packet, expected.data(), expected_size);
             return result(TestResult::parity_failed);
         }
     }
     const auto stats = postprocessor.stats();
-    if (stats.submissions != counts.size() || stats.completed != counts.size() || stats.failures != 0 ||
-        stats.busy_submissions != 0 || stats.candidate_capacity != candidate_count ||
-        stats.target_capacity != target_capacity || stats.radix_passes != 16 || stats.workspace_bytes == 0 ||
-        stats.packet_readback_bytes != expected.size()) {
+    if (stats.submissions != counts.size() || stats.completed != counts.size() || stats.failures != 0 || stats.busy_submissions != 0 ||
+        stats.candidate_capacity != candidate_count || stats.target_capacity != target_capacity || stats.radix_passes != 16 ||
+        stats.workspace_bytes == 0 || stats.packet_readback_bytes != expected.size()) {
         return result(TestResult::statistics_failed);
     }
     TargetPostprocessSubmission removed_submission{};

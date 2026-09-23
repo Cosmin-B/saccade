@@ -56,7 +56,8 @@ int main() {
     if (descriptor.ops.request(descriptor.context, &request, &ticket) != SACCADE_ERROR_STATE || ticket != 0) {
         return result(TestResult::preinitialize_request_accepted);
     }
-    if (provider.initialize() != SACCADE_OK) return result(TestResult::initialization_failed);
+    if (provider.initialize() != SACCADE_OK)
+        return result(TestResult::initialization_failed);
     if (descriptor.ops.request(descriptor.context, &request, &ticket) != SACCADE_OK || ticket == 0) {
         return result(TestResult::queued_request_failed);
     }
@@ -70,14 +71,12 @@ int main() {
     }
     std::array<uint8_t, sizeof(SaccadeTargetPacketHeader)> packet{};
     size_t required = 0;
-    if (descriptor.ops.collect(descriptor.context, status.snapshot, {packet.data(), packet.size()}, &required) !=
-            SACCADE_OK ||
+    if (descriptor.ops.collect(descriptor.context, status.snapshot, {packet.data(), packet.size()}, &required) != SACCADE_OK ||
         required != packet.size()) {
         return result(TestResult::invalid_query_snapshot_failed);
     }
     const auto* header = reinterpret_cast<const SaccadeTargetPacketHeader*>(packet.data());
-    if (header->target_count != 0 || header->total_size != packet.size() ||
-        (header->flags & SACCADE_TARGET_PACKET_INCOMPLETE) == 0) {
+    if (header->target_count != 0 || header->total_size != packet.size() || (header->flags & SACCADE_TARGET_PACKET_INCOMPLETE) == 0) {
         return result(TestResult::invalid_query_snapshot_failed);
     }
     if (descriptor.ops.release(descriptor.context, status.snapshot) != SACCADE_OK) {
@@ -98,11 +97,14 @@ int main() {
     }
 
     const uint64_t shutdown_started = GetTickCount64();
-    if (provider.shutdown() != SACCADE_OK) return result(TestResult::shutdown_failed);
-    if (GetTickCount64() - shutdown_started > 1'000) return result(TestResult::shutdown_unbounded);
+    if (provider.shutdown() != SACCADE_OK)
+        return result(TestResult::shutdown_failed);
+    if (GetTickCount64() - shutdown_started > 1'000)
+        return result(TestResult::shutdown_unbounded);
     if (descriptor.ops.request(descriptor.context, &request, &ticket) != SACCADE_ERROR_STATE || ticket != 0) {
         return result(TestResult::postshutdown_request_accepted);
     }
-    if (provider.initialize() != SACCADE_OK) return result(TestResult::reinitialization_failed);
+    if (provider.initialize() != SACCADE_OK)
+        return result(TestResult::reinitialization_failed);
     return result(provider.shutdown() == SACCADE_OK ? TestResult::success : TestResult::final_shutdown_failed);
 }

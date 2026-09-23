@@ -25,8 +25,7 @@ typedef uint32_t SaccadeOverlayInstanceMeta;
 #define SACCADE_OVERLAY_META_KIND_SHIFT UINT32_C(18)
 #define SACCADE_OVERLAY_META_KIND_MASK UINT32_C(0x001C0000)
 
-static inline SaccadeOverlayInstanceMeta saccade_overlay_instance_meta_make(uint32_t target_index, uint32_t style_index,
-                                                                            uint32_t kind) {
+static inline SaccadeOverlayInstanceMeta saccade_overlay_instance_meta_make(uint32_t target_index, uint32_t style_index, uint32_t kind) {
     return (target_index & SACCADE_OVERLAY_META_TARGET_MASK) |
            ((style_index << SACCADE_OVERLAY_META_STYLE_SHIFT) & SACCADE_OVERLAY_META_STYLE_MASK) |
            ((kind << SACCADE_OVERLAY_META_KIND_SHIFT) & SACCADE_OVERLAY_META_KIND_MASK);

@@ -55,10 +55,9 @@ class TargetPostprocessor final {
     TargetPostprocessor(TargetPostprocessor&&) = delete;
     TargetPostprocessor& operator=(TargetPostprocessor&&) = delete;
 
-    SaccadeResult initialize(void* metal_device, const char* metallib_path, PathPreference,
-                             const TargetPostprocessorSpec&) noexcept;
-    SaccadeResult submit(uint32_t candidate_count, const kernels::targets::PostprocessConfig&,
-                         const kernels::targets::PostprocessEpochs&, TargetPostprocessSubmission*) noexcept;
+    SaccadeResult initialize(void* metal_device, const char* metallib_path, PathPreference, const TargetPostprocessorSpec&) noexcept;
+    SaccadeResult submit(uint32_t candidate_count, const kernels::targets::PostprocessConfig&, const kernels::targets::PostprocessEpochs&,
+                         TargetPostprocessSubmission*) noexcept;
     SaccadeResult poll(const TargetPostprocessSubmission&, bool*) noexcept;
     SaccadeResult wait(const TargetPostprocessSubmission&, uint64_t timeout_ns) noexcept;
     SaccadeResult packet(const TargetPostprocessSubmission&, TargetPacketSpan*) noexcept;

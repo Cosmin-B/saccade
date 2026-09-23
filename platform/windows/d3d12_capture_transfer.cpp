@@ -59,9 +59,8 @@ struct D3d12CaptureTransfer::Impl {
         shared.SampleDesc.Count = 1;
         shared.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
         shared.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
-        HRESULT result = consumer_device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_SHARED, &shared,
-                                                                   D3D12_RESOURCE_STATE_COMMON, nullptr,
-                                                                   IID_PPV_ARGS(slot.consumer_.GetAddressOf()));
+        HRESULT result = consumer_device_->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_SHARED, &shared, D3D12_RESOURCE_STATE_COMMON,
+                                                                   nullptr, IID_PPV_ARGS(slot.consumer_.GetAddressOf()));
         if (FAILED(result)) {
             stats_.native_error = result;
             stats_.error_stage = D3d12CaptureTransferStage::create_texture;
@@ -69,8 +68,7 @@ struct D3d12CaptureTransfer::Impl {
         }
 
         HANDLE shared_handle = nullptr;
-        result =
-            consumer_device_->CreateSharedHandle(slot.consumer_.Get(), nullptr, GENERIC_ALL, nullptr, &shared_handle);
+        result = consumer_device_->CreateSharedHandle(slot.consumer_.Get(), nullptr, GENERIC_ALL, nullptr, &shared_handle);
         if (FAILED(result)) {
             stats_.native_error = result;
             stats_.error_stage = D3d12CaptureTransferStage::share_texture;
@@ -133,7 +131,8 @@ const D3d12CaptureTransfer::Impl& D3d12CaptureTransfer::impl() const noexcept {
 SaccadeResult D3d12CaptureTransfer::initialize(ID3D11Device* producer_device, ID3D11DeviceContext* producer_context,
                                                ID3D12Device* consumer_device) noexcept {
     Impl& state = impl();
-    if (state.initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (state.initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (producer_device == nullptr || producer_context == nullptr || consumer_device == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -143,18 +142,18 @@ SaccadeResult D3d12CaptureTransfer::initialize(ID3D11Device* producer_device, ID
     }
     state.producer_context_ = producer_context;
     state.consumer_device_ = consumer_device;
-    HRESULT result = state.producer_device_->CreateFence(0, D3D11_FENCE_FLAG_SHARED,
-                                                         IID_PPV_ARGS(state.producer_fence_.GetAddressOf()));
+    HRESULT result = state.producer_device_->CreateFence(0, D3D11_FENCE_FLAG_SHARED, IID_PPV_ARGS(state.producer_fence_.GetAddressOf()));
     HANDLE fence_handle = nullptr;
     if (SUCCEEDED(result)) {
         result = state.producer_fence_->CreateSharedHandle(nullptr, GENERIC_ALL, nullptr, &fence_handle);
     }
     if (SUCCEEDED(result)) {
-        result =
-            state.consumer_device_->OpenSharedHandle(fence_handle, IID_PPV_ARGS(state.consumer_fence_.GetAddressOf()));
+        result = state.consumer_device_->OpenSharedHandle(fence_handle, IID_PPV_ARGS(state.consumer_fence_.GetAddressOf()));
     }
-    if (fence_handle != nullptr) (void)CloseHandle(fence_handle);
-    if (FAILED(result)) return SACCADE_ERROR_BACKEND;
+    if (fence_handle != nullptr)
+        (void)CloseHandle(fence_handle);
+    if (FAILED(result))
+        return SACCADE_ERROR_BACKEND;
     state.owner_thread_ = GetCurrentThreadId();
     state.initialized_ = true;
     return SACCADE_OK;
@@ -163,8 +162,10 @@ SaccadeResult D3d12CaptureTransfer::initialize(ID3D11Device* producer_device, ID
 SaccadeResult D3d12CaptureTransfer::copy(ID3D11Texture2D* source, uint32_t width, uint32_t height,
                                          D3d12CaptureTransferFrame* output) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || state.owner_thread_ != GetCurrentThreadId()) return SACCADE_ERROR_STATE;
-    if (source == nullptr || output == nullptr || width == 0 || height == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state.initialized_ || state.owner_thread_ != GetCurrentThreadId())
+        return SACCADE_ERROR_STATE;
+    if (source == nullptr || output == nullptr || width == 0 || height == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *output = {};
     D3D11_TEXTURE2D_DESC source_desc{};
     source->GetDesc(&source_desc);
@@ -189,9 +190,9 @@ SaccadeResult D3d12CaptureTransfer::copy(ID3D11Texture2D* source, uint32_t width
             }
         }
     }
-    if (slot == nullptr) return SACCADE_ERROR_CAPACITY;
-    if (slot->width_ != source_desc.Width || slot->height_ != source_desc.Height ||
-        slot->format_ != source_desc.Format) {
+    if (slot == nullptr)
+        return SACCADE_ERROR_CAPACITY;
+    if (slot->width_ != source_desc.Width || slot->height_ != source_desc.Height || slot->format_ != source_desc.Format) {
         state.stats_.committed_bytes -= slot->byte_size_;
         const SaccadeResult created = state.create_slot(*slot, source_desc);
         if (created != SACCADE_OK) {
@@ -225,8 +226,10 @@ SaccadeResult D3d12CaptureTransfer::copy(ID3D11Texture2D* source, uint32_t width
 
 SaccadeResult D3d12CaptureTransfer::release(D3d12CaptureTransferFrame frame) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || state.owner_thread_ != GetCurrentThreadId()) return SACCADE_ERROR_STATE;
-    if (frame.texture == nullptr || frame.slot >= state.slots_.size()) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state.initialized_ || state.owner_thread_ != GetCurrentThreadId())
+        return SACCADE_ERROR_STATE;
+    if (frame.texture == nullptr || frame.slot >= state.slots_.size())
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     Impl::Slot& slot = state.slots_[frame.slot];
     if (!slot.leased_ || slot.generation_ != frame.generation || slot.consumer_.Get() != frame.texture) {
         return SACCADE_ERROR_STALE_HANDLE;
@@ -238,10 +241,13 @@ SaccadeResult D3d12CaptureTransfer::release(D3d12CaptureTransferFrame frame) noe
 
 SaccadeResult D3d12CaptureTransfer::shutdown() noexcept {
     Impl& state = impl();
-    if (!state.initialized_) return SACCADE_OK;
-    if (state.owner_thread_ != GetCurrentThreadId()) return SACCADE_ERROR_STATE;
+    if (!state.initialized_)
+        return SACCADE_OK;
+    if (state.owner_thread_ != GetCurrentThreadId())
+        return SACCADE_ERROR_STATE;
     for (const Impl::Slot& slot : state.slots_) {
-        if (slot.leased_) return SACCADE_ERROR_BUSY;
+        if (slot.leased_)
+            return SACCADE_ERROR_BUSY;
     }
     state.producer_context_->Flush();
     state.~Impl();

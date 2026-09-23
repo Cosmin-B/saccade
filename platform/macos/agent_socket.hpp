@@ -11,8 +11,8 @@
 
 namespace saccade::platform::macos {
 
-using AgentRequestFn = SaccadeResult (*)(void*, SaccadeSpanU8, SaccadeAgentCapabilityBits, uint64_t,
-                                         SaccadeMutableSpanU8, size_t*) noexcept;
+using AgentRequestFn = SaccadeResult (*)(void*, SaccadeSpanU8, SaccadeAgentCapabilityBits, uint64_t, SaccadeMutableSpanU8,
+                                         size_t*) noexcept;
 using AgentDisconnectFn = SaccadeResult (*)(void*) noexcept;
 
 struct AgentSocketConfig {
@@ -59,7 +59,7 @@ class AgentSocket final {
     [[nodiscard]] AgentSocketStats stats() const noexcept { return stats_; }
 
   private:
-    enum class State : uint8_t { accepting, reading_size, reading_message, writing_size, writing_message };
+    enum class State : uint8_t { accepting, reading_size, reading_message, processing, writing_size, writing_message };
 
     SaccadeResult accept_client() noexcept;
     SaccadeResult read_size() noexcept;
@@ -67,6 +67,7 @@ class AgentSocket final {
     SaccadeResult write_size() noexcept;
     SaccadeResult write_message() noexcept;
     SaccadeResult process(uint64_t now_ns) noexcept;
+    SaccadeResult process_pending(uint64_t now_ns) noexcept;
     SaccadeResult hello(size_t* output_size) noexcept;
     SaccadeResult disconnect() noexcept;
     void unlink_owned_endpoint() noexcept;

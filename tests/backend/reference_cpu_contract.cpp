@@ -47,8 +47,7 @@ bool output_prefixes_are_bounded(SaccadeEnumerateDevicesFn enumerate, void* cont
     extended.current.struct_size = static_cast<uint32_t>(sizeof(extended));
     extended.current.api_version = SACCADE_API_VERSION;
     extended.future.fill(UINT64_C(0xA5A5A5A5A5A5A5A5));
-    if (enumerate(context, 0, &extended.current) != SACCADE_OK ||
-        extended.current.struct_size != sizeof(SaccadeDeviceInfo) ||
+    if (enumerate(context, 0, &extended.current) != SACCADE_OK || extended.current.struct_size != sizeof(SaccadeDeviceInfo) ||
         extended.future[0] != UINT64_C(0xA5A5A5A5A5A5A5A5) || extended.future[1] != UINT64_C(0xA5A5A5A5A5A5A5A5)) {
         return false;
     }
@@ -120,10 +119,9 @@ int main() {
     parameters.minimum_area = 4;
     DetectionResult direct{};
     if (saccade::backend::reference_cpu::detect(frame, parameters, &direct) != SACCADE_OK || direct.target_count != 2 ||
-        direct.targets[0].x != 1 || direct.targets[0].y != 1 || direct.targets[0].width != 2 ||
-        direct.targets[0].height != 2 || direct.targets[0].safe_x != 2 || direct.targets[0].safe_y != 2 ||
-        direct.targets[0].area != 4 || direct.targets[1].x != 5 || direct.targets[1].y != 3 ||
-        direct.targets[1].width != 3 || direct.targets[1].height != 2 || direct.targets[1].area != 6 ||
+        direct.targets[0].x != 1 || direct.targets[0].y != 1 || direct.targets[0].width != 2 || direct.targets[0].height != 2 ||
+        direct.targets[0].safe_x != 2 || direct.targets[0].safe_y != 2 || direct.targets[0].area != 4 || direct.targets[1].x != 5 ||
+        direct.targets[1].y != 3 || direct.targets[1].width != 3 || direct.targets[1].height != 2 || direct.targets[1].area != 6 ||
         direct.targets[0].stable_id == direct.targets[1].stable_id) {
         return 1;
     }
@@ -132,8 +130,7 @@ int main() {
     rgba.pixel_format = SACCADE_FORMAT_RGBA8;
     DetectionResult rgba_result{};
     if (saccade::backend::reference_cpu::detect(rgba, parameters, &rgba_result) != SACCADE_OK ||
-        rgba_result.target_count != direct.target_count ||
-        rgba_result.targets[0].stable_id != direct.targets[0].stable_id ||
+        rgba_result.target_count != direct.target_count || rgba_result.targets[0].stable_id != direct.targets[0].stable_id ||
         rgba_result.targets[1].confidence_q16 != direct.targets[1].confidence_q16) {
         return 15;
     }
@@ -151,16 +148,14 @@ int main() {
     DetectionResult bridge_result{};
     if (saccade::backend::reference_cpu::detect(bridge, bridge_parameters, &bridge_result) != SACCADE_OK ||
         bridge_result.target_count != 1 || bridge_result.targets[0].x != 0 || bridge_result.targets[0].y != 0 ||
-        bridge_result.targets[0].width != 5 || bridge_result.targets[0].height != 2 ||
-        bridge_result.targets[0].area != 7) {
+        bridge_result.targets[0].width != 5 || bridge_result.targets[0].height != 2 || bridge_result.targets[0].area != 7) {
         return 16;
     }
 
     FrameView malformed = frame;
     malformed.row_stride_bytes = 1;
     DetectionResult malformed_result{};
-    if (saccade::backend::reference_cpu::detect(malformed, parameters, &malformed_result) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (saccade::backend::reference_cpu::detect(malformed, parameters, &malformed_result) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 2;
     }
 
@@ -191,8 +186,7 @@ int main() {
         return 5;
     }
     std::array<uint8_t, saccade::backend::reference_cpu::model_byte_count> bad_model{};
-    if (provider.ops.query_model(provider.context, {bad_model.data(), bad_model.size()}, &queried) !=
-        SACCADE_ERROR_INVALID_ARGUMENT) {
+    if (provider.ops.query_model(provider.context, {bad_model.data(), bad_model.size()}, &queried) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 6;
     }
 
@@ -228,33 +222,28 @@ int main() {
         return 9;
     }
     SaccadeInferenceStatus status = output_structure<SaccadeInferenceStatus>();
-    if (provider.ops.poll(provider.context, context, ticket, &status) != SACCADE_OK ||
-        status.state != SACCADE_TICKET_CANCELLED) {
+    if (provider.ops.poll(provider.context, context, ticket, &status) != SACCADE_OK || status.state != SACCADE_TICKET_CANCELLED) {
         return 10;
     }
     size_t required = 0;
     std::array<uint8_t, saccade::backend::reference_cpu::maximum_output_size> output{};
-    if (provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) !=
-            SACCADE_ERROR_CANCELLED ||
+    if (provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) != SACCADE_ERROR_CANCELLED ||
         provider.ops.submit(provider.context, context, &submit, &ticket) != SACCADE_OK ||
-        provider.ops.poll(provider.context, context, ticket, &status) != SACCADE_OK ||
-        status.state != SACCADE_TICKET_COMPLETE || status.frame_id != 123 || status.model_epoch != 5 ||
-        status.session_epoch != 6 || status.transform_epoch != 7 || status.produced_bytes == 0) {
+        provider.ops.poll(provider.context, context, ticket, &status) != SACCADE_OK || status.state != SACCADE_TICKET_COMPLETE ||
+        status.frame_id != 123 || status.model_epoch != 5 || status.session_epoch != 6 || status.transform_epoch != 7 ||
+        status.produced_bytes == 0) {
         return 11;
     }
 
-    if (provider.ops.collect(provider.context, context, ticket, {output.data(), 8}, &required) !=
-            SACCADE_ERROR_CAPACITY ||
+    if (provider.ops.collect(provider.context, context, ticket, {output.data(), 8}, &required) != SACCADE_ERROR_CAPACITY ||
         required != status.produced_bytes ||
-        provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) !=
-            SACCADE_OK) {
+        provider.ops.collect(provider.context, context, ticket, {output.data(), output.size()}, &required) != SACCADE_OK) {
         return 12;
     }
     DecodedOutput decoded{};
-    if (saccade::backend::reference_cpu::decode_output({output.data(), required}, &decoded) != SACCADE_OK ||
-        decoded.frame_id != 123 || decoded.model_epoch != 5 || decoded.session_epoch != 6 ||
-        decoded.transform_epoch != 7 || decoded.detections.target_count != direct.target_count ||
-        decoded.detections.targets[0].stable_id != direct.targets[0].stable_id ||
+    if (saccade::backend::reference_cpu::decode_output({output.data(), required}, &decoded) != SACCADE_OK || decoded.frame_id != 123 ||
+        decoded.model_epoch != 5 || decoded.session_epoch != 6 || decoded.transform_epoch != 7 ||
+        decoded.detections.target_count != direct.target_count || decoded.detections.targets[0].stable_id != direct.targets[0].stable_id ||
         decoded.detections.targets[1].confidence_q16 != direct.targets[1].confidence_q16) {
         return 13;
     }

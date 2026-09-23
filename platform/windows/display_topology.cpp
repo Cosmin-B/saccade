@@ -118,8 +118,8 @@ SaccadeResult DisplayCollector::refresh(geometry::DisplayCatalog* catalog) noexc
         return SACCADE_ERROR_STATE;
     }
     EnumerationContext context{};
-    if (EnumDisplayMonitors(nullptr, nullptr, collect_monitor, reinterpret_cast<LPARAM>(&context)) == FALSE ||
-        context.failed || context.count == 0) {
+    if (EnumDisplayMonitors(nullptr, nullptr, collect_monitor, reinterpret_cast<LPARAM>(&context)) == FALSE || context.failed ||
+        context.count == 0) {
         ++stats_.failures;
         return context.count == geometry::display_capacity ? SACCADE_ERROR_CAPACITY : SACCADE_ERROR_BACKEND;
     }

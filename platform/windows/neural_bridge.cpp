@@ -6,17 +6,17 @@ namespace saccade::platform::windows {
 namespace {
 
 bool q8(uint32_t value, int32_t* output) noexcept {
-    if (value > (static_cast<uint32_t>(INT32_MAX) >> 8U)) return false;
+    if (value > (static_cast<uint32_t>(INT32_MAX) >> 8U))
+        return false;
     *output = static_cast<int32_t>(value << 8U);
     return true;
 }
 
 bool frame_matches_display(const SceneCaptureFrame& frame, const geometry::DisplaySurface& display,
                            uint64_t scene_transform_epoch) noexcept {
-    return frame.frame.frame != 0 && frame.frame.frame_id != 0 && frame.frame.source_id != 0 &&
-           frame.frame.transform_epoch != 0 && frame.native.d3d11_texture != nullptr &&
-           frame.native.pixel_format == SACCADE_FORMAT_BGRA8 && frame.native.width >= frame.frame.width &&
-           frame.native.height >= frame.frame.height && frame.display_id == display.display_id &&
+    return frame.frame.frame != 0 && frame.frame.frame_id != 0 && frame.frame.source_id != 0 && frame.frame.transform_epoch != 0 &&
+           frame.native.d3d11_texture != nullptr && frame.native.pixel_format == SACCADE_FORMAT_BGRA8 &&
+           frame.native.width >= frame.frame.width && frame.native.height >= frame.frame.height && frame.display_id == display.display_id &&
            frame.topology_epoch != 0 && scene_transform_epoch != 0 && geometry::rect_valid(display.desktop_bounds);
 }
 
@@ -27,28 +27,30 @@ NeuralBridge::~NeuralBridge() {
 }
 
 SaccadeResult NeuralBridge::initialize(SaccadeRuntimeHandle runtime) noexcept {
-    if (runtime_ != 0) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (runtime == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (runtime_ != 0)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (runtime == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     runtime_ = runtime;
     return SACCADE_OK;
 }
 
 SaccadeResult NeuralBridge::initialize(const NeuralBridgeConfig& config) noexcept {
-    if (runtime_ != 0) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (config.runtime == 0) return SACCADE_ERROR_INVALID_ARGUMENT;
-    SaccadeResult result =
-        transfer_.initialize(config.producer_device, config.producer_context, config.consumer_device);
-    if (result != SACCADE_OK) return result;
+    if (runtime_ != 0)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (config.runtime == 0)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    SaccadeResult result = transfer_.initialize(config.producer_device, config.producer_context, config.consumer_device);
+    if (result != SACCADE_OK)
+        return result;
     runtime_ = config.runtime;
     transfer_initialized_ = true;
     return SACCADE_OK;
 }
 
-SaccadeResult NeuralBridge::import(SceneCaptureSet* captures, const SceneCaptureFrame& capture,
-                                   const geometry::DisplaySurface& display, uint64_t scene_transform_epoch,
-                                   scheduler::DesktopNeuralFrame* output) noexcept {
-    if (runtime_ == 0 || captures == nullptr || output == nullptr ||
-        !frame_matches_display(capture, display, scene_transform_epoch)) {
+SaccadeResult NeuralBridge::import(SceneCaptureSet* captures, const SceneCaptureFrame& capture, const geometry::DisplaySurface& display,
+                                   uint64_t scene_transform_epoch, scheduler::DesktopNeuralFrame* output) noexcept {
+    if (runtime_ == 0 || captures == nullptr || output == nullptr || !frame_matches_display(capture, display, scene_transform_epoch)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {};
@@ -90,8 +92,7 @@ SaccadeResult NeuralBridge::import(SceneCaptureSet* captures, const SceneCapture
     frame.transform_epoch = capture.frame.transform_epoch;
     D3d12CaptureTransferFrame transfer{};
     if (transfer_initialized_) {
-        result = transfer_.copy(static_cast<ID3D11Texture2D*>(capture.native.d3d11_texture), frame.width, frame.height,
-                                &transfer);
+        result = transfer_.copy(static_cast<ID3D11Texture2D*>(capture.native.d3d11_texture), frame.width, frame.height, &transfer);
         if (result != SACCADE_OK) {
             ++stats_.failures;
             return result;
@@ -103,7 +104,8 @@ SaccadeResult NeuralBridge::import(SceneCaptureSet* captures, const SceneCapture
     SaccadeFrameHandle imported = 0;
     result = saccade_frame_import_win32_capture(runtime_, &frame, &imported);
     if (result != SACCADE_OK) {
-        if (transfer.texture != nullptr) (void)transfer_.release(transfer);
+        if (transfer.texture != nullptr)
+            (void)transfer_.release(transfer);
         ++stats_.failures;
         return result;
     }
@@ -129,8 +131,7 @@ SaccadeResult NeuralBridge::import(SceneCaptureSet* captures, const SceneCapture
 }
 
 void NeuralBridge::retire(RetirementSlot* retirement, SaccadeFrameHandle frame) noexcept {
-    if (retirement == nullptr || retirement->owner != this || retirement->captures == nullptr ||
-        retirement->frame != frame) {
+    if (retirement == nullptr || retirement->owner != this || retirement->captures == nullptr || retirement->frame != frame) {
         ++stats_.failures;
         return;
     }
@@ -150,12 +151,15 @@ void NeuralBridge::retire(RetirementSlot* retirement, SaccadeFrameHandle frame) 
 }
 
 SaccadeResult NeuralBridge::shutdown() noexcept {
-    if (runtime_ == 0) return SACCADE_OK;
+    if (runtime_ == 0)
+        return SACCADE_OK;
     for (const RetirementSlot& retirement : retirements_) {
-        if (retirement.frame != 0) return SACCADE_ERROR_BUSY;
+        if (retirement.frame != 0)
+            return SACCADE_ERROR_BUSY;
     }
     const SaccadeResult result = transfer_initialized_ ? transfer_.shutdown() : SACCADE_OK;
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     runtime_ = 0;
     transfer_initialized_ = false;
     return SACCADE_OK;

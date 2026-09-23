@@ -25,22 +25,24 @@ SaccadeInferenceOps inference_ops() {
     ops.query_model = +[](void*, SaccadeSpanU8, SaccadeModelInfo*) -> SaccadeResult { return SACCADE_OK; };
     ops.create_model = +[](void*, const SaccadeModelDesc*, SaccadeModelHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy_model = +[](void*, SaccadeModelHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.create_context = +[](void*, const SaccadeExecutionContextDesc*,
-                             SaccadeExecutionContextHandle*) -> SaccadeResult { return SACCADE_OK; };
+    ops.create_context =
+        +[](void*, const SaccadeExecutionContextDesc*, SaccadeExecutionContextHandle*) -> SaccadeResult { return SACCADE_OK; };
     ops.destroy_context = +[](void*, SaccadeExecutionContextHandle) -> SaccadeResult { return SACCADE_OK; };
-    ops.submit = +[](void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*,
-                     SaccadeTicketHandle*) -> SaccadeResult { return SACCADE_OK; };
-    ops.poll = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                   SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.wait = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t,
-                   SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
-    ops.collect = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8,
-                      size_t*) -> SaccadeResult { return SACCADE_OK; };
+    ops.submit = +[](void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*, SaccadeTicketHandle*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
+    ops.poll =
+        +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeInferenceStatus*) -> SaccadeResult { return SACCADE_OK; };
+    ops.wait = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t, SaccadeInferenceStatus*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
+    ops.collect = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*) -> SaccadeResult {
+        return SACCADE_OK;
+    };
     ops.cancel = +[](void*, SaccadeExecutionContextHandle, SaccadeTicketHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.reset = +[](void*, SaccadeExecutionContextHandle) -> SaccadeResult { return SACCADE_OK; };
     ops.synchronize = +[](void*, SaccadeExecutionContextHandle, uint64_t) -> SaccadeResult { return SACCADE_OK; };
-    ops.memory_stats =
-        +[](void*, SaccadeExecutionContextHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
+    ops.memory_stats = +[](void*, SaccadeExecutionContextHandle, SaccadeMemoryStats*) -> SaccadeResult { return SACCADE_OK; };
     return ops;
 }
 
@@ -103,8 +105,7 @@ int main() {
     if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK) {
         return 6;
     }
-    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_ERROR_ALREADY_EXISTS ||
-        saccade_last_error().size == 0) {
+    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_ERROR_ALREADY_EXISTS || saccade_last_error().size == 0) {
         return 7;
     }
     saccade::backend::reference_cpu::Backend reference_backend;
@@ -133,13 +134,11 @@ int main() {
     SaccadeFrameHandle domain_frame = 0;
     SaccadeFrameHandle other_domain_frame = 0;
     if (saccade_frame_import(runtime, &frame_desc, &domain_frame) != SACCADE_OK ||
-        saccade_frame_import(other_runtime, &frame_desc, &other_domain_frame) != SACCADE_OK ||
-        domain_frame == other_domain_frame ||
+        saccade_frame_import(other_runtime, &frame_desc, &other_domain_frame) != SACCADE_OK || domain_frame == other_domain_frame ||
         saccade_frame_release(other_runtime, domain_frame) != SACCADE_ERROR_STALE_HANDLE ||
         saccade_frame_release(runtime, other_domain_frame) != SACCADE_ERROR_STALE_HANDLE ||
         saccade_frame_release(runtime, domain_frame) != SACCADE_OK ||
-        saccade_frame_release(other_runtime, other_domain_frame) != SACCADE_OK ||
-        saccade_runtime_destroy(other_runtime) != SACCADE_OK) {
+        saccade_frame_release(other_runtime, other_domain_frame) != SACCADE_OK || saccade_runtime_destroy(other_runtime) != SACCADE_OK) {
         return 9;
     }
 
@@ -152,9 +151,9 @@ int main() {
     const SaccadeResult release_result = saccade_frame_release(runtime, frame);
     const SaccadeResult newest_release_result = saccade_frame_release(runtime, newest_frame);
     const size_t frame_allocations = saccade::test::end_allocation_tracking();
-    if (import_result != SACCADE_OK || replacement_result != SACCADE_OK || frame == 0 || newest_frame == 0 ||
-        frame == newest_frame || release_result != SACCADE_OK || newest_release_result != SACCADE_OK ||
-        frame_allocations != 0 || saccade_frame_release(runtime, frame) != SACCADE_ERROR_STALE_HANDLE ||
+    if (import_result != SACCADE_OK || replacement_result != SACCADE_OK || frame == 0 || newest_frame == 0 || frame == newest_frame ||
+        release_result != SACCADE_OK || newest_release_result != SACCADE_OK || frame_allocations != 0 ||
+        saccade_frame_release(runtime, frame) != SACCADE_ERROR_STALE_HANDLE ||
         saccade_frame_release(runtime, newest_frame) != SACCADE_ERROR_STALE_HANDLE ||
         saccade_frame_release(runtime, 0) != SACCADE_ERROR_INVALID_ARGUMENT) {
         return 10;
@@ -180,16 +179,15 @@ int main() {
     iosurface.height = 1;
     frame = 99;
 #if defined(__APPLE__)
-    CFDictionaryRef surface_properties = CFDictionaryCreate(
-        kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryRef surface_properties =
+        CFDictionaryCreate(kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     const void* keys[] = {kCVPixelBufferIOSurfacePropertiesKey};
     const void* values[] = {surface_properties};
-    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1,
-                                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryRef attributes =
+        CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFRelease(surface_properties);
     CVPixelBufferRef pixel_buffer = nullptr;
-    const CVReturn create_result =
-        CVPixelBufferCreate(kCFAllocatorDefault, 1, 1, kCVPixelFormatType_32BGRA, attributes, &pixel_buffer);
+    const CVReturn create_result = CVPixelBufferCreate(kCFAllocatorDefault, 1, 1, kCVPixelFormatType_32BGRA, attributes, &pixel_buffer);
     CFRelease(attributes);
     if (create_result != kCVReturnSuccess || pixel_buffer == nullptr) {
         return 12;
@@ -236,9 +234,8 @@ int main() {
     session_info.struct_size = sizeof(session_info);
     session_info.api_version = SACCADE_API_VERSION;
     SaccadeExecutionContextHandle session = 0;
-    if (saccade_inference_session_create(runtime, &session_desc, &session, &session_info) != SACCADE_OK ||
-        session == 0 || session_info.session != session ||
-        session_info.provider_stable_id != reference_provider.info.stable_id ||
+    if (saccade_inference_session_create(runtime, &session_desc, &session, &session_info) != SACCADE_OK || session == 0 ||
+        session_info.session != session || session_info.provider_stable_id != reference_provider.info.stable_id ||
         session_info.max_output_bytes != saccade::backend::reference_cpu::maximum_output_size) {
         return 22;
     }
@@ -267,17 +264,15 @@ int main() {
     SaccadeInferenceStatus inference_status{};
     inference_status.struct_size = sizeof(inference_status);
     inference_status.api_version = SACCADE_API_VERSION;
-    if (saccade_inference_poll(runtime, session, ticket, &inference_status) != SACCADE_OK ||
-        inference_status.ticket != ticket || inference_status.state != SACCADE_TICKET_COMPLETE ||
-        inference_status.frame_id != 30 || inference_status.model_epoch != 40 || inference_status.session_epoch != 41 ||
-        inference_status.transform_epoch != 30 || inference_status.topology_epoch != 42 ||
+    if (saccade_inference_poll(runtime, session, ticket, &inference_status) != SACCADE_OK || inference_status.ticket != ticket ||
+        inference_status.state != SACCADE_TICKET_COMPLETE || inference_status.frame_id != 30 || inference_status.model_epoch != 40 ||
+        inference_status.session_epoch != 41 || inference_status.transform_epoch != 30 || inference_status.topology_epoch != 42 ||
         inference_status.source_id != 43) {
         return 25;
     }
     std::array<uint8_t, saccade::backend::reference_cpu::maximum_output_size> inference_output{};
     size_t required = 0;
-    if (saccade_inference_collect(runtime, session, ticket, {inference_output.data(), inference_output.size()},
-                                  &required) != SACCADE_OK ||
+    if (saccade_inference_collect(runtime, session, ticket, {inference_output.data(), inference_output.size()}, &required) != SACCADE_OK ||
         required == 0 || saccade_frame_release(runtime, frame) != SACCADE_OK) {
         return 26;
     }
@@ -304,8 +299,7 @@ int main() {
     submit.frame = frame;
     submit.transform_epoch = 32;
     if (saccade_inference_submit(runtime, session, &submit, &ticket) != SACCADE_OK ||
-        saccade_inference_reset(runtime, session) != SACCADE_OK ||
-        saccade_frame_release(runtime, frame) != SACCADE_OK) {
+        saccade_inference_reset(runtime, session) != SACCADE_OK || saccade_frame_release(runtime, frame) != SACCADE_OK) {
         return 30;
     }
     SaccadeMemoryStats inference_memory{};
@@ -321,8 +315,7 @@ int main() {
     if (saccade_register_inference_provider(runtime, &provider) != SACCADE_ERROR_STATE) {
         return 14;
     }
-    if (saccade_runtime_destroy(runtime) != SACCADE_OK ||
-        saccade_runtime_freeze(runtime) != SACCADE_ERROR_STALE_HANDLE) {
+    if (saccade_runtime_destroy(runtime) != SACCADE_OK || saccade_runtime_freeze(runtime) != SACCADE_ERROR_STALE_HANDLE) {
         return 15;
     }
 
@@ -340,8 +333,7 @@ int main() {
     ExtendedRuntimeDesc larger{};
     larger.current = runtime_desc();
     larger.current.struct_size = static_cast<uint32_t>(sizeof(larger));
-    if (saccade_runtime_create(&larger.current, &runtime) != SACCADE_OK ||
-        saccade_runtime_destroy(runtime) != SACCADE_OK) {
+    if (saccade_runtime_create(&larger.current, &runtime) != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK) {
         return 17;
     }
 
@@ -349,8 +341,7 @@ int main() {
     desc = runtime_desc();
     std::memcpy(runtime_storage.data() + 1, &desc, sizeof(desc));
     const auto* misaligned_runtime = reinterpret_cast<const SaccadeRuntimeDesc*>(runtime_storage.data() + 1);
-    if (saccade_runtime_create(misaligned_runtime, &runtime) != SACCADE_OK ||
-        saccade_runtime_destroy(runtime) != SACCADE_OK) {
+    if (saccade_runtime_create(misaligned_runtime, &runtime) != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK) {
         return 18;
     }
 

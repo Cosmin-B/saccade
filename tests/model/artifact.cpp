@@ -45,8 +45,7 @@ constexpr std::array<uint8_t, 4> payload{{1, 2, 3, 4}};
 constexpr size_t payload_offset = saccade::model::artifact_header_bytes;
 constexpr size_t signature_offset = payload_offset + payload.size();
 constexpr size_t artifact_size = signature_offset + saccade::model::artifact_signature_bytes;
-constexpr uint32_t maximum_output_bytes =
-    sizeof(SaccadeTargetPacketHeader) + maximum_targets * sizeof(SaccadeTargetRecord);
+constexpr uint32_t maximum_output_bytes = sizeof(SaccadeTargetPacketHeader) + maximum_targets * sizeof(SaccadeTargetRecord);
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -99,8 +98,7 @@ SaccadeResult verify(void* context, const saccade::model::ArtifactView& view) no
     auto* capture = static_cast<VerificationCapture*>(context);
     ++capture->calls;
     return view.stable_id == stable_id && view.payload.size == payload.size() && view.signed_message.data != nullptr &&
-                   view.signed_message.size == signature_offset &&
-                   view.signature.size == saccade::model::artifact_signature_bytes
+                   view.signed_message.size == signature_offset && view.signature.size == saccade::model::artifact_signature_bytes
                ? SACCADE_OK
                : SACCADE_ERROR_INVALID_ARGUMENT;
 }
@@ -110,9 +108,9 @@ SaccadeResult verify(void* context, const saccade::model::ArtifactView& view) no
 int main() {
     auto bytes = artifact();
     saccade::model::ArtifactView view{};
-    if (saccade::model::parse_artifact({bytes.data(), bytes.size()}, &view) != SACCADE_OK ||
-        view.stable_id != stable_id || view.input_width != input_width || view.input_height != input_height ||
-        view.max_targets != maximum_targets || view.payload.data != bytes.data() + payload_offset)
+    if (saccade::model::parse_artifact({bytes.data(), bytes.size()}, &view) != SACCADE_OK || view.stable_id != stable_id ||
+        view.input_width != input_width || view.input_height != input_height || view.max_targets != maximum_targets ||
+        view.payload.data != bytes.data() + payload_offset)
         return result(TestResult::parse_failed);
     VerificationCapture capture{};
     if (saccade::model::verify_artifact(view, {&capture, verify}) != SACCADE_OK || capture.calls != 1)
@@ -132,7 +130,8 @@ int main() {
     constexpr char mapped_path[] = "saccade-mapped-artifact-test.bin";
     std::FILE* file = nullptr;
 #if defined(_WIN32)
-    if (fopen_s(&file, mapped_path, "wb") != 0) return result(TestResult::mapping_failed);
+    if (fopen_s(&file, mapped_path, "wb") != 0)
+        return result(TestResult::mapping_failed);
 #else
     file = std::fopen(mapped_path, "wb");
 #endif
@@ -140,8 +139,7 @@ int main() {
         return result(TestResult::mapping_failed);
     saccade::model::MappedArtifact mapped;
     if (mapped.initialize(mapped_path, {&capture, verify}) != SACCADE_OK || mapped.bytes().size != bytes.size() ||
-        mapped.view().stable_id != stable_id || capture.calls != 2 || mapped.shutdown() != SACCADE_OK ||
-        std::remove(mapped_path) != 0)
+        mapped.view().stable_id != stable_id || capture.calls != 2 || mapped.shutdown() != SACCADE_OK || std::remove(mapped_path) != 0)
         return result(TestResult::mapping_failed);
     return result(TestResult::success);
 }

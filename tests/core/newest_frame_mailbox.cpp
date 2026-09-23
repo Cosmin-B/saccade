@@ -22,8 +22,8 @@ int main() {
     if (mailbox.replace(1) != 0 || mailbox.replace(2) != 1 || mailbox.take() != 2 || mailbox.take() != 0) {
         return 2;
     }
-    if (mailbox.replace(3) != 0 || mailbox.remove_quiescent(4) || !mailbox.remove_quiescent(3) ||
-        mailbox.replace(4) != 0 || mailbox.clear_quiescent() != 4 || mailbox.take() != 0) {
+    if (mailbox.replace(3) != 0 || mailbox.remove_quiescent(4) || !mailbox.remove_quiescent(3) || mailbox.replace(4) != 0 ||
+        mailbox.clear_quiescent() != 4 || mailbox.take() != 0) {
         return 3;
     }
 
@@ -97,8 +97,8 @@ int main() {
         }
     }
     const saccade::core::NewestFrameMailboxStats concurrent_stats = concurrent.stats_quiescent();
-    if (concurrent_stats.published != stress_count ||
-        concurrent_stats.replaced + concurrent_stats.consumed != stress_count || concurrent_stats.discarded != 0) {
+    if (concurrent_stats.published != stress_count || concurrent_stats.replaced + concurrent_stats.consumed != stress_count ||
+        concurrent_stats.discarded != 0) {
         return 9;
     }
 

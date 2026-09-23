@@ -25,9 +25,8 @@ constexpr int to_process_exit_code(ExitCode code) noexcept {
     return static_cast<int>(code);
 }
 
-constexpr size_t max_packet_bytes = sizeof(SaccadeOverlayPacketHeader) +
-                                    SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
-                                    sizeof(SaccadeOverlayStyle);
+constexpr size_t max_packet_bytes =
+    sizeof(SaccadeOverlayPacketHeader) + SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 
 alignas(64) std::array<uint8_t, max_packet_bytes> packet_storage{};
 uint64_t benchmark_sink = 0;
@@ -117,25 +116,22 @@ template <class Operation> uint64_t measure_ns(uint32_t iterations, Operation&& 
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count());
 }
 
-bool append_result(saccade::core::StackStringBuilder<2048>* text, const char* path, uint32_t target_count,
-                   const char* operation, uint32_t iterations, uint64_t elapsed_ns) noexcept {
+bool append_result(saccade::core::StackStringBuilder<2048>* text, const char* path, uint32_t target_count, const char* operation,
+                   uint32_t iterations, uint64_t elapsed_ns) noexcept {
     return elapsed_ns != 0 && text->append("path=") && text->append(path) && text->append(" targets=") &&
-           text->append_unsigned(target_count) && text->append(" operation=") && text->append(operation) &&
-           text->append(" iterations=") && text->append_unsigned(iterations) && text->append(" total_ns=") &&
-           text->append_unsigned(elapsed_ns) && text->append(" ns_per_operation=") &&
-           text->append_unsigned(elapsed_ns / iterations) && text->append('\n');
+           text->append_unsigned(target_count) && text->append(" operation=") && text->append(operation) && text->append(" iterations=") &&
+           text->append_unsigned(iterations) && text->append(" total_ns=") && text->append_unsigned(elapsed_ns) &&
+           text->append(" ns_per_operation=") && text->append_unsigned(elapsed_ns / iterations) && text->append('\n');
 }
 
-bool submit_and_wait(saccade::backend::metal::OverlayExpander* expander,
-                     const SaccadeOverlayFrameDesc& frame) noexcept {
+bool submit_and_wait(saccade::backend::metal::OverlayExpander* expander, const SaccadeOverlayFrameDesc& frame) noexcept {
     saccade::backend::metal::Submission submission{};
-    return expander->submit(frame, &submission) == SACCADE_OK &&
-           expander->wait(submission, UINT64_C(1000000000)) == SACCADE_OK;
+    return expander->submit(frame, &submission) == SACCADE_OK && expander->wait(submission, UINT64_C(1000000000)) == SACCADE_OK;
 }
 
 template <class Prepare>
-uint64_t measure_pipelined_ns(uint32_t iterations, saccade::backend::metal::OverlayExpander* expander,
-                              SaccadeOverlayFrameDesc* frame, Prepare&& prepare) noexcept {
+uint64_t measure_pipelined_ns(uint32_t iterations, saccade::backend::metal::OverlayExpander* expander, SaccadeOverlayFrameDesc* frame,
+                              Prepare&& prepare) noexcept {
     if (iterations == 0 || iterations % 3U != 0) {
         return 0;
     }
@@ -156,9 +152,7 @@ uint64_t measure_pipelined_ns(uint32_t iterations, saccade::backend::metal::Over
     }
     const auto end = std::chrono::steady_clock::now();
     benchmark_sink = completed;
-    return completed == iterations
-               ? static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count())
-               : 0;
+    return completed == iterations ? static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()) : 0;
 }
 
 bool run_case(saccade::backend::metal::OverlayExpander* expander, uint32_t target_count, uint32_t scene_iterations,
@@ -177,8 +171,8 @@ bool run_case(saccade::backend::metal::OverlayExpander* expander, uint32_t targe
         return submit_and_wait(expander, frame);
     });
     const uint32_t pipelined_scene_iterations = target_count < 10000 ? 600 : 120;
-    const uint64_t pipelined_scene_ns = measure_pipelined_ns(
-        pipelined_scene_iterations, expander, &frame, [&](uint32_t iteration, SaccadeOverlayFrameDesc* next) noexcept {
+    const uint64_t pipelined_scene_ns =
+        measure_pipelined_ns(pipelined_scene_iterations, expander, &frame, [&](uint32_t iteration, SaccadeOverlayFrameDesc* next) noexcept {
             const uint64_t epoch = UINT64_C(100000) + iteration;
             set_scene_epoch(epoch);
             next->scene_epoch = epoch;
@@ -206,18 +200,15 @@ bool run_case(saccade::backend::metal::OverlayExpander* expander, uint32_t targe
         });
     const uint64_t pipelined_static_after = expander->stats().static_dispatches;
     return static_before == static_after && static_after == pipelined_static_after &&
-           append_result(text, path_name(expander->stats().path), target_count, "scene_expand", scene_iterations,
-                         scene_ns) &&
-           append_result(text, path_name(expander->stats().path), target_count, "scene_expand_pipelined",
-                         pipelined_scene_iterations, pipelined_scene_ns) &&
-           append_result(text, path_name(expander->stats().path), target_count, "active_update", active_iterations,
-                         active_ns) &&
-           append_result(text, path_name(expander->stats().path), target_count, "active_update_pipelined", 2100,
-                         pipelined_active_ns);
+           append_result(text, path_name(expander->stats().path), target_count, "scene_expand", scene_iterations, scene_ns) &&
+           append_result(text, path_name(expander->stats().path), target_count, "scene_expand_pipelined", pipelined_scene_iterations,
+                         pipelined_scene_ns) &&
+           append_result(text, path_name(expander->stats().path), target_count, "active_update", active_iterations, active_ns) &&
+           append_result(text, path_name(expander->stats().path), target_count, "active_update_pipelined", 2100, pipelined_active_ns);
 }
 
-bool run_path(const char* metallib_path, saccade::backend::metal::PathPreference preference,
-              saccade::core::StackStringBuilder<2048>* text, saccade::backend::metal::Path* out_path) noexcept {
+bool run_path(const char* metallib_path, saccade::backend::metal::PathPreference preference, saccade::core::StackStringBuilder<2048>* text,
+              saccade::backend::metal::Path* out_path) noexcept {
     saccade::backend::metal::OverlayExpander expander;
     if (expander.initialize(metallib_path, preference) != SACCADE_OK || !run_case(&expander, 100, 500, 2000, text) ||
         !run_case(&expander, 10000, 100, 2000, text)) {
@@ -228,9 +219,8 @@ bool run_path(const char* metallib_path, saccade::backend::metal::PathPreference
     memory.api_version = SACCADE_API_VERSION;
     const saccade::backend::metal::Stats stats = expander.stats();
     *out_path = stats.path;
-    return expander.memory_stats(&memory) == SACCADE_OK && text->append("path=") &&
-           text->append(path_name(stats.path)) && text->append(" device_bytes=") &&
-           text->append_unsigned(memory.device_owned) && text->append(" framework_bytes=") &&
+    return expander.memory_stats(&memory) == SACCADE_OK && text->append("path=") && text->append(path_name(stats.path)) &&
+           text->append(" device_bytes=") && text->append_unsigned(memory.device_owned) && text->append(" framework_bytes=") &&
            text->append_unsigned(memory.framework_opaque) && text->append(" allocator_bytes=") &&
            text->append_unsigned(stats.command_allocator_bytes) && text->append(" packet_upload_bytes=") &&
            text->append_unsigned(stats.packet_upload_bytes) && text->append('\n');

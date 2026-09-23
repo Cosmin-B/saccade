@@ -72,22 +72,20 @@ int main() {
     using saccade::application::CommandEvent;
     Capture capture{};
     saccade::application::DesktopHost host;
-    if (host.initialize({&capture, dispatch, set_suspended, neutralize, observe, settings, restart, quit}) !=
-        SACCADE_OK) {
+    if (host.initialize({&capture, dispatch, set_suspended, neutralize, observe, settings, restart, quit}) != SACCADE_OK) {
         return result(TestResult::initialize_failed);
     }
     if (host.dispatch({1, Command::left_click}) != SACCADE_OK || capture.interactions != 1)
         return result(TestResult::dispatch_failed);
     if (host.dispatch({2, Command::suspend_toggle}) != SACCADE_OK || !host.suspended() || !capture.suspended ||
-        capture.neutralizations != 1 || host.dispatch({3, Command::left_click}) != SACCADE_OK ||
-        capture.interactions != 1)
+        capture.neutralizations != 1 || host.dispatch({3, Command::left_click}) != SACCADE_OK || capture.interactions != 1)
         return result(TestResult::suspend_failed);
     host.observe_physical_input(4);
-    if (capture.physical_inputs != 1) return result(TestResult::physical_input_failed);
+    if (capture.physical_inputs != 1)
+        return result(TestResult::physical_input_failed);
     if (host.dispatch(CommandEvent{5, Command::open_settings}) != SACCADE_OK ||
-        host.dispatch(CommandEvent{6, Command::restart}) != SACCADE_OK ||
-        host.dispatch(CommandEvent{7, Command::quit}) != SACCADE_OK || capture.settings != 1 || capture.restarts != 1 ||
-        capture.quits != 1 || capture.neutralizations != 3)
+        host.dispatch(CommandEvent{6, Command::restart}) != SACCADE_OK || host.dispatch(CommandEvent{7, Command::quit}) != SACCADE_OK ||
+        capture.settings != 1 || capture.restarts != 1 || capture.quits != 1 || capture.neutralizations != 3)
         return result(TestResult::operation_failed);
     return host.shutdown() == SACCADE_OK && capture.neutralizations == 4 ? result(TestResult::success)
                                                                          : result(TestResult::shutdown_failed);

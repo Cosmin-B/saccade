@@ -31,13 +31,15 @@ constexpr CGFloat tile_inset = 12.0;
 constexpr NSTimeInterval stimulus_period_seconds = 1.0 / 120.0;
 
 bool parse_duration(const char* text, uint32_t* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const char* end = text;
     while (*end != '\0')
         ++end;
     uint32_t value = 0;
     const auto parsed = std::from_chars(text, end, value);
-    if (parsed.ec != std::errc{} || parsed.ptr != end || value == 0 || value > maximum_duration_seconds) return false;
+    if (parsed.ec != std::errc{} || parsed.ptr != end || value == 0 || value > maximum_duration_seconds)
+        return false;
     *output = value;
     return true;
 }
@@ -50,7 +52,8 @@ void emit(std::string_view text) noexcept {
 
 int main(int argc, char** argv) {
     @autoreleasepool {
-        if (argc > 2) return to_process_exit_code(ExitCode::invalid_arguments);
+        if (argc > 2)
+            return to_process_exit_code(ExitCode::invalid_arguments);
         uint32_t duration_seconds = default_duration_seconds;
         if (argc == 2 && !parse_duration(argv[1], &duration_seconds))
             return to_process_exit_code(ExitCode::invalid_arguments);
@@ -61,30 +64,29 @@ int main(int argc, char** argv) {
         std::array<__strong NSPanel*, maximum_displays> windows{};
         uint32_t window_count = 0;
         for (NSScreen* screen in NSScreen.screens) {
-            if (window_count == windows.size()) return to_process_exit_code(ExitCode::display_failure);
+            if (window_count == windows.size())
+                return to_process_exit_code(ExitCode::display_failure);
             const NSRect visible = screen.visibleFrame;
-            const NSRect frame =
-                NSMakeRect(NSMinX(visible) + tile_inset, NSMinY(visible) + tile_inset, tile_size, tile_size);
-            NSPanel* window =
-                [[NSPanel alloc] initWithContentRect:frame
-                                           styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
-                                             backing:NSBackingStoreBuffered
-                                               defer:NO
-                                              screen:screen];
+            const NSRect frame = NSMakeRect(NSMinX(visible) + tile_inset, NSMinY(visible) + tile_inset, tile_size, tile_size);
+            NSPanel* window = [[NSPanel alloc] initWithContentRect:frame
+                                                         styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+                                                           backing:NSBackingStoreBuffered
+                                                             defer:NO
+                                                            screen:screen];
             window.opaque = YES;
             window.backgroundColor = NSColor.blackColor;
             window.level = NSFloatingWindowLevel;
             window.ignoresMouseEvents = YES;
             window.hidesOnDeactivate = NO;
-            window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
-                                        NSWindowCollectionBehaviorFullScreenAuxiliary |
+            window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary |
                                         NSWindowCollectionBehaviorStationary | NSWindowCollectionBehaviorIgnoresCycle;
             window.contentView.wantsLayer = YES;
             window.contentView.layer.backgroundColor = NSColor.blackColor.CGColor;
             [window orderFrontRegardless];
             windows[window_count++] = window;
         }
-        if (window_count == 0) return to_process_exit_code(ExitCode::display_failure);
+        if (window_count == 0)
+            return to_process_exit_code(ExitCode::display_failure);
 
         const CGColorRef dark = CGColorCreateGenericGray(0.12, 1.0);
         const CGColorRef light = CGColorCreateGenericGray(0.20, 1.0);

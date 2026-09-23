@@ -22,7 +22,8 @@ enum class TestResult : int {
 template <typename T, size_t Count> bool unique(const std::array<T, Count>& values) noexcept {
     for (size_t left = 0; left < Count; ++left) {
         for (size_t right = left + 1; right < Count; ++right) {
-            if (values[left] == values[right]) return false;
+            if (values[left] == values[right])
+                return false;
         }
     }
     return true;
@@ -36,7 +37,8 @@ int result(TestResult value) noexcept {
 
 int main() {
     for (CONTROLTYPEID type : accessibility_target_control_types) {
-        if (!direct_accessibility_target(type)) return result(TestResult::direct_type_missing);
+        if (!direct_accessibility_target(type))
+            return result(TestResult::direct_type_missing);
     }
 
     constexpr std::array generic_types = {
@@ -45,22 +47,26 @@ int main() {
         UIA_TitleBarControlTypeId, UIA_ToolBarControlTypeId,   UIA_WindowControlTypeId,
     };
     for (CONTROLTYPEID type : generic_types) {
-        if (direct_accessibility_target(type)) return result(TestResult::generic_type_admitted);
+        if (direct_accessibility_target(type))
+            return result(TestResult::generic_type_admitted);
     }
 
     for (PROPERTYID property : accessibility_target_pattern_properties) {
-        if (!accessibility_target_pattern(property)) return result(TestResult::pattern_missing);
+        if (!accessibility_target_pattern(property))
+            return result(TestResult::pattern_missing);
     }
 
     constexpr std::array unrelated_properties = {
-        UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId,
-        UIA_IsOffscreenPropertyId,       UIA_NamePropertyId,
+        UIA_BoundingRectanglePropertyId, UIA_ControlTypePropertyId, UIA_IsEnabledPropertyId, UIA_IsOffscreenPropertyId, UIA_NamePropertyId,
     };
     for (PROPERTYID property : unrelated_properties) {
-        if (accessibility_target_pattern(property)) return result(TestResult::unrelated_property_admitted);
+        if (accessibility_target_pattern(property))
+            return result(TestResult::unrelated_property_admitted);
     }
 
-    if (!unique(accessibility_target_control_types)) return result(TestResult::duplicate_direct_type);
-    if (!unique(accessibility_target_pattern_properties)) return result(TestResult::duplicate_pattern);
+    if (!unique(accessibility_target_control_types))
+        return result(TestResult::duplicate_direct_type);
+    if (!unique(accessibility_target_pattern_properties))
+        return result(TestResult::duplicate_pattern);
     return result(TestResult::success);
 }

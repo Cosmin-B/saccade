@@ -48,8 +48,7 @@ bool graph_valid(uint32_t value) noexcept {
 }
 
 bool artifact_valid(uint32_t value) noexcept {
-    return value >= static_cast<uint32_t>(ArtifactKind::fixed_graph) &&
-           value <= static_cast<uint32_t>(ArtifactKind::onnx);
+    return value >= static_cast<uint32_t>(ArtifactKind::fixed_graph) && value <= static_cast<uint32_t>(ArtifactKind::onnx);
 }
 
 bool bounds_valid(uint64_t offset, uint64_t size, uint64_t total) noexcept {
@@ -68,8 +67,8 @@ SaccadeResult parse_artifact(SaccadeSpanU8 bytes, ArtifactView* output) noexcept
     *output = {};
     const uint8_t* data = bytes.data;
     if (data[0] != magic[0] || data[1] != magic[1] || data[2] != magic[2] || data[3] != magic[3] ||
-        read_u32(data, version_offset) != artifact_version ||
-        read_u32(data, header_size_offset) != artifact_header_bytes || read_u32(data, total_size_offset) != bytes.size)
+        read_u32(data, version_offset) != artifact_version || read_u32(data, header_size_offset) != artifact_header_bytes ||
+        read_u32(data, total_size_offset) != bytes.size)
         return SACCADE_ERROR_INVALID_ARGUMENT;
     const uint64_t stable_id = read_u64(data, stable_id_offset);
     const uint32_t graph = read_u32(data, graph_offset);
@@ -89,20 +88,17 @@ SaccadeResult parse_artifact(SaccadeSpanU8 bytes, ArtifactView* output) noexcept
     const uint64_t required_output =
         sizeof(SaccadeTargetPacketHeader) + static_cast<uint64_t>(maximum_targets) * sizeof(SaccadeTargetRecord);
     if (stable_id == 0 || !graph_valid(graph) || !artifact_valid(artifact) || precision_bits == 0 || width == 0 ||
-        width > maximum_input_extent || height == 0 || height > maximum_input_extent ||
-        !channel_count_valid(channels) || maximum_targets == 0 || maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS ||
-        maximum_output < required_output || (flags & ~valid_flag_mask) != 0 || compatibility == 0 ||
-        !bounds_valid(payload_offset, payload_size, bytes.size) || payload_offset < artifact_header_bytes ||
-        payload_size == 0) {
+        width > maximum_input_extent || height == 0 || height > maximum_input_extent || !channel_count_valid(channels) ||
+        maximum_targets == 0 || maximum_targets > SACCADE_TARGET_PACKET_MAX_TARGETS || maximum_output < required_output ||
+        (flags & ~valid_flag_mask) != 0 || compatibility == 0 || !bounds_valid(payload_offset, payload_size, bytes.size) ||
+        payload_offset < artifact_header_bytes || payload_size == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const bool signed_artifact = (flags & artifact_has_signature) != 0;
-    if (signed_artifact != (signature_size == artifact_signature_bytes) ||
-        !bounds_valid(signature_offset, signature_size, bytes.size) ||
+    if (signed_artifact != (signature_size == artifact_signature_bytes) || !bounds_valid(signature_offset, signature_size, bytes.size) ||
         (signed_artifact && signature_offset < payload_offset + payload_size) ||
         (signed_artifact && signature_offset + signature_size != bytes.size) ||
-        (!signed_artifact &&
-         (signature_offset != 0 || signature_size != 0 || payload_offset + payload_size != bytes.size))) {
+        (!signed_artifact && (signature_offset != 0 || signature_size != 0 || payload_offset + payload_size != bytes.size))) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = {stable_id,
@@ -118,8 +114,7 @@ SaccadeResult parse_artifact(SaccadeSpanU8 bytes, ArtifactView* output) noexcept
                compatibility,
                {data + payload_offset, static_cast<size_t>(payload_size)},
                signed_artifact ? SaccadeSpanU8{data, static_cast<size_t>(signature_offset)} : SaccadeSpanU8{},
-               signed_artifact ? SaccadeSpanU8{data + signature_offset, static_cast<size_t>(signature_size)}
-                               : SaccadeSpanU8{}};
+               signed_artifact ? SaccadeSpanU8{data + signature_offset, static_cast<size_t>(signature_size)} : SaccadeSpanU8{}};
     return SACCADE_OK;
 }
 

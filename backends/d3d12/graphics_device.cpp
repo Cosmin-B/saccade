@@ -67,7 +67,8 @@ const GraphicsDevice::Impl& GraphicsDevice::impl() const noexcept {
 }
 
 SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t requested_adapter_luid) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
     if (preference < DevicePreference::hardware_only || preference > DevicePreference::hardware_then_software ||
         (requested_adapter_luid != 0 && preference == DevicePreference::software_only))
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -85,15 +86,17 @@ SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t r
             ComPtr<IDXGIAdapter1> adapter;
             native_result = factory->EnumAdapterByGpuPreference(adapter_index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
                                                                 IID_PPV_ARGS(adapter.GetAddressOf()));
-            if (native_result == DXGI_ERROR_NOT_FOUND) break;
-            if (FAILED(native_result)) continue;
+            if (native_result == DXGI_ERROR_NOT_FOUND)
+                break;
+            if (FAILED(native_result))
+                continue;
             DXGI_ADAPTER_DESC1 adapter_desc{};
             if (FAILED(adapter->GetDesc1(&adapter_desc)) || (adapter_desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0) {
                 continue;
             }
-            if (requested_adapter_luid != 0 && luid_value(adapter_desc.AdapterLuid) != requested_adapter_luid) continue;
-            native_result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0,
-                                              IID_PPV_ARGS(state.device_.ReleaseAndGetAddressOf()));
+            if (requested_adapter_luid != 0 && luid_value(adapter_desc.AdapterLuid) != requested_adapter_luid)
+                continue;
+            native_result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(state.device_.ReleaseAndGetAddressOf()));
             if (SUCCEEDED(native_result)) {
                 state.adapter_luid_ = luid_value(adapter_desc.AdapterLuid);
                 break;
@@ -104,8 +107,7 @@ SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t r
         ComPtr<IDXGIAdapter> adapter;
         native_result = factory->EnumWarpAdapter(IID_PPV_ARGS(adapter.GetAddressOf()));
         if (SUCCEEDED(native_result)) {
-            native_result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0,
-                                              IID_PPV_ARGS(state.device_.ReleaseAndGetAddressOf()));
+            native_result = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(state.device_.ReleaseAndGetAddressOf()));
             DXGI_ADAPTER_DESC adapter_desc{};
             if (SUCCEEDED(native_result) && SUCCEEDED(adapter->GetDesc(&adapter_desc))) {
                 state.adapter_luid_ = luid_value(adapter_desc.AdapterLuid);
@@ -114,9 +116,8 @@ SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t r
         state.software_device_ = state.device_ != nullptr;
     }
     if (state.device_ == nullptr) {
-        state.initialization_error_ = {preference == DevicePreference::hardware_only
-                                           ? InitializationStage::hardware_adapter
-                                           : InitializationStage::software_adapter,
+        state.initialization_error_ = {preference == DevicePreference::hardware_only ? InitializationStage::hardware_adapter
+                                                                                     : InitializationStage::software_adapter,
                                        native_result};
         return SACCADE_ERROR_UNSUPPORTED;
     }
@@ -129,9 +130,9 @@ SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t r
     }
     IUnknown* queues[]{state.queue_.Get()};
     constexpr std::array<D3D_FEATURE_LEVEL, 2> levels{D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
-    native_result = D3D11On12CreateDevice(
-        state.device_.Get(), D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels.data(), static_cast<UINT>(levels.size()), queues,
-        1, 0, state.capture_device_.GetAddressOf(), state.capture_context_.GetAddressOf(), nullptr);
+    native_result =
+        D3D11On12CreateDevice(state.device_.Get(), D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels.data(), static_cast<UINT>(levels.size()),
+                              queues, 1, 0, state.capture_device_.GetAddressOf(), state.capture_context_.GetAddressOf(), nullptr);
     if (SUCCEEDED(native_result)) {
         native_result = state.capture_device_.As(&state.bridge_);
     }
@@ -144,18 +145,23 @@ SaccadeResult GraphicsDevice::initialize(DevicePreference preference, uint64_t r
 }
 
 SaccadeResult GraphicsDevice::adopt_current_thread() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
-    if (state.outstanding_capture_texture_ != nullptr) return SACCADE_ERROR_BUSY;
+    if (state.outstanding_capture_texture_ != nullptr)
+        return SACCADE_ERROR_BUSY;
     state.owner_thread_ = GetCurrentThreadId();
     return SACCADE_OK;
 }
 
 SaccadeResult GraphicsDevice::shutdown() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
-    if (state.outstanding_capture_texture_ != nullptr) return SACCADE_ERROR_BUSY;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (state.outstanding_capture_texture_ != nullptr)
+        return SACCADE_ERROR_BUSY;
     state.capture_context_->Flush();
     state.~Impl();
     new (storage_.data()) Impl{};
@@ -192,11 +198,12 @@ SaccadeResult GraphicsDevice::unwrap(ID3D11Texture2D* capture_texture, TextureLe
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
-    if (state.outstanding_capture_texture_ != nullptr) return SACCADE_ERROR_BUSY;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
+    if (state.outstanding_capture_texture_ != nullptr)
+        return SACCADE_ERROR_BUSY;
     ComPtr<ID3D12Resource> texture;
-    if (FAILED(state.bridge_->UnwrapUnderlyingResource(capture_texture, state.queue_.Get(),
-                                                       IID_PPV_ARGS(texture.GetAddressOf())))) {
+    if (FAILED(state.bridge_->UnwrapUnderlyingResource(capture_texture, state.queue_.Get(), IID_PPV_ARGS(texture.GetAddressOf())))) {
         return SACCADE_ERROR_BACKEND;
     }
     state.outstanding_capture_texture_ = capture_texture;
@@ -205,25 +212,26 @@ SaccadeResult GraphicsDevice::unwrap(ID3D11Texture2D* capture_texture, TextureLe
     return SACCADE_OK;
 }
 
-SaccadeResult GraphicsDevice::return_texture(TextureLease* lease, ID3D12Fence* completion_fence,
-                                             uint64_t completion_value) noexcept {
+SaccadeResult GraphicsDevice::return_texture(TextureLease* lease, ID3D12Fence* completion_fence, uint64_t completion_value) noexcept {
     if (!initialized_ || lease == nullptr || lease->capture_texture == nullptr || lease->texture == nullptr ||
         (completion_fence == nullptr) != (completion_value == 0)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     Impl& state = impl();
-    if (!state.owns_thread()) return SACCADE_ERROR_STATE;
+    if (!state.owns_thread())
+        return SACCADE_ERROR_STATE;
     if (state.outstanding_capture_texture_ != lease->capture_texture) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     const UINT fence_count = completion_fence == nullptr ? 0U : 1U;
     ID3D12Fence* fences[]{completion_fence};
-    const HRESULT returned = state.bridge_->ReturnUnderlyingResource(
-        lease->capture_texture, fence_count, completion_fence == nullptr ? nullptr : &completion_value,
-        completion_fence == nullptr ? nullptr : fences);
+    const HRESULT returned = state.bridge_->ReturnUnderlyingResource(lease->capture_texture, fence_count,
+                                                                     completion_fence == nullptr ? nullptr : &completion_value,
+                                                                     completion_fence == nullptr ? nullptr : fences);
     lease->texture->Release();
     *lease = {};
-    if (FAILED(returned)) return SACCADE_ERROR_BACKEND;
+    if (FAILED(returned))
+        return SACCADE_ERROR_BACKEND;
     state.outstanding_capture_texture_ = nullptr;
     return SACCADE_OK;
 }

@@ -56,9 +56,8 @@ constexpr uint64_t topology_epoch = 706;
 constexpr uint64_t source_id = 707;
 constexpr uint64_t cancellation_frame_id = 708;
 constexpr uint64_t inference_timeout_ns = UINT64_C(5'000'000'000);
-constexpr uint32_t provider_base_capabilities = SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT |
-                                                SACCADE_PROVIDER_CAPABILITY_ASYNC |
-                                                SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
+constexpr uint32_t provider_base_capabilities =
+    SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT | SACCADE_PROVIDER_CAPABILITY_ASYNC | SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
 constexpr uint8_t locator[] = "coreml-contract-fixture.mlmodelc";
 constexpr uint8_t input_name[] = "image";
 constexpr uint8_t rows_name[] = "targets";
@@ -121,8 +120,7 @@ std::array<uint8_t, artifact_size> artifact_bytes() noexcept {
     write_u32(bytes.data(), artifact_total_size_offset, static_cast<uint32_t>(bytes.size()));
     write_u64(bytes.data(), artifact_stable_id_offset, stable_id);
     write_u32(bytes.data(), artifact_graph_offset, static_cast<uint32_t>(saccade::model::GraphKind::ui_detector));
-    write_u32(bytes.data(), artifact_kind_offset,
-              static_cast<uint32_t>(saccade::model::ArtifactKind::coreml_compiled_bundle));
+    write_u32(bytes.data(), artifact_kind_offset, static_cast<uint32_t>(saccade::model::ArtifactKind::coreml_compiled_bundle));
     write_u32(bytes.data(), artifact_precision_offset, SACCADE_PRECISION_FP16);
     write_u32(bytes.data(), artifact_width_offset, input_width);
     write_u32(bytes.data(), artifact_height_offset, input_height);
@@ -133,8 +131,7 @@ std::array<uint8_t, artifact_size> artifact_bytes() noexcept {
     write_u64(bytes.data(), artifact_payload_size_offset, payload_size);
     write_u64(bytes.data(), artifact_signature_offset_offset, signature_offset);
     write_u32(bytes.data(), artifact_signature_size_offset, saccade::model::artifact_signature_bytes);
-    write_u32(bytes.data(), artifact_flags_offset,
-              saccade::model::artifact_has_signature | saccade::model::artifact_relative_locator);
+    write_u32(bytes.data(), artifact_flags_offset, saccade::model::artifact_has_signature | saccade::model::artifact_relative_locator);
     write_u64(bytes.data(), artifact_compatibility_offset, saccade::model::coreml::provider_compatibility_bit);
 
     uint8_t* payload = bytes.data() + payload_offset;
@@ -172,18 +169,20 @@ SaccadeResult verify_artifact(void*, const saccade::model::ArtifactView& artifac
 }
 
 CVPixelBufferRef create_pixel_buffer() noexcept {
-    CFDictionaryRef empty = CFDictionaryCreate(kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks,
-                                               &kCFTypeDictionaryValueCallBacks);
-    if (empty == nullptr) return nullptr;
+    CFDictionaryRef empty =
+        CFDictionaryCreate(kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (empty == nullptr)
+        return nullptr;
     const void* keys[] = {kCVPixelBufferIOSurfacePropertiesKey};
     const void* values[] = {empty};
-    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1,
-                                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryRef attributes =
+        CFDictionaryCreate(kCFAllocatorDefault, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFRelease(empty);
-    if (attributes == nullptr) return nullptr;
+    if (attributes == nullptr)
+        return nullptr;
     CVPixelBufferRef pixel_buffer = nullptr;
-    const CVReturn created = CVPixelBufferCreate(kCFAllocatorDefault, input_width, input_height,
-                                                 kCVPixelFormatType_32BGRA, attributes, &pixel_buffer);
+    const CVReturn created =
+        CVPixelBufferCreate(kCFAllocatorDefault, input_width, input_height, kCVPixelFormatType_32BGRA, attributes, &pixel_buffer);
     CFRelease(attributes);
     return created == kCVReturnSuccess ? pixel_buffer : nullptr;
 }
@@ -198,10 +197,7 @@ template <typename Structure> Structure output_structure() noexcept {
 #if defined(SACCADE_TEST_METAL_PREPROCESSOR)
 id<MTLTexture> source_texture(id<MTLDevice> device) {
     MTLTextureDescriptor* description =
-        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                           width:2
-                                                          height:2
-                                                       mipmapped:NO];
+        [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:2 height:2 mipmapped:NO];
     description.storageMode = MTLStorageModeShared;
     description.usage = MTLTextureUsageShaderRead;
     id<MTLTexture> texture = [device newTextureWithDescriptor:description];
@@ -225,9 +221,9 @@ int main(int argc, char** argv) {
                                           CoreMlComputePolicy::cpu_and_neural_engine, CoreMlComputePolicy::all};
             std::array<uint32_t, policies.size()> capabilities{};
             for (size_t index = 0; index < policies.size(); ++index) {
-                const saccade::platform::macos::CoreMlProviderConfig config{
-                    "/", policies[index], false, {}, {nullptr, verify_artifact}};
-                if (provider.initialize(config) != SACCADE_OK) return result(TestResult::provider_admission_failed);
+                const saccade::platform::macos::CoreMlProviderConfig config{"/", policies[index], false, {}, {nullptr, verify_artifact}};
+                if (provider.initialize(config) != SACCADE_OK)
+                    return result(TestResult::provider_admission_failed);
                 const SaccadeInferenceProviderDesc description = provider.descriptor();
                 SaccadeDeviceInfo device = output_structure<SaccadeDeviceInfo>();
                 if (description.ops.enumerate_devices(description.context, 0, &device) != SACCADE_OK ||
@@ -240,17 +236,18 @@ int main(int argc, char** argv) {
             const uint32_t cpu_gpu = capabilities[1];
             const uint32_t cpu_accelerator = capabilities[2];
             const uint32_t all = capabilities[3];
-            const bool truthful = cpu == (provider_base_capabilities | SACCADE_PROVIDER_CAPABILITY_CPU) &&
-                                  (cpu_gpu & SACCADE_PROVIDER_CAPABILITY_CPU) != 0 &&
-                                  (cpu_gpu & SACCADE_PROVIDER_CAPABILITY_ACCELERATOR) == 0 &&
-                                  (cpu_accelerator & SACCADE_PROVIDER_CAPABILITY_CPU) != 0 &&
-                                  (cpu_accelerator & SACCADE_PROVIDER_CAPABILITY_GPU) == 0 &&
-                                  all == (cpu_gpu | cpu_accelerator);
+            const bool truthful =
+                cpu == (provider_base_capabilities | SACCADE_PROVIDER_CAPABILITY_CPU) && (cpu_gpu & SACCADE_PROVIDER_CAPABILITY_CPU) != 0 &&
+                (cpu_gpu & SACCADE_PROVIDER_CAPABILITY_ACCELERATOR) == 0 && (cpu_accelerator & SACCADE_PROVIDER_CAPABILITY_CPU) != 0 &&
+                (cpu_accelerator & SACCADE_PROVIDER_CAPABILITY_GPU) == 0 && all == (cpu_gpu | cpu_accelerator);
             return truthful ? result(TestResult::success) : result(TestResult::provider_admission_failed);
         }
 
-        const saccade::platform::macos::CoreMlProviderConfig provider_config{
-            argv[1], saccade::platform::macos::CoreMlComputePolicy::all, false, {}, {nullptr, verify_artifact}};
+        const saccade::platform::macos::CoreMlProviderConfig provider_config{argv[1],
+                                                                             saccade::platform::macos::CoreMlComputePolicy::all,
+                                                                             false,
+                                                                             {},
+                                                                             {nullptr, verify_artifact}};
         if (provider.initialize(provider_config) != SACCADE_OK) {
             return result(TestResult::provider_admission_failed);
         }
@@ -271,10 +268,9 @@ int main(int argc, char** argv) {
         session_description.model_bytes = {artifact.data(), artifact.size()};
         session_description.model_stable_id = stable_id;
         session_description.provider_stable_id = provider_description.info.stable_id;
-        session_description.required_capability_bits =
-            SACCADE_PROVIDER_CAPABILITY_GPU | SACCADE_PROVIDER_CAPABILITY_ACCELERATOR |
-            SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT | SACCADE_PROVIDER_CAPABILITY_ASYNC |
-            SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
+        session_description.required_capability_bits = SACCADE_PROVIDER_CAPABILITY_GPU | SACCADE_PROVIDER_CAPABILITY_ACCELERATOR |
+                                                       SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT | SACCADE_PROVIDER_CAPABILITY_ASYNC |
+                                                       SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
         session_description.required_format_bits = SACCADE_FORMAT_BGRA8;
         session_description.required_precision_bits = SACCADE_PRECISION_FP16;
         session_description.required_import_bits = SACCADE_IMPORT_IOSURFACE;
@@ -282,8 +278,8 @@ int main(int argc, char** argv) {
         session_description.max_in_flight = 1;
         SaccadeInferenceSessionInfo session_info = output_structure<SaccadeInferenceSessionInfo>();
         SaccadeExecutionContextHandle session = 0;
-        if (saccade_inference_session_create(runtime, &session_description, &session, &session_info) != SACCADE_OK ||
-            session == 0 || session_info.max_output_bytes != output_size) {
+        if (saccade_inference_session_create(runtime, &session_description, &session, &session_info) != SACCADE_OK || session == 0 ||
+            session_info.max_output_bytes != output_size) {
             return result(TestResult::session_failed);
         }
 
@@ -300,12 +296,10 @@ int main(int argc, char** argv) {
             saccade::backend::metal::ImageView image{};
             id<MTLTexture> texture = source_texture(device);
             if (device == nil || texture == nil ||
-                preprocessor.initialize((__bridge void*)device, argv[2],
-                                        saccade::backend::metal::PathPreference::automatic, spec) != SACCADE_OK ||
-                preprocessor.submit((__bridge void*)texture, 2, 2, {}, frame_id, transform_epoch, &submission) !=
+                preprocessor.initialize((__bridge void*)device, argv[2], saccade::backend::metal::PathPreference::automatic, spec) !=
                     SACCADE_OK ||
-                preprocessor.wait(submission, inference_timeout_ns) != SACCADE_OK ||
-                preprocessor.image(submission, &image) != SACCADE_OK) {
+                preprocessor.submit((__bridge void*)texture, 2, 2, {}, frame_id, transform_epoch, &submission) != SACCADE_OK ||
+                preprocessor.wait(submission, inference_timeout_ns) != SACCADE_OK || preprocessor.image(submission, &image) != SACCADE_OK) {
                 return result(TestResult::pixel_buffer_failed);
             }
             pixel_buffer = static_cast<CVPixelBufferRef>(image.pixel_buffer);
@@ -316,7 +310,8 @@ int main(int argc, char** argv) {
 #else
         pixel_buffer = create_pixel_buffer();
 #endif
-        if (pixel_buffer == nullptr) return result(TestResult::pixel_buffer_failed);
+        if (pixel_buffer == nullptr)
+            return result(TestResult::pixel_buffer_failed);
         IOSurfaceRef surface = CVPixelBufferGetIOSurface(pixel_buffer);
         if (surface == nullptr) {
             CVPixelBufferRelease(pixel_buffer);
@@ -353,30 +348,27 @@ int main(int argc, char** argv) {
         SaccadeInferenceStatus status = output_structure<SaccadeInferenceStatus>();
         const SaccadeResult waited = saccade_inference_wait(runtime, session, ticket, inference_timeout_ns, &status);
         if (waited != SACCADE_OK || status.state != SACCADE_TICKET_COMPLETE || status.frame_id != frame_id ||
-            status.model_epoch != model_epoch || status.session_epoch != session_epoch ||
-            status.transform_epoch != transform_epoch || status.topology_epoch != topology_epoch ||
-            status.source_id != source_id || status.produced_bytes == 0) {
+            status.model_epoch != model_epoch || status.session_epoch != session_epoch || status.transform_epoch != transform_epoch ||
+            status.topology_epoch != topology_epoch || status.source_id != source_id || status.produced_bytes == 0) {
             CVPixelBufferRelease(pixel_buffer);
             return result(TestResult::inference_failed);
         }
 
         alignas(SaccadeTargetPacketHeader) std::array<uint8_t, output_size> output{};
         size_t required = 0;
-        if (saccade_inference_collect(runtime, session, ticket, {output.data(), output.size()}, &required) !=
-                SACCADE_OK ||
+        if (saccade_inference_collect(runtime, session, ticket, {output.data(), output.size()}, &required) != SACCADE_OK ||
             required != status.produced_bytes) {
             CVPixelBufferRelease(pixel_buffer);
             return result(TestResult::inference_failed);
         }
         saccade::scene::PacketView packet{};
-        if (saccade::scene::validate_packet({output.data(), required}, &packet) != SACCADE_OK ||
-            packet.header->target_count != 2 || packet.header->frame_id != frame_id ||
-            packet.header->model_epoch != model_epoch || packet.header->session_epoch != session_epoch ||
-            packet.header->transform_epoch != transform_epoch || packet.header->topology_epoch != topology_epoch ||
-            packet.targets[0].x_q8 != 10240 || packet.targets[0].y_q8 != 20480 || packet.targets[0].width_q8 != 40960 ||
-            packet.targets[0].height_q8 != 20480 ||
-            packet.targets[1].capability_bits != (SACCADE_TARGET_CAPABILITY_POINTER_MOVE |
-                                                  SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_TEXT)) {
+        if (saccade::scene::validate_packet({output.data(), required}, &packet) != SACCADE_OK || packet.header->target_count != 2 ||
+            packet.header->frame_id != frame_id || packet.header->model_epoch != model_epoch ||
+            packet.header->session_epoch != session_epoch || packet.header->transform_epoch != transform_epoch ||
+            packet.header->topology_epoch != topology_epoch || packet.targets[0].x_q8 != 10240 || packet.targets[0].y_q8 != 20480 ||
+            packet.targets[0].width_q8 != 40960 || packet.targets[0].height_q8 != 20480 ||
+            packet.targets[1].capability_bits !=
+                (SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON | SACCADE_TARGET_CAPABILITY_TEXT)) {
             CVPixelBufferRelease(pixel_buffer);
             return result(TestResult::packet_failed);
         }

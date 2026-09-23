@@ -37,9 +37,8 @@ constexpr uint32_t maximum_commands = 8;
 constexpr uint32_t maximum_payload_bytes = 64;
 constexpr uint32_t pump_duration_ms = 80;
 constexpr uint32_t expected_text_length = 7;
-constexpr size_t plan_capacity = sizeof(SaccadeInputPlanHeader) +
-                                 static_cast<size_t>(maximum_commands) * sizeof(SaccadeInputCommand) +
-                                 maximum_payload_bytes;
+constexpr size_t plan_capacity =
+    sizeof(SaccadeInputPlanHeader) + static_cast<size_t>(maximum_commands) * sizeof(SaccadeInputCommand) + maximum_payload_bytes;
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -71,7 +70,8 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
     }
     WindowState* state = window_state(window);
-    if (state == nullptr) return DefWindowProcW(window, message, wparam, lparam);
+    if (state == nullptr)
+        return DefWindowProcW(window, message, wparam, lparam);
 
     switch (message) {
     case WM_MOUSEMOVE:
@@ -111,7 +111,8 @@ LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lp
         ++state->key_down;
         return 0;
     case WM_CHAR:
-        if (state->text_count != state->text.size()) state->text[state->text_count++] = static_cast<wchar_t>(wparam);
+        if (state->text_count != state->text.size())
+            state->text[state->text_count++] = static_cast<wchar_t>(wparam);
         return 0;
     default:
         return DefWindowProcW(window, message, wparam, lparam);
@@ -134,9 +135,8 @@ struct alignas(8) PlanStorage {
     std::array<uint8_t, plan_capacity> bytes{};
 };
 
-SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permissions,
-                        const SaccadeInputCommand* commands, uint32_t command_count, uint64_t window_id,
-                        const uint8_t* payload = nullptr, uint32_t payload_size = 0) noexcept {
+SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permissions, const SaccadeInputCommand* commands,
+                        uint32_t command_count, uint64_t window_id, const uint8_t* payload = nullptr, uint32_t payload_size = 0) noexcept {
     if (storage == nullptr || commands == nullptr || command_count == 0 || command_count > maximum_commands ||
         payload_size > maximum_payload_bytes) {
         return {};
@@ -163,11 +163,9 @@ SaccadeSpanU8 make_plan(PlanStorage* storage, uint64_t plan_id, uint32_t permiss
     header.display_id = 7;
     header.deadline_ns = UINT64_MAX;
     header.commands_offset = sizeof(header);
-    header.total_size =
-        sizeof(header) + static_cast<uint64_t>(command_count) * sizeof(SaccadeInputCommand) + payload_size;
+    header.total_size = sizeof(header) + static_cast<uint64_t>(command_count) * sizeof(SaccadeInputCommand) + payload_size;
     std::memcpy(storage->bytes.data(), &header, sizeof(header));
-    std::memcpy(storage->bytes.data() + sizeof(header), commands,
-                static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand));
+    std::memcpy(storage->bytes.data() + sizeof(header), commands, static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand));
     if (payload_size != 0) {
         std::memcpy(storage->bytes.data() + header.total_size - payload_size, payload, payload_size);
     }
@@ -192,7 +190,8 @@ class LiveContext final {
             (void)executor_.shutdown();
         }
         SetCursorPos(original_pointer_.x, original_pointer_.y);
-        if (window_ != nullptr) DestroyWindow(window_);
+        if (window_ != nullptr)
+            DestroyWindow(window_);
     }
 
     LiveContext(const LiveContext&) = delete;
@@ -216,19 +215,19 @@ bool execute(saccade::platform::windows::InputExecutor* executor, SaccadeSpanU8 
 
 int main() {
     char category[sizeof(live_test_category)]{};
-    const DWORD category_size =
-        GetEnvironmentVariableA("SACCADE_ALLOW_LIVE_TESTS", category, static_cast<DWORD>(sizeof(category)));
-    if (category_size != sizeof(live_test_category) - 1U ||
-        std::memcmp(category, live_test_category, category_size) != 0)
+    const DWORD category_size = GetEnvironmentVariableA("SACCADE_ALLOW_LIVE_TESTS", category, static_cast<DWORD>(sizeof(category)));
+    if (category_size != sizeof(live_test_category) - 1U || std::memcmp(category, live_test_category, category_size) != 0)
         return test_skipped;
 
     HDESK desktop_handle = OpenInputDesktop(0, FALSE, GENERIC_READ);
-    if (desktop_handle == nullptr) return test_skipped;
+    if (desktop_handle == nullptr)
+        return test_skipped;
     CloseDesktop(desktop_handle);
 
     (void)SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     LiveContext context;
-    if (!GetCursorPos(&context.original_pointer_)) return result(TestResult::no_interactive_desktop);
+    if (!GetCursorPos(&context.original_pointer_))
+        return result(TestResult::no_interactive_desktop);
 
     const HINSTANCE instance = GetModuleHandleW(nullptr);
     WNDCLASSW type{};
@@ -240,10 +239,10 @@ int main() {
     if (RegisterClassW(&type) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
         return result(TestResult::class_registration_failed);
 
-    context.window_ =
-        CreateWindowExW(WS_EX_APPWINDOW, type.lpszClassName, L"Saccade Input Qualification", WS_OVERLAPPEDWINDOW, 160,
-                        160, 640, 420, nullptr, nullptr, instance, &context.state_);
-    if (context.window_ == nullptr) return result(TestResult::window_creation_failed);
+    context.window_ = CreateWindowExW(WS_EX_APPWINDOW, type.lpszClassName, L"Saccade Input Qualification", WS_OVERLAPPEDWINDOW, 160, 160,
+                                      640, 420, nullptr, nullptr, instance, &context.state_);
+    if (context.window_ == nullptr)
+        return result(TestResult::window_creation_failed);
     ShowWindow(context.window_, SW_SHOW);
     SetForegroundWindow(context.window_);
     SetFocus(context.window_);
@@ -252,18 +251,19 @@ int main() {
         return result(TestResult::window_focus_failed);
 
     RECT client{};
-    if (!GetClientRect(context.window_, &client)) return result(TestResult::window_creation_failed);
+    if (!GetClientRect(context.window_, &client))
+        return result(TestResult::window_creation_failed);
     POINT first{client.left + 100, client.top + (client.bottom - client.top) / 2};
     POINT second{client.right - 100, first.y};
     if (!ClientToScreen(context.window_, &first) || !ClientToScreen(context.window_, &second))
         return result(TestResult::window_creation_failed);
 
-    const saccade::platform::windows::VirtualDesktop virtual_desktop{
-        GetSystemMetrics(SM_XVIRTUALSCREEN), GetSystemMetrics(SM_YVIRTUALSCREEN),
-        static_cast<uint32_t>(GetSystemMetrics(SM_CXVIRTUALSCREEN)),
-        static_cast<uint32_t>(GetSystemMetrics(SM_CYVIRTUALSCREEN)), topology_epoch};
-    const saccade::platform::windows::InputSink sink{nullptr, saccade::platform::windows::submit_with_send_input,
-                                                     nullptr};
+    const saccade::platform::windows::VirtualDesktop virtual_desktop{GetSystemMetrics(SM_XVIRTUALSCREEN),
+                                                                     GetSystemMetrics(SM_YVIRTUALSCREEN),
+                                                                     static_cast<uint32_t>(GetSystemMetrics(SM_CXVIRTUALSCREEN)),
+                                                                     static_cast<uint32_t>(GetSystemMetrics(SM_CYVIRTUALSCREEN)),
+                                                                     topology_epoch};
+    const saccade::platform::windows::InputSink sink{nullptr, saccade::platform::windows::submit_with_send_input, nullptr};
     if (context.executor_.initialize(virtual_desktop, sink, permission_epoch, context.original_pointer_.x * 256,
                                      context.original_pointer_.y * 256) != SACCADE_OK) {
         return result(TestResult::executor_initialization_failed);
@@ -277,8 +277,7 @@ int main() {
     left[1].data0 = SACCADE_INPUT_BUTTON_LEFT;
     left[1].data1 = 1;
     if (!execute(&context.executor_,
-                 make_plan(&storage, 1, SACCADE_INPUT_PERMISSION_POINTER, left.data(),
-                           static_cast<uint32_t>(left.size()), window_id),
+                 make_plan(&storage, 1, SACCADE_INPUT_PERMISSION_POINTER, left.data(), static_cast<uint32_t>(left.size()), window_id),
                  SACCADE_INPUT_PERMISSION_POINTER)) {
         return result(TestResult::left_click_failed);
     }
@@ -293,8 +292,8 @@ int main() {
     alternate[1].data0 = SACCADE_INPUT_BUTTON_MIDDLE;
     alternate[1].data1 = 1;
     if (!execute(&context.executor_,
-                 make_plan(&storage, 2, SACCADE_INPUT_PERMISSION_POINTER, alternate.data(),
-                           static_cast<uint32_t>(alternate.size()), window_id),
+                 make_plan(&storage, 2, SACCADE_INPUT_PERMISSION_POINTER, alternate.data(), static_cast<uint32_t>(alternate.size()),
+                           window_id),
                  SACCADE_INPUT_PERMISSION_POINTER)) {
         return result(TestResult::alternate_click_failed);
     }
@@ -313,14 +312,12 @@ int main() {
     const uint32_t drag_down_before = context.state_.left_down;
     const uint32_t drag_up_before = context.state_.left_up;
     if (!execute(&context.executor_,
-                 make_plan(&storage, 3, SACCADE_INPUT_PERMISSION_POINTER, drag.data(),
-                           static_cast<uint32_t>(drag.size()), window_id),
+                 make_plan(&storage, 3, SACCADE_INPUT_PERMISSION_POINTER, drag.data(), static_cast<uint32_t>(drag.size()), window_id),
                  SACCADE_INPUT_PERMISSION_POINTER)) {
         return result(TestResult::drag_failed);
     }
     pump_messages(pump_duration_ms);
-    if (context.state_.left_down != drag_down_before + 1U || context.state_.left_up != drag_up_before + 1U ||
-        context.state_.drags == 0) {
+    if (context.state_.left_down != drag_down_before + 1U || context.state_.left_up != drag_up_before + 1U || context.state_.drags == 0) {
         return result(TestResult::drag_failed);
     }
 
@@ -359,31 +356,28 @@ int main() {
     hold[1].data0 = SACCADE_INPUT_BUTTON_LEFT;
     const uint32_t release_before = context.state_.left_up;
     if (!execute(&context.executor_,
-                 make_plan(&storage, 6, SACCADE_INPUT_PERMISSION_POINTER, hold.data(),
-                           static_cast<uint32_t>(hold.size()), window_id),
+                 make_plan(&storage, 6, SACCADE_INPUT_PERMISSION_POINTER, hold.data(), static_cast<uint32_t>(hold.size()), window_id),
                  SACCADE_INPUT_PERMISSION_POINTER) ||
         !context.executor_.synthetic_input_active() ||
-        context.executor_.physical_override(context.original_pointer_.x * 256, context.original_pointer_.y * 256) !=
-            SACCADE_OK ||
+        context.executor_.physical_override(context.original_pointer_.x * 256, context.original_pointer_.y * 256) != SACCADE_OK ||
         context.executor_.synthetic_input_active()) {
         return result(TestResult::physical_override_failed);
     }
     pump_messages(pump_duration_ms);
-    if (context.state_.left_up != release_before + 1U) return result(TestResult::physical_override_failed);
+    if (context.state_.left_up != release_before + 1U)
+        return result(TestResult::physical_override_failed);
 
     SaccadeInputCommand stale = pointer_command(SACCADE_INPUT_COMMAND_POINTER_MOVE, first);
     SaccadeSpanU8 stale_plan = make_plan(&storage, 7, SACCADE_INPUT_PERMISSION_POINTER, &stale, 1, window_id);
     reinterpret_cast<SaccadeInputPlanHeader*>(storage.bytes.data())->topology_epoch = topology_epoch + 1U;
     saccade::platform::windows::InputExecutionResult execution{};
-    if (context.executor_.execute(stale_plan, SACCADE_INPUT_PERMISSION_POINTER, 1, &execution) !=
-        SACCADE_ERROR_STALE_HANDLE) {
+    if (context.executor_.execute(stale_plan, SACCADE_INPUT_PERMISSION_POINTER, 1, &execution) != SACCADE_ERROR_STALE_HANDLE) {
         return result(TestResult::stale_plan_failed);
     }
 
     POINT restore = context.original_pointer_;
     SaccadeInputCommand restore_command = pointer_command(SACCADE_INPUT_COMMAND_POINTER_MOVE, restore);
-    if (!execute(&context.executor_,
-                 make_plan(&storage, 8, SACCADE_INPUT_PERMISSION_POINTER, &restore_command, 1, window_id),
+    if (!execute(&context.executor_, make_plan(&storage, 8, SACCADE_INPUT_PERMISSION_POINTER, &restore_command, 1, window_id),
                  SACCADE_INPUT_PERMISSION_POINTER)) {
         return result(TestResult::pointer_restore_failed);
     }
@@ -392,7 +386,8 @@ int main() {
     if (!GetCursorPos(&restored) || restored.x != restore.x || restored.y != restore.y)
         return result(TestResult::pointer_restore_failed);
 
-    if (context.executor_.shutdown() != SACCADE_OK) return result(TestResult::shutdown_failed);
+    if (context.executor_.shutdown() != SACCADE_OK)
+        return result(TestResult::shutdown_failed);
     context.executor_initialized_ = false;
     return result(TestResult::success);
 }

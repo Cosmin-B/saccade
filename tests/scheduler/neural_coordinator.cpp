@@ -53,8 +53,7 @@ void retire_frame(void* context, SaccadeFrameHandle frame) noexcept {
     ++capture->calls;
 }
 
-saccade::scheduler::NeuralFrame neural_frame(SaccadeFrameHandle frame, uint64_t epoch,
-                                             RetirementCapture* retirement = nullptr) noexcept {
+saccade::scheduler::NeuralFrame neural_frame(SaccadeFrameHandle frame, uint64_t epoch, RetirementCapture* retirement = nullptr) noexcept {
     saccade::scheduler::NeuralFrame value{};
     value.frame = frame;
     value.source_id = 100;
@@ -82,8 +81,7 @@ int main() {
     }
     saccade::backend::reference_cpu::Backend backend;
     const SaccadeInferenceProviderDesc provider = backend.provider();
-    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK ||
-        saccade_runtime_freeze(runtime) != SACCADE_OK) {
+    if (saccade_register_inference_provider(runtime, &provider) != SACCADE_OK || saccade_runtime_freeze(runtime) != SACCADE_OK) {
         return 2;
     }
 
@@ -116,8 +114,7 @@ int main() {
     config.model_epoch = 400;
     config.session_epoch = 500;
     config.maximum_output_bytes = session_info.max_output_bytes;
-    if (scenes.initialize(&scene_storage) != SACCADE_OK ||
-        coordinator.initialize(config, &coordinator_storage, &scenes) != SACCADE_OK) {
+    if (scenes.initialize(&scene_storage) != SACCADE_OK || coordinator.initialize(config, &coordinator_storage, &scenes) != SACCADE_OK) {
         return 4;
     }
 
@@ -133,10 +130,10 @@ int main() {
         return 5;
     }
     saccade::scene::PacketView scene{};
-    if (scenes.acquire_latest(&scene) != SACCADE_OK ||
-        scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 || scene.header->frame_id != 1 ||
-        scene.header->scene_epoch != 1 || scene.header->capture_time_ns != 1001 || scene.targets[0].x_q8 != 2560 ||
-        scene.targets[0].y_q8 != 5120 || scene.targets[0].width_q8 != 512 || scene.targets[0].height_q8 != 768) {
+    if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
+        scene.header->frame_id != 1 || scene.header->scene_epoch != 1 || scene.header->capture_time_ns != 1001 ||
+        scene.targets[0].x_q8 != 2560 || scene.targets[0].y_q8 != 5120 || scene.targets[0].width_q8 != 512 ||
+        scene.targets[0].height_q8 != 768) {
         return 6;
     }
 
@@ -148,13 +145,11 @@ int main() {
     const SaccadeFrameHandle third = import_frame(runtime, white, 3, 3);
     const SaccadeFrameHandle fourth = import_frame(runtime, white, 4, 4);
     if (third == 0 || fourth == 0 || coordinator.offer(neural_frame(third, 3)) != SACCADE_OK ||
-        coordinator.offer(neural_frame(fourth, 4)) != SACCADE_OK ||
-        saccade_frame_release(runtime, third) != SACCADE_ERROR_STALE_HANDLE ||
-        coordinator.advance(saccade::scheduler::scene_period_30hz_ns + 1, &advance) != SACCADE_OK ||
-        !advance.scene_published || advance.scene_epoch != 2 ||
-        coordinator.advance(saccade::scheduler::scene_period_30hz_ns * 2, &advance) != SACCADE_OK ||
-        coordinator.advance(saccade::scheduler::scene_period_30hz_ns * 2 + 1, &advance) != SACCADE_OK ||
-        !advance.scene_published || advance.scene_epoch != 3) {
+        coordinator.offer(neural_frame(fourth, 4)) != SACCADE_OK || saccade_frame_release(runtime, third) != SACCADE_ERROR_STALE_HANDLE ||
+        coordinator.advance(saccade::scheduler::scene_period_30hz_ns + 1, &advance) != SACCADE_OK || !advance.scene_published ||
+        advance.scene_epoch != 2 || coordinator.advance(saccade::scheduler::scene_period_30hz_ns * 2, &advance) != SACCADE_OK ||
+        coordinator.advance(saccade::scheduler::scene_period_30hz_ns * 2 + 1, &advance) != SACCADE_OK || !advance.scene_published ||
+        advance.scene_epoch != 3) {
         return 8;
     }
     if (scenes.acquire_latest(&scene) != SACCADE_OK || scene.header->frame_id != 4 || scene.header->scene_epoch != 3 ||
@@ -162,13 +157,12 @@ int main() {
         return 9;
     }
     const auto stats = coordinator.stats();
-    if (stats.frames_offered != 4 || stats.frames_replaced != 1 || stats.frames_submitted != 3 ||
-        stats.tickets_completed != 3 || stats.scenes_published != 3 || stats.targets_published != 3 ||
-        stats.failures != 0 || coordinator.shutdown() != SACCADE_OK || saccade::test::end_allocation_tracking() != 0) {
+    if (stats.frames_offered != 4 || stats.frames_replaced != 1 || stats.frames_submitted != 3 || stats.tickets_completed != 3 ||
+        stats.scenes_published != 3 || stats.targets_published != 3 || stats.failures != 0 || coordinator.shutdown() != SACCADE_OK ||
+        saccade::test::end_allocation_tracking() != 0) {
         return 10;
     }
-    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK ||
-        saccade_runtime_destroy(runtime) != SACCADE_OK) {
+    if (saccade_inference_session_destroy(runtime, session) != SACCADE_OK || saccade_runtime_destroy(runtime) != SACCADE_OK) {
         return 11;
     }
     return 0;

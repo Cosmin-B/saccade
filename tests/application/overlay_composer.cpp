@@ -43,16 +43,17 @@ constexpr uint32_t clipped_scene_index = 3;
 constexpr uint32_t visible_label_index = 1;
 constexpr uint32_t expected_clipped_x_q3 = 3800U * q3_scale;
 constexpr uint32_t expected_clipped_width_q3 = 40U * q3_scale;
-constexpr std::array<uint16_t, SACCADE_OVERLAY_GLYPHS_PER_TARGET> glyph_symbols{
-    static_cast<uint16_t>('A'), static_cast<uint16_t>('S'), static_cast<uint16_t>('D'), static_cast<uint16_t>('F'),
-    static_cast<uint16_t>('G'), static_cast<uint16_t>('H'), static_cast<uint16_t>('J'), static_cast<uint16_t>('K'),
-    static_cast<uint16_t>('L'), static_cast<uint16_t>('Q'), static_cast<uint16_t>('W'), static_cast<uint16_t>('E'),
-    static_cast<uint16_t>('R'), static_cast<uint16_t>('T'), static_cast<uint16_t>('Y'), static_cast<uint16_t>('U')};
-constexpr size_t scene_packet_size =
-    sizeof(SaccadeTargetPacketHeader) + scene_target_count * sizeof(SaccadeTargetRecord);
-constexpr size_t overlay_packet_capacity = sizeof(SaccadeOverlayPacketHeader) +
-                                           scene_target_count * sizeof(SaccadeOverlayTarget) +
-                                           sizeof(SaccadeOverlayStyle);
+constexpr std::array<uint16_t, SACCADE_OVERLAY_GLYPHS_PER_TARGET> glyph_symbols{static_cast<uint16_t>('A'), static_cast<uint16_t>('S'),
+                                                                                static_cast<uint16_t>('D'), static_cast<uint16_t>('F'),
+                                                                                static_cast<uint16_t>('G'), static_cast<uint16_t>('H'),
+                                                                                static_cast<uint16_t>('J'), static_cast<uint16_t>('K'),
+                                                                                static_cast<uint16_t>('L'), static_cast<uint16_t>('Q'),
+                                                                                static_cast<uint16_t>('W'), static_cast<uint16_t>('E'),
+                                                                                static_cast<uint16_t>('R'), static_cast<uint16_t>('T'),
+                                                                                static_cast<uint16_t>('Y'), static_cast<uint16_t>('U')};
+constexpr size_t scene_packet_size = sizeof(SaccadeTargetPacketHeader) + scene_target_count * sizeof(SaccadeTargetRecord);
+constexpr size_t overlay_packet_capacity =
+    sizeof(SaccadeOverlayPacketHeader) + scene_target_count * sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 
 int result(TestResult value) noexcept {
     return static_cast<int>(value);
@@ -120,13 +121,11 @@ SaccadeOverlayStyle style() noexcept {
     return value;
 }
 
-bool overlaps(const SaccadeOverlayTarget& left, const SaccadeOverlayTarget& right,
-              const SaccadeOverlayStyle& value) noexcept {
+bool overlaps(const SaccadeOverlayTarget& left, const SaccadeOverlayTarget& right, const SaccadeOverlayStyle& value) noexcept {
     const uint32_t left_width = value.label_padding_x_q3 * 2U + value.glyph_advance_q3 * left.glyph_count;
     const uint32_t right_width = value.label_padding_x_q3 * 2U + value.glyph_advance_q3 * right.glyph_count;
     return left.label_x_q3 < right.label_x_q3 + right_width && right.label_x_q3 < left.label_x_q3 + left_width &&
-           left.label_y_q3 < right.label_y_q3 + value.label_height_q3 &&
-           right.label_y_q3 < left.label_y_q3 + value.label_height_q3;
+           left.label_y_q3 < right.label_y_q3 + value.label_height_q3 && right.label_y_q3 < left.label_y_q3 + value.label_height_q3;
 }
 
 } // namespace
@@ -172,8 +171,8 @@ int main() {
     alignas(SaccadeOverlayPacketHeader) std::array<uint8_t, overlay_packet_capacity> output{};
     saccade::application::OverlayComposeResult composed{};
     saccade::application::OverlayComposer composer;
-    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace,
-                         {output.data(), output.size()}, &composed) != SACCADE_OK ||
+    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace, {output.data(), output.size()},
+                         &composed) != SACCADE_OK ||
         composed.target_count != expected_overlay_targets)
         return result(TestResult::compose_failed);
     saccade::overlay::PacketView packet{};
@@ -183,9 +182,8 @@ int main() {
         workspace.overlay_index_by_scene_index[clipped_scene_index] == UINT32_MAX)
         return result(TestResult::mapping_failed);
 
-    constexpr size_t compact_capacity = sizeof(SaccadeOverlayPacketHeader) +
-                                        expected_overlay_targets * sizeof(SaccadeOverlayTarget) +
-                                        sizeof(SaccadeOverlayStyle);
+    constexpr size_t compact_capacity =
+        sizeof(SaccadeOverlayPacketHeader) + expected_overlay_targets * sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
     alignas(SaccadeOverlayPacketHeader) std::array<uint8_t, compact_capacity> compact_output{};
     if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace,
                          {compact_output.data(), compact_output.size()}, &composed) != SACCADE_OK ||
@@ -206,22 +204,21 @@ int main() {
     for (uint32_t index = 0; index < SACCADE_OVERLAY_GLYPHS_PER_TARGET; ++index) {
         labels[visible_label_index].symbols[index] = glyph_symbols[index];
     }
-    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace,
-                         {output.data(), output.size()}, &composed) != SACCADE_OK ||
+    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace, {output.data(), output.size()},
+                         &composed) != SACCADE_OK ||
         saccade::overlay::validate_packet({output.data(), composed.byte_size}, &packet) != SACCADE_OK) {
         return result(TestResult::long_label_failed);
     }
     targets = reinterpret_cast<const SaccadeOverlayTarget*>(packet.targets);
     const uint32_t long_label_target = workspace.overlay_index_by_scene_index[labels[visible_label_index].target_index];
-    if (long_label_target == UINT32_MAX ||
-        targets[long_label_target].glyph_count != SACCADE_OVERLAY_GLYPHS_PER_TARGET) {
+    if (long_label_target == UINT32_MAX || targets[long_label_target].glyph_count != SACCADE_OVERLAY_GLYPHS_PER_TARGET) {
         return result(TestResult::long_label_failed);
     }
 
     labels[visible_label_index].symbol_count = 1;
     labels[visible_label_index].symbols[0] = static_cast<uint16_t>('X');
-    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace,
-                         {output.data(), output.size()}, &composed) != SACCADE_ERROR_UNSUPPORTED)
+    if (composer.compose(scene, labels.data(), static_cast<uint32_t>(labels.size()), config, &workspace, {output.data(), output.size()},
+                         &composed) != SACCADE_ERROR_UNSUPPORTED)
         return result(TestResult::unsupported_glyph_failed);
     return result(TestResult::success);
 }

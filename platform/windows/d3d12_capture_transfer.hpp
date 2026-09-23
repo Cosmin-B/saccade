@@ -51,8 +51,7 @@ class D3d12CaptureTransfer final {
     D3d12CaptureTransfer(D3d12CaptureTransfer&&) = delete;
     D3d12CaptureTransfer& operator=(D3d12CaptureTransfer&&) = delete;
 
-    SaccadeResult initialize(ID3D11Device* producer_device, ID3D11DeviceContext* producer_context,
-                             ID3D12Device* consumer_device) noexcept;
+    SaccadeResult initialize(ID3D11Device* producer_device, ID3D11DeviceContext* producer_context, ID3D12Device* consumer_device) noexcept;
     SaccadeResult copy(ID3D11Texture2D*, uint32_t width, uint32_t height, D3d12CaptureTransferFrame*) noexcept;
     SaccadeResult release(D3d12CaptureTransferFrame) noexcept;
     SaccadeResult shutdown() noexcept;

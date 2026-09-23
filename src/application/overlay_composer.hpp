@@ -66,9 +66,8 @@ struct OverlayComposeStats {
 
 class OverlayComposer final {
   public:
-    SaccadeResult compose(const scene::PacketView&, const interaction::HintLabel*, uint32_t label_count,
-                          const OverlayComposeConfig&, OverlayComposeWorkspace*, SaccadeMutableSpanU8,
-                          OverlayComposeResult*) noexcept;
+    SaccadeResult compose(const scene::PacketView&, const interaction::HintLabel*, uint32_t label_count, const OverlayComposeConfig&,
+                          OverlayComposeWorkspace*, SaccadeMutableSpanU8, OverlayComposeResult*) noexcept;
 
     [[nodiscard]] OverlayComposeStats stats() const noexcept { return stats_; }
 

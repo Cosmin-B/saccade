@@ -37,8 +37,7 @@ constexpr int to_process_exit_code(ExitCode code) noexcept {
     return static_cast<int>(code);
 }
 
-constexpr size_t packet_size =
-    sizeof(SaccadeTargetPacketHeader) + SACCADE_INPUT_PLAN_MAX_TARGETS * sizeof(SaccadeTargetRecord);
+constexpr size_t packet_size = sizeof(SaccadeTargetPacketHeader) + SACCADE_INPUT_PLAN_MAX_TARGETS * sizeof(SaccadeTargetRecord);
 
 struct alignas(8) SceneStorage {
     std::array<uint8_t, packet_size> bytes{};
@@ -75,8 +74,8 @@ void make_scene(SceneStorage* storage) noexcept {
     targets[0].role = SACCADE_TARGET_ROLE_TEXT_FIELD;
     targets[0].source_bits = SACCADE_TARGET_SOURCE_ACCESSIBILITY;
     targets[0].capability_bits = SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON |
-                                 SACCADE_TARGET_CAPABILITY_SCROLL | SACCADE_TARGET_CAPABILITY_DRAG_SOURCE |
-                                 SACCADE_TARGET_CAPABILITY_TEXT | SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
+                                 SACCADE_TARGET_CAPABILITY_SCROLL | SACCADE_TARGET_CAPABILITY_DRAG_SOURCE | SACCADE_TARGET_CAPABILITY_TEXT |
+                                 SACCADE_TARGET_CAPABILITY_TEXT_SELECT;
     targets[0].flags = SACCADE_TARGET_ACTIONABLE;
     targets[1] = targets[0];
     targets[1].target_id = 102;
@@ -105,8 +104,8 @@ saccade::interaction::ActionContext context() noexcept {
     value.focus_id = 201;
     value.now_ns = 100;
     value.deadline_ns = 1000;
-    value.permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD |
-                        SACCADE_INPUT_PERMISSION_TEXT | SACCADE_INPUT_PERMISSION_WINDOW;
+    value.permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_KEYBOARD | SACCADE_INPUT_PERMISSION_TEXT |
+                        SACCADE_INPUT_PERMISSION_WINDOW;
     return value;
 }
 
@@ -117,8 +116,7 @@ int main() {
     static saccade::interaction::ActionPlanStorage plan_storage;
     make_scene(&scene_storage);
     saccade::scene::PacketView scene{};
-    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) !=
-        SACCADE_OK) {
+    if (saccade::scene::validate_packet({scene_storage.bytes.data(), scene_storage.bytes.size()}, &scene) != SACCADE_OK) {
         return to_process_exit_code(ExitCode::invalid_scene);
     }
     saccade::interaction::ActionPlanner planner;
@@ -137,15 +135,14 @@ int main() {
     saccade::input::PlanView plan{};
     saccade::input::PhysicalInputReducer physical;
     if (saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.header->command_count != 4 ||
-        plan.commands[1].kind != SACCADE_INPUT_COMMAND_BUTTON_DOWN ||
-        plan.commands[3].kind != SACCADE_INPUT_COMMAND_BUTTON_UP || physical.initialize(21, 0, 0) != SACCADE_OK ||
-        physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(2) != SACCADE_OK || physical.state().buttons != SACCADE_INPUT_BUTTON_LEFT) {
+        plan.commands[1].kind != SACCADE_INPUT_COMMAND_BUTTON_DOWN || plan.commands[3].kind != SACCADE_INPUT_COMMAND_BUTTON_UP ||
+        physical.initialize(21, 0, 0) != SACCADE_OK ||
+        physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK || physical.advance(2) != SACCADE_OK ||
+        physical.state().buttons != SACCADE_INPUT_BUTTON_LEFT) {
         return to_process_exit_code(ExitCode::drag_physical);
     }
     saccade::input::SyntheticRelease release{};
-    if (physical.abort(&release) != SACCADE_OK || release.buttons != SACCADE_INPUT_BUTTON_LEFT ||
-        physical.state().buttons != 0) {
+    if (physical.abort(&release) != SACCADE_OK || release.buttons != SACCADE_INPUT_BUTTON_LEFT || physical.state().buttons != 0) {
         return to_process_exit_code(ExitCode::drag_abort);
     }
 
@@ -157,10 +154,8 @@ int main() {
     request.duration_ns = 50;
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.header->command_count != 4 ||
-        plan.commands[0].kind != SACCADE_INPUT_COMMAND_POINTER_MOVE ||
-        plan.commands[1].kind != SACCADE_INPUT_COMMAND_BUTTON_DOWN ||
-        plan.commands[2].kind != SACCADE_INPUT_COMMAND_POINTER_MOVE ||
-        plan.commands[3].kind != SACCADE_INPUT_COMMAND_BUTTON_UP ||
+        plan.commands[0].kind != SACCADE_INPUT_COMMAND_POINTER_MOVE || plan.commands[1].kind != SACCADE_INPUT_COMMAND_BUTTON_DOWN ||
+        plan.commands[2].kind != SACCADE_INPUT_COMMAND_POINTER_MOVE || plan.commands[3].kind != SACCADE_INPUT_COMMAND_BUTTON_UP ||
         plan.commands[2].duration_ns != request.duration_ns) {
         return to_process_exit_code(ExitCode::text_select);
     }
@@ -175,8 +170,8 @@ int main() {
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
         physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(plan.header->command_count) != SACCADE_OK ||
-        physical.state().buttons != SACCADE_INPUT_BUTTON_LEFT || physical.state().active_lease_id != 2) {
+        physical.advance(plan.header->command_count) != SACCADE_OK || physical.state().buttons != SACCADE_INPUT_BUTTON_LEFT ||
+        physical.state().active_lease_id != 2) {
         return to_process_exit_code(ExitCode::hold_build);
     }
 
@@ -186,8 +181,7 @@ int main() {
     request.kind = saccade::interaction::ActionKind::release;
     request.button = SACCADE_INPUT_BUTTON_LEFT;
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
-        saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.header->window_id != 0 ||
-        plan.header->display_id != 0 ||
+        saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.header->window_id != 0 || plan.header->display_id != 0 ||
         physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
         physical.advance(plan.header->command_count) != SACCADE_OK || physical.state().buttons != 0 ||
         physical.state().active_lease_id != 0) {
@@ -237,15 +231,13 @@ int main() {
     request.move_to_final_pointer = true;
     request.final_pointer = {700, 800};
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
-        saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
-        plan.header->command_count != SACCADE_INPUT_PLAN_MAX_COMMANDS ||
+        saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.header->command_count != SACCADE_INPUT_PLAN_MAX_COMMANDS ||
         plan.commands[SACCADE_INPUT_PLAN_MAX_COMMANDS - 1U].kind != SACCADE_INPUT_COMMAND_POINTER_MOVE ||
         plan.commands[SACCADE_INPUT_PLAN_MAX_COMMANDS - 1U].target_id != 0) {
         return to_process_exit_code(ExitCode::maximum_click);
     }
 
-    const saccade::geometry::PointQ8 outside_target{scene.targets[0].x_q8 + scene.targets[0].width_q8,
-                                                    scene.targets[0].safe_y_q8};
+    const saccade::geometry::PointQ8 outside_target{scene.targets[0].x_q8 + scene.targets[0].width_q8, scene.targets[0].safe_y_q8};
     action_context.plan_id = 19;
     request.target_ids = &source;
     request.target_count = 1;
@@ -263,8 +255,7 @@ int main() {
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
         physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(plan.header->command_count) != SACCADE_OK ||
-        physical.state().pointer_x_q8 != pointer_before_dry_run) {
+        physical.advance(plan.header->command_count) != SACCADE_OK || physical.state().pointer_x_q8 != pointer_before_dry_run) {
         return to_process_exit_code(ExitCode::dry_run);
     }
 
@@ -277,8 +268,7 @@ int main() {
     request.delta_y_q8 = -512;
     request.duration_ns = 80;
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
-        saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
-        plan.commands[0].kind != SACCADE_INPUT_COMMAND_SCROLL ||
+        saccade::input::validate_plan(packet, &plan) != SACCADE_OK || plan.commands[0].kind != SACCADE_INPUT_COMMAND_SCROLL ||
         (plan.commands[0].flags & SACCADE_INPUT_COMMAND_CONTINUOUS) == 0) {
         return to_process_exit_code(ExitCode::scroll_build);
     }
@@ -304,9 +294,8 @@ int main() {
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
         physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(plan.header->command_count) != SACCADE_OK ||
-        physical.physical_override(900, 800, &release) != SACCADE_OK || release.buttons != SACCADE_INPUT_BUTTON_LEFT ||
-        physical.state().pointer_x_q8 != 900) {
+        physical.advance(plan.header->command_count) != SACCADE_OK || physical.physical_override(900, 800, &release) != SACCADE_OK ||
+        release.buttons != SACCADE_INPUT_BUTTON_LEFT || physical.state().pointer_x_q8 != 900) {
         return to_process_exit_code(ExitCode::physical_override);
     }
 
@@ -314,8 +303,7 @@ int main() {
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
         physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(plan.header->command_count) != SACCADE_OK ||
-        physical.expire(action_context.deadline_ns, &release) != SACCADE_OK ||
+        physical.advance(plan.header->command_count) != SACCADE_OK || physical.expire(action_context.deadline_ns, &release) != SACCADE_OK ||
         release.buttons != SACCADE_INPUT_BUTTON_LEFT) {
         return to_process_exit_code(ExitCode::expire);
     }
@@ -323,9 +311,8 @@ int main() {
     action_context.plan_id = 11;
     if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_OK ||
         saccade::input::validate_plan(packet, &plan) != SACCADE_OK ||
-        physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK ||
-        physical.advance(2) != SACCADE_OK || physical.backend_failure(&release) != SACCADE_OK ||
-        release.buttons != SACCADE_INPUT_BUTTON_LEFT) {
+        physical.begin(plan, action_context.permissions, action_context.now_ns) != SACCADE_OK || physical.advance(2) != SACCADE_OK ||
+        physical.backend_failure(&release) != SACCADE_OK || release.buttons != SACCADE_INPUT_BUTTON_LEFT) {
         return to_process_exit_code(ExitCode::backend_failure);
     }
 
@@ -335,7 +322,7 @@ int main() {
     }
     action_context = context();
     action_context.permissions = 0;
-    if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_ERROR_UNSUPPORTED) {
+    if (planner.build(scene, action_context, request, &plan_storage, &packet) != SACCADE_ERROR_PERMISSION) {
         return to_process_exit_code(ExitCode::unsupported);
     }
     const size_t allocations = saccade::test::end_allocation_tracking();

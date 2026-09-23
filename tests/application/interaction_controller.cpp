@@ -47,18 +47,25 @@ int result(TestResult value) noexcept {
     return static_cast<int>(value);
 }
 
+saccade::application::InteractionState initial_interaction_state() noexcept {
+    saccade::application::InteractionState state{};
+    state.scene_epoch = scene_epoch;
+    state.transform_epoch = transform_epoch;
+    state.topology_epoch = topology_epoch;
+    state.permission_epoch = permission_epoch;
+    state.process_id = focus_id;
+    state.foreground_process_id = focus_id;
+    state.focus_id = focus_id;
+    state.permissions = SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_WINDOW;
+    return state;
+}
+
 struct alignas(SaccadeTargetPacketHeader) ScenePacket {
     std::array<uint8_t, packet_size> bytes{};
 };
 
 struct Capture {
-    saccade::application::InteractionState state{scene_epoch,
-                                                 transform_epoch,
-                                                 topology_epoch,
-                                                 permission_epoch,
-                                                 focus_id,
-                                                 SACCADE_INPUT_PERMISSION_POINTER | SACCADE_INPUT_PERMISSION_WINDOW,
-                                                 0};
+    saccade::application::InteractionState state{initial_interaction_state()};
     uint32_t executions = 0;
     uint32_t forwarded = 0;
     uint32_t neutralized = 0;
@@ -81,16 +88,11 @@ SaccadeResult execute(void* context, SaccadeSpanU8 plan, uint32_t, uint64_t) noe
     }
     capture->command_count = view.header->command_count;
     capture->command_x_q8 = view.header->command_count == 0 ? 0 : view.commands[0].x_q8;
-    capture->last_command_kind =
-        view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].kind;
-    capture->last_payload_size =
-        view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].payload_size;
-    capture->last_delta_x_q8 =
-        view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].delta_x_q8;
-    capture->last_delta_y_q8 =
-        view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].delta_y_q8;
-    capture->last_duration_ns =
-        view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].duration_ns;
+    capture->last_command_kind = view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].kind;
+    capture->last_payload_size = view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].payload_size;
+    capture->last_delta_x_q8 = view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].delta_x_q8;
+    capture->last_delta_y_q8 = view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].delta_y_q8;
+    capture->last_duration_ns = view.header->command_count == 0 ? 0 : view.commands[view.header->command_count - 1U].duration_ns;
     ++capture->executions;
     return SACCADE_OK;
 }
@@ -158,13 +160,13 @@ SaccadeSpanU8 make_scene(ScenePacket* packet) noexcept {
     return {packet->bytes.data(), packet->bytes.size()};
 }
 
-SaccadeResult enter_label(saccade::application::SessionEngine* session, uint32_t index,
-                          uint64_t timestamp_ns) noexcept {
+SaccadeResult enter_label(saccade::application::SessionEngine* session, uint32_t index, uint64_t timestamp_ns) noexcept {
     const saccade::interaction::HintLabel& label = session->labels()[index];
     saccade::application::SessionEvent event{};
     for (uint32_t symbol = 0; symbol < label.symbol_count; ++symbol) {
         const SaccadeResult entered = session->enter_symbol(label.symbols[symbol], timestamp_ns, &event);
-        if (entered != SACCADE_OK) return entered;
+        if (entered != SACCADE_OK)
+            return entered;
     }
     return SACCADE_OK;
 }
@@ -191,45 +193,39 @@ int main() {
     profile.scroll_duration_ns = timeout_ns / 2U;
     profile.initial_mode = saccade::interaction::SelectionMode::single;
     saccade::application::InteractionController controller;
-    if (controller.initialize(&session, profile, {&capture, read_state},
-                              {&capture, forward, input_lease_active, neutralize_input}) != SACCADE_OK) {
+    if (controller.initialize(&session, profile, {&capture, read_state}, {&capture, forward, input_lease_active, neutralize_input}) !=
+        SACCADE_OK) {
         return result(TestResult::controller_failed);
     }
     saccade::application::InteractionCommandResult command{};
     if (controller.dispatch(saccade::application::Command::left_click, first_timestamp_ns, &command) != SACCADE_OK ||
         !command.action_started || !session.active() ||
-        controller.dispatch(saccade::application::Command::target_position_1, first_timestamp_ns, &command) !=
-            SACCADE_OK ||
+        controller.dispatch(saccade::application::Command::target_position_1, first_timestamp_ns, &command) != SACCADE_OK ||
         !command.target_adjusted ||
-        controller.dispatch(saccade::application::Command::edge_snap_right, first_timestamp_ns, &command) !=
-            SACCADE_OK ||
+        controller.dispatch(saccade::application::Command::edge_snap_right, first_timestamp_ns, &command) != SACCADE_OK ||
         !command.target_adjusted ||
         controller.dispatch(saccade::application::Command::nudge_left, first_timestamp_ns, &command) != SACCADE_OK ||
-        !command.target_adjusted || enter_label(&session, 0, first_timestamp_ns) != SACCADE_OK ||
-        capture.executions != 1 || capture.command_count != 1 || capture.command_x_q8 != adjusted_outside_target_x_q8) {
+        !command.target_adjusted || enter_label(&session, 0, first_timestamp_ns) != SACCADE_OK || capture.executions != 1 ||
+        capture.command_count != 1 || capture.command_x_q8 != adjusted_outside_target_x_q8) {
         return result(TestResult::action_failed);
     }
     if (controller.dispatch(saccade::application::Command::double_click, second_timestamp_ns, &command) != SACCADE_OK ||
         !command.action_started || !session.active() ||
         controller.dispatch(saccade::application::Command::mode_multi, final_timestamp_ns, &command) != SACCADE_OK ||
-        !command.mode_changed || session.active() ||
-        controller.selection_mode() != saccade::interaction::SelectionMode::multi ||
+        !command.mode_changed || session.active() || controller.selection_mode() != saccade::interaction::SelectionMode::multi ||
         controller.dispatch(saccade::application::Command::repeat_action, final_timestamp_ns, &command) != SACCADE_OK ||
         !command.action_started || enter_label(&session, 0, final_timestamp_ns) != SACCADE_OK ||
-        enter_label(&session, 1, final_timestamp_ns) != SACCADE_OK ||
-        session.confirm(final_timestamp_ns, &command.session) != SACCADE_OK || capture.executions != 2 ||
-        capture.command_count != expected_click_commands) {
+        enter_label(&session, 1, final_timestamp_ns) != SACCADE_OK || session.confirm(final_timestamp_ns, &command.session) != SACCADE_OK ||
+        capture.executions != 2 || capture.command_count != expected_click_commands) {
         return result(TestResult::mode_failed);
     }
-    if (controller.dispatch(saccade::application::Command::repeat_action, final_timestamp_ns + 1U, &command) !=
-            SACCADE_OK ||
-        !command.action_started || controller.observe_physical_input(final_timestamp_ns + 1U) != SACCADE_OK ||
-        session.active()) {
+    if (controller.dispatch(saccade::application::Command::repeat_action, final_timestamp_ns + 1U, &command) != SACCADE_OK ||
+        !command.action_started || controller.observe_physical_input(final_timestamp_ns + 1U) != SACCADE_OK || session.active()) {
         return result(TestResult::repeat_failed);
     }
     capture.lease_active = true;
-    if (saccade::application::start_interaction_command(&controller, saccade::application::Command::drag,
-                                                        final_timestamp_ns + 1U) != SACCADE_OK ||
+    if (saccade::application::start_interaction_command(&controller, saccade::application::Command::drag, final_timestamp_ns + 1U) !=
+            SACCADE_OK ||
         !session.active()) {
         return result(TestResult::physical_input_failed);
     }
@@ -237,46 +233,36 @@ int main() {
     if (session.active() || capture.neutralized != 1) {
         return result(TestResult::physical_input_failed);
     }
-    if (controller.dispatch(saccade::application::Command::open_settings, final_timestamp_ns + 3U, &command) !=
-            SACCADE_OK ||
-        !command.forwarded || capture.forwarded != 1 ||
-        capture.last_forwarded != saccade::application::Command::open_settings) {
+    if (controller.dispatch(saccade::application::Command::open_settings, final_timestamp_ns + 3U, &command) != SACCADE_OK ||
+        !command.forwarded || capture.forwarded != 1 || capture.last_forwarded != saccade::application::Command::open_settings) {
         return result(TestResult::forward_failed);
     }
-    if (controller.dispatch(saccade::application::Command::free_pointer, final_timestamp_ns + 4U, &command) !=
-            SACCADE_OK ||
-        !command.action_started || enter_label(&session, 0, final_timestamp_ns + 4U) != SACCADE_OK ||
-        !session.active() || capture.executions != 2 ||
-        controller.dispatch(saccade::application::Command::nudge_right, final_timestamp_ns + 5U, &command) !=
-            SACCADE_OK ||
-        !command.target_adjusted || session.confirm(final_timestamp_ns + 6U, &command.session) != SACCADE_OK ||
-        session.active() || capture.executions != 3)
+    if (controller.dispatch(saccade::application::Command::free_pointer, final_timestamp_ns + 4U, &command) != SACCADE_OK ||
+        !command.action_started || enter_label(&session, 0, final_timestamp_ns + 4U) != SACCADE_OK || !session.active() ||
+        capture.executions != 2 ||
+        controller.dispatch(saccade::application::Command::nudge_right, final_timestamp_ns + 5U, &command) != SACCADE_OK ||
+        !command.target_adjusted || session.confirm(final_timestamp_ns + 6U, &command.session) != SACCADE_OK || session.active() ||
+        capture.executions != 3)
         return result(TestResult::free_pointer_failed);
     constexpr std::array<uint8_t, 2> text{{'H', 'i'}};
     capture.state.permissions |= SACCADE_INPUT_PERMISSION_TEXT;
     if (controller.set_text({text.data(), text.size()}) != SACCADE_OK ||
-        controller.dispatch(saccade::application::Command::type_text, final_timestamp_ns + 7U, &command) !=
-            SACCADE_OK ||
-        !session.active() || enter_label(&session, 0, final_timestamp_ns + 7U) != SACCADE_OK ||
-        capture.executions != 4 || capture.command_count != 2 ||
-        capture.last_command_kind != SACCADE_INPUT_COMMAND_TEXT || capture.last_payload_size != text.size())
+        controller.dispatch(saccade::application::Command::type_text, final_timestamp_ns + 7U, &command) != SACCADE_OK ||
+        !session.active() || enter_label(&session, 0, final_timestamp_ns + 7U) != SACCADE_OK || capture.executions != 4 ||
+        capture.command_count != 2 || capture.last_command_kind != SACCADE_INPUT_COMMAND_TEXT || capture.last_payload_size != text.size())
         return result(TestResult::text_failed);
-    if (controller.dispatch(saccade::application::Command::scroll_up, final_timestamp_ns + 8U, &command) !=
-            SACCADE_OK ||
-        !session.active() || enter_label(&session, 0, final_timestamp_ns + 8U) != SACCADE_OK ||
-        capture.executions != 5 || capture.last_command_kind != SACCADE_INPUT_COMMAND_SCROLL ||
-        capture.last_delta_x_q8 != 0 || capture.last_delta_y_q8 != -saccade::application::default_scroll_step_q8 ||
-        capture.last_duration_ns != 0 ||
-        controller.dispatch(saccade::application::Command::scroll_right_continuous, final_timestamp_ns + 9U,
-                            &command) != SACCADE_OK ||
-        !session.active() || enter_label(&session, 0, final_timestamp_ns + 9U) != SACCADE_OK ||
-        capture.executions != 6 || capture.last_command_kind != SACCADE_INPUT_COMMAND_SCROLL ||
+    if (controller.dispatch(saccade::application::Command::scroll_up, final_timestamp_ns + 8U, &command) != SACCADE_OK ||
+        !session.active() || enter_label(&session, 0, final_timestamp_ns + 8U) != SACCADE_OK || capture.executions != 5 ||
+        capture.last_command_kind != SACCADE_INPUT_COMMAND_SCROLL || capture.last_delta_x_q8 != 0 ||
+        capture.last_delta_y_q8 != -saccade::application::default_scroll_step_q8 || capture.last_duration_ns != 0 ||
+        controller.dispatch(saccade::application::Command::scroll_right_continuous, final_timestamp_ns + 9U, &command) != SACCADE_OK ||
+        !session.active() || enter_label(&session, 0, final_timestamp_ns + 9U) != SACCADE_OK || capture.executions != 6 ||
+        capture.last_command_kind != SACCADE_INPUT_COMMAND_SCROLL ||
         capture.last_delta_x_q8 != saccade::application::default_scroll_step_q8 || capture.last_delta_y_q8 != 0 ||
         capture.last_duration_ns != timeout_ns / 2U) {
         return result(TestResult::scroll_failed);
     }
-    if (controller.dispatch(saccade::application::Command::pointer_move, final_timestamp_ns + 10U, &command) !=
-            SACCADE_OK ||
+    if (controller.dispatch(saccade::application::Command::pointer_move, final_timestamp_ns + 10U, &command) != SACCADE_OK ||
         !session.active()) {
         return result(TestResult::tick_failed);
     }

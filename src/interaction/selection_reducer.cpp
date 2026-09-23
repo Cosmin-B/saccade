@@ -6,13 +6,12 @@
 
 namespace saccade::interaction {
 
-SaccadeResult SelectionReducer::begin(const scene::PacketView& scene, SelectionMode mode,
-                                      const SelectionContext& context, SelectionStorage* storage) noexcept {
+SaccadeResult SelectionReducer::begin(const scene::PacketView& scene, SelectionMode mode, const SelectionContext& context,
+                                      SelectionStorage* storage) noexcept {
     if (state_ != SelectionState::idle || scene.header == nullptr || scene.targets == nullptr || storage == nullptr ||
-        mode < SelectionMode::single || mode > SelectionMode::path || context.scene_epoch == 0 ||
-        context.transform_epoch == 0 || context.topology_epoch == 0 || context.deadline_ns == 0 ||
-        scene.header->scene_epoch != context.scene_epoch || scene.header->transform_epoch != context.transform_epoch ||
-        scene.header->topology_epoch != context.topology_epoch) {
+        mode < SelectionMode::single || mode > SelectionMode::path || context.scene_epoch == 0 || context.transform_epoch == 0 ||
+        context.topology_epoch == 0 || context.deadline_ns == 0 || scene.header->scene_epoch != context.scene_epoch ||
+        scene.header->transform_epoch != context.transform_epoch || scene.header->topology_epoch != context.topology_epoch) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
 
@@ -60,7 +59,8 @@ SaccadeResult SelectionReducer::expand_path() noexcept {
     for (uint32_t segment = 1; segment < target_count_; ++segment) {
         const SaccadeTargetRecord* first = find_target(anchors[segment - 1U]);
         const SaccadeTargetRecord* last = find_target(anchors[segment]);
-        if (first == nullptr || last == nullptr) return SACCADE_ERROR_STALE_HANDLE;
+        if (first == nullptr || last == nullptr)
+            return SACCADE_ERROR_STALE_HANDLE;
 
         const auto before = [](const SaccadeTargetRecord& left, const SaccadeTargetRecord& right) noexcept {
             return left.order < right.order || (left.order == right.order && left.target_id < right.target_id);
@@ -71,8 +71,10 @@ SaccadeResult SelectionReducer::expand_path() noexcept {
 
         for (uint32_t index = 0; index < scene_header_->target_count; ++index) {
             const SaccadeTargetRecord* target = &scene_targets_[index];
-            if (before(*target, *low) || before(*high, *target)) continue;
-            if (match_count == maximum_selection_targets) return SACCADE_ERROR_CAPACITY;
+            if (before(*target, *low) || before(*high, *target))
+                continue;
+            if (match_count == maximum_selection_targets)
+                return SACCADE_ERROR_CAPACITY;
 
             uint32_t position = match_count;
             while (position != 0 && before(*target, *matches[position - 1U])) {
@@ -83,13 +85,16 @@ SaccadeResult SelectionReducer::expand_path() noexcept {
             ++match_count;
         }
 
-        if (match_count < 2) return SACCADE_ERROR_NOT_FOUND;
+        if (match_count < 2)
+            return SACCADE_ERROR_NOT_FOUND;
         const bool forward = first == low;
         for (uint32_t index = 0; index < match_count; ++index) {
             const uint32_t match_index = forward ? index : match_count - index - 1U;
             const uint64_t target_id = matches[match_index]->target_id;
-            if (expanded_count != 0 && expanded[expanded_count - 1U] == target_id) continue;
-            if (expanded_count == maximum_selection_targets) return SACCADE_ERROR_CAPACITY;
+            if (expanded_count != 0 && expanded[expanded_count - 1U] == target_id)
+                continue;
+            if (expanded_count == maximum_selection_targets)
+                return SACCADE_ERROR_CAPACITY;
             expanded[expanded_count++] = target_id;
         }
     }
@@ -149,7 +154,8 @@ SaccadeResult SelectionReducer::confirm() noexcept {
 
     if (path_ready) {
         const SaccadeResult result = expand_path();
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
     }
 
     state_ = SelectionState::complete;
@@ -159,8 +165,7 @@ SaccadeResult SelectionReducer::confirm() noexcept {
 }
 
 SaccadeResult SelectionReducer::cancel(SelectionCancelReason reason) noexcept {
-    if (state_ != SelectionState::collecting || reason <= SelectionCancelReason::none ||
-        reason > SelectionCancelReason::permission_lost) {
+    if (state_ != SelectionState::collecting || reason <= SelectionCancelReason::none || reason > SelectionCancelReason::permission_lost) {
         return SACCADE_ERROR_STATE;
     }
 
@@ -176,8 +181,7 @@ SaccadeResult SelectionReducer::cancel(SelectionCancelReason reason) noexcept {
 SaccadeResult SelectionReducer::refresh_scene(const scene::PacketView& scene) noexcept {
     if ((state_ != SelectionState::collecting && state_ != SelectionState::complete) || scene.header == nullptr ||
         scene.targets == nullptr || scene.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8 ||
-        scene.header->scene_epoch <= context_.scene_epoch ||
-        scene.header->transform_epoch != context_.transform_epoch ||
+        scene.header->scene_epoch <= context_.scene_epoch || scene.header->transform_epoch != context_.transform_epoch ||
         scene.header->topology_epoch != context_.topology_epoch) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
@@ -187,10 +191,10 @@ SaccadeResult SelectionReducer::refresh_scene(const scene::PacketView& scene) no
     std::sort(selected_ids.begin(), selected_ids.begin() + target_count_);
     uint32_t matches = 0;
     for (uint32_t index = 0; index < scene.header->target_count; ++index) {
-        matches += std::binary_search(selected_ids.begin(), selected_ids.begin() + target_count_,
-                                      scene.targets[index].target_id);
+        matches += std::binary_search(selected_ids.begin(), selected_ids.begin() + target_count_, scene.targets[index].target_id);
     }
-    if (matches != target_count_) return SACCADE_ERROR_STALE_HANDLE;
+    if (matches != target_count_)
+        return SACCADE_ERROR_STALE_HANDLE;
 
     scene_header_ = scene.header;
     scene_targets_ = scene.targets;

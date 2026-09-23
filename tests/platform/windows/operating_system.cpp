@@ -10,10 +10,10 @@ enum class ExitCode : int { success, query_failed, support_mismatch };
 
 int main() {
     const uint32_t build = saccade::platform::windows::operating_system_build();
-    if (build == 0) return static_cast<int>(ExitCode::query_failed);
+    if (build == 0)
+        return static_cast<int>(ExitCode::query_failed);
 
     const bool expected = build >= saccade::platform::windows::minimum_supported_windows_build;
-    return saccade::platform::windows::operating_system_supported() == expected
-               ? static_cast<int>(ExitCode::success)
-               : static_cast<int>(ExitCode::support_mismatch);
+    return saccade::platform::windows::operating_system_supported() == expected ? static_cast<int>(ExitCode::success)
+                                                                                : static_cast<int>(ExitCode::support_mismatch);
 }

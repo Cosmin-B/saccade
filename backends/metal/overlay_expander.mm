@@ -21,8 +21,7 @@ namespace {
 constexpr uint32_t slot_count = 3;
 constexpr uint32_t instances_per_target = 5;
 constexpr uint32_t instance_capacity = SACCADE_OVERLAY_MAX_TARGETS * instances_per_target + 1U;
-constexpr size_t packet_capacity = sizeof(SaccadeOverlayPacketHeader) +
-                                   SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
+constexpr size_t packet_capacity = sizeof(SaccadeOverlayPacketHeader) + SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
                                    SACCADE_OVERLAY_MAX_STYLES * sizeof(SaccadeOverlayStyle);
 
 struct ExpandParameters {
@@ -61,8 +60,7 @@ bool all_zero(const uint64_t* values, size_t count) noexcept {
 
 bool frame_header_valid(const SaccadeOverlayFrameDesc& frame) noexcept {
     return frame.struct_size == sizeof(SaccadeOverlayFrameDesc) && frame.api_version == SACCADE_API_VERSION &&
-           (frame.flags & ~SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) == 0 &&
-           all_zero(frame.reserved, std::size(frame.reserved));
+           (frame.flags & ~SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) == 0 && all_zero(frame.reserved, std::size(frame.reserved));
 }
 
 template <class Record> Record load_record(const uint8_t* bytes) noexcept {
@@ -76,12 +74,14 @@ uint64_t buffer_bytes(id<MTLBuffer> buffer) noexcept {
 }
 
 void fill_builtin_atlas(uint8_t* pixels) noexcept {
-    constexpr uint64_t glyph_bits[overlay::glyph_atlas_capacity] = {
-        0x4631FC62EULL, 0x3E317C62FULL, 0x78210843EULL, 0x3E318C62FULL, 0x7C217843FULL, 0x04217843FULL, 0x7A31E843EULL,
-        0x4631FC631ULL, 0x7C842109FULL, 0x19294211CULL, 0x452519531ULL, 0x7C2108421ULL, 0x4631AD771ULL, 0x4631CD671ULL,
-        0x3A318C62EULL, 0x04217C62FULL, 0x59358C62EULL, 0x45257C62FULL, 0x3E107043EULL, 0x10842109FULL, 0x3A318C631ULL,
-        0x11518C631ULL, 0x2AB5AC631ULL, 0x462A22A31ULL, 0x108422A31ULL, 0x7C222221FULL, 0x3A33AE62EULL, 0x3884210C4ULL,
-        0x7C444422EULL, 0x3E107420FULL, 0x211F4A988ULL, 0x3E107843FULL};
+    constexpr uint64_t glyph_bits[overlay::glyph_atlas_capacity] = {0x4631FC62EULL, 0x3E317C62FULL, 0x78210843EULL, 0x3E318C62FULL,
+                                                                    0x7C217843FULL, 0x04217843FULL, 0x7A31E843EULL, 0x4631FC631ULL,
+                                                                    0x7C842109FULL, 0x19294211CULL, 0x452519531ULL, 0x7C2108421ULL,
+                                                                    0x4631AD771ULL, 0x4631CD671ULL, 0x3A318C62EULL, 0x04217C62FULL,
+                                                                    0x59358C62EULL, 0x45257C62FULL, 0x3E107043EULL, 0x10842109FULL,
+                                                                    0x3A318C631ULL, 0x11518C631ULL, 0x2AB5AC631ULL, 0x462A22A31ULL,
+                                                                    0x108422A31ULL, 0x7C222221FULL, 0x3A33AE62EULL, 0x3884210C4ULL,
+                                                                    0x7C444422EULL, 0x3E107420FULL, 0x211F4A988ULL, 0x3E107843FULL};
     std::memset(pixels, 0, overlay::glyph_atlas_bytes);
     for (uint32_t glyph = 0; glyph < overlay::glyph_atlas_capacity; ++glyph) {
         const uint32_t cell_x = (glyph % overlay::glyph_atlas_columns) * overlay::glyph_atlas_cell_width;
@@ -91,8 +91,7 @@ void fill_builtin_atlas(uint8_t* pixels) noexcept {
             for (uint32_t x = 0; x < 40; ++x) {
                 const uint32_t column = x * 5U / 40U;
                 if ((glyph_bits[glyph] & (UINT64_C(1) << (row * 5U + column))) != 0) {
-                    pixels[static_cast<size_t>(cell_y + y + 4U) * overlay::glyph_atlas_width + cell_x + x + 12U] =
-                        UINT8_MAX;
+                    pixels[static_cast<size_t>(cell_y + y + 4U) * overlay::glyph_atlas_width + cell_x + x + 12U] = UINT8_MAX;
                 }
             }
         }
@@ -204,17 +203,15 @@ struct OverlayExpander::Impl {
         fill_builtin_atlas(static_cast<uint8_t*>(glyph_atlas_buffer_.contents));
         for (Slot& slot : slots_) {
             slot.packet_ = [device_ newBufferWithLength:packet_capacity options:options];
-            slot.rects_ =
-                [device_ newBufferWithLength:static_cast<NSUInteger>(instance_capacity) * sizeof(SaccadeOverlayRect)
-                                     options:options];
-            slot.metadata_ = [device_
-                newBufferWithLength:static_cast<NSUInteger>(instance_capacity) * sizeof(SaccadeOverlayInstanceMeta)
-                            options:options];
+            slot.rects_ = [device_ newBufferWithLength:static_cast<NSUInteger>(instance_capacity) * sizeof(SaccadeOverlayRect)
+                                               options:options];
+            slot.metadata_ = [device_ newBufferWithLength:static_cast<NSUInteger>(instance_capacity) * sizeof(SaccadeOverlayInstanceMeta)
+                                                  options:options];
             slot.parameters_ = [device_ newBufferWithLength:sizeof(ExpandParameters) options:options];
             slot.arguments_ = [device_ newBufferWithLength:sizeof(DrawArguments) options:options];
             slot.display_constants_ = [device_ newBufferWithLength:sizeof(DisplayConstants) options:options];
-            if (slot.packet_ == nil || slot.rects_ == nil || slot.metadata_ == nil || slot.parameters_ == nil ||
-                slot.arguments_ == nil || slot.display_constants_ == nil) {
+            if (slot.packet_ == nil || slot.rects_ == nil || slot.metadata_ == nil || slot.parameters_ == nil || slot.arguments_ == nil ||
+                slot.display_constants_ == nil) {
                 return false;
             }
             slot.render_pass3_ = [MTLRenderPassDescriptor renderPassDescriptor];
@@ -277,8 +274,8 @@ struct OverlayExpander::Impl {
             slot.command_buffer4_ = [device_ newCommandBuffer];
             slot.fence4_ = [device_ newFence];
             slot.render_pass4_ = [[MTL4RenderPassDescriptor alloc] init];
-            if (slot.argument_table_ == nil || slot.allocator_ == nil || slot.command_buffer4_ == nil ||
-                slot.fence4_ == nil || slot.render_pass4_ == nil) {
+            if (slot.argument_table_ == nil || slot.allocator_ == nil || slot.command_buffer4_ == nil || slot.fence4_ == nil ||
+                slot.render_pass4_ == nil) {
                 return false;
             }
             MTLResidencySetDescriptor* residency_descriptor = [[MTLResidencySetDescriptor alloc] init];
@@ -288,15 +285,14 @@ struct OverlayExpander::Impl {
             if (slot.residency_set_ == nil) {
                 return false;
             }
-            const std::array<id<MTLAllocation>, 6> allocations{
-                slot.packet_, slot.rects_, slot.metadata_, slot.parameters_, slot.arguments_, slot.display_constants_};
+            const std::array<id<MTLAllocation>, 6> allocations{slot.packet_,     slot.rects_,     slot.metadata_,
+                                                               slot.parameters_, slot.arguments_, slot.display_constants_};
             [slot.residency_set_ addAllocations:allocations.data() count:allocations.size()];
             [slot.residency_set_ addAllocation:glyph_atlas_texture_];
             [slot.residency_set_ commit];
             [slot.residency_set_ requestResidency];
             [queue4_ addResidencySet:slot.residency_set_];
-            [static_cast<id<MTL4ArgumentTable>>(slot.argument_table_) setTexture:glyph_atlas_texture_.gpuResourceID
-                                                                         atIndex:0];
+            [static_cast<id<MTL4ArgumentTable>>(slot.argument_table_) setTexture:glyph_atlas_texture_.gpuResourceID atIndex:0];
         }
         return true;
     }
@@ -322,10 +318,9 @@ struct OverlayExpander::Impl {
         return queue3_ != nil;
     }
 
-    SaccadeResult validate_frame(const SaccadeOverlayFrameDesc& frame,
-                                 SaccadeOverlayPacketHeader* out_header) noexcept {
-        if (!frame_header_valid(frame) || frame.packet.data == nullptr ||
-            frame.packet.size < sizeof(SaccadeOverlayPacketHeader) || out_header == nullptr) {
+    SaccadeResult validate_frame(const SaccadeOverlayFrameDesc& frame, SaccadeOverlayPacketHeader* out_header) noexcept {
+        if (!frame_header_valid(frame) || frame.packet.data == nullptr || frame.packet.size < sizeof(SaccadeOverlayPacketHeader) ||
+            out_header == nullptr) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         const SaccadeOverlayPacketHeader header = load_record<SaccadeOverlayPacketHeader>(frame.packet.data);
@@ -348,8 +343,7 @@ struct OverlayExpander::Impl {
             validated_packet_size_ = frame.packet.size;
             std::memcpy(validated_packet_.contents, frame.packet.data, frame.packet.size);
             validated_scene_ = true;
-        } else if (frame.packet.size != validated_packet_size_ ||
-                   std::memcmp(&header, &validated_header_, sizeof(header)) != 0) {
+        } else if (frame.packet.size != validated_packet_size_ || std::memcmp(&header, &validated_header_, sizeof(header)) != 0) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
         *out_header = header;
@@ -382,15 +376,13 @@ struct OverlayExpander::Impl {
     }
 
     bool render_target_valid(const RenderTarget& target) const noexcept {
-        if (target.texture == nullptr || target.width == 0 || target.height == 0 ||
-            (target.flags & ~render_target_display_link) != 0 || target.reserved != 0 ||
-            !std::isfinite(target.target_presentation_time) || target.target_presentation_time < 0.0) {
+        if (target.texture == nullptr || target.width == 0 || target.height == 0 || (target.flags & ~render_target_display_link) != 0 ||
+            target.reserved != 0 || !std::isfinite(target.target_presentation_time) || target.target_presentation_time < 0.0) {
             return false;
         }
         id<MTLTexture> texture = (__bridge id<MTLTexture>)target.texture;
         return texture != nil && texture.device == device_ && texture.pixelFormat == MTLPixelFormatBGRA8Unorm &&
-               (texture.usage & MTLTextureUsageRenderTarget) != 0 && texture.width == target.width &&
-               texture.height == target.height;
+               (texture.usage & MTLTextureUsageRenderTarget) != 0 && texture.width == target.width && texture.height == target.height;
     }
 
     void prepare_render_target(Slot& slot, const RenderTarget& target, uint64_t scene_epoch) noexcept {
@@ -404,8 +396,8 @@ struct OverlayExpander::Impl {
             animation_time = static_cast<float>(std::fmod(target.target_presentation_time, 4.0));
             scene_age = static_cast<float>(std::max(0.0, target.target_presentation_time - animation_scene_start_));
         }
-        const DisplayConstants constants{1.0F / static_cast<float>(target.width),
-                                         1.0F / static_cast<float>(target.height), animation_time, scene_age};
+        const DisplayConstants constants{1.0F / static_cast<float>(target.width), 1.0F / static_cast<float>(target.height), animation_time,
+                                         scene_age};
         std::memcpy(slot.display_constants_.contents, &constants, sizeof(constants));
         slot.render_texture_ = (__bridge id<MTLTexture>)target.texture;
         slot.drawable_ = target.drawable == nullptr ? nil : (__bridge id<MTLDrawable>)target.drawable;
@@ -417,8 +409,7 @@ struct OverlayExpander::Impl {
     }
 
     void prepare_metal4_render_target(Slot& slot) noexcept API_AVAILABLE(macos(26.0)) {
-        MTLRenderPassColorAttachmentDescriptor* color =
-            static_cast<MTL4RenderPassDescriptor*>(slot.render_pass4_).colorAttachments[0];
+        MTLRenderPassColorAttachmentDescriptor* color = static_cast<MTL4RenderPassDescriptor*>(slot.render_pass4_).colorAttachments[0];
         color.texture = slot.render_texture_;
         color.loadAction = MTLLoadActionClear;
         color.storeAction = MTLStoreActionStore;
@@ -452,8 +443,8 @@ struct OverlayExpander::Impl {
 
         if (target != nullptr) {
             prepare_metal4_render_target(slot);
-            id<MTL4RenderCommandEncoder> render = [command_buffer
-                renderCommandEncoderWithDescriptor:static_cast<MTL4RenderPassDescriptor*>(slot.render_pass4_)];
+            id<MTL4RenderCommandEncoder> render =
+                [command_buffer renderCommandEncoderWithDescriptor:static_cast<MTL4RenderPassDescriptor*>(slot.render_pass4_)];
             if (render == nil) {
                 return false;
             }
@@ -483,8 +474,7 @@ struct OverlayExpander::Impl {
         return true;
     }
 
-    bool encode_metal3(Slot& slot, bool expand_static, const SaccadeOverlayPacketHeader& header,
-                       const RenderTarget* target) noexcept {
+    bool encode_metal3(Slot& slot, bool expand_static, const SaccadeOverlayPacketHeader& header, const RenderTarget* target) noexcept {
         slot.command_buffer3_ = [queue3_ commandBuffer];
         if (slot.command_buffer3_ == nil) {
             return false;
@@ -502,16 +492,14 @@ struct OverlayExpander::Impl {
         if (expand_static && header.target_count != 0) {
             [encoder setComputePipelineState:static_pipeline_];
             const NSUInteger width = std::min<NSUInteger>(256, static_pipeline_.maxTotalThreadsPerThreadgroup);
-            [encoder dispatchThreads:MTLSizeMake(header.target_count, 1, 1)
-                threadsPerThreadgroup:MTLSizeMake(width, 1, 1)];
+            [encoder dispatchThreads:MTLSizeMake(header.target_count, 1, 1) threadsPerThreadgroup:MTLSizeMake(width, 1, 1)];
         }
         [encoder setComputePipelineState:active_pipeline_];
         [encoder dispatchThreads:MTLSizeMake(1, 1, 1) threadsPerThreadgroup:MTLSizeMake(1, 1, 1)];
         [encoder endEncoding];
 
         if (target != nullptr) {
-            id<MTLRenderCommandEncoder> render =
-                [slot.command_buffer3_ renderCommandEncoderWithDescriptor:slot.render_pass3_];
+            id<MTLRenderCommandEncoder> render = [slot.command_buffer3_ renderCommandEncoderWithDescriptor:slot.render_pass3_];
             if (render == nil) {
                 return false;
             }
@@ -562,8 +550,7 @@ const OverlayExpander::Impl& OverlayExpander::impl() const noexcept {
 SaccadeResult OverlayExpander::initialize(const char* metallib_path, PathPreference preference) noexcept {
     Impl& state = impl();
     if (metallib_path == nullptr || metallib_path[0] == '\0' ||
-        (preference != PathPreference::automatic && preference != PathPreference::metal3 &&
-         preference != PathPreference::metal4)) {
+        (preference != PathPreference::automatic && preference != PathPreference::metal3 && preference != PathPreference::metal4)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (state.initialized_) {
@@ -579,8 +566,7 @@ SaccadeResult OverlayExpander::initialize(const char* metallib_path, PathPrefere
         if (preference == PathPreference::metal4 && !supports_metal4) {
             return SACCADE_ERROR_UNSUPPORTED;
         }
-        const bool use_metal4 =
-            preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
+        const bool use_metal4 = preference == PathPreference::metal4 || (preference == PathPreference::automatic && supports_metal4);
         if (!state.create_buffers() || !state.create_pipelines(metallib_path)) {
             return SACCADE_ERROR_BACKEND;
         }
@@ -626,12 +612,14 @@ SaccadeResult OverlayExpander::submit(const SaccadeOverlayFrameDesc& frame, Subm
 
 SaccadeResult OverlayExpander::set_glyph_atlas(overlay::GlyphAtlasView atlas) noexcept {
     Impl& state = impl();
-    if (!state.initialized_ || !overlay::glyph_atlas_valid(atlas)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state.initialized_ || !overlay::glyph_atlas_valid(atlas))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     if (state.next_sequence_ > 1 && state.completion_event_.signaledValue < state.next_sequence_ - 1U) {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
         while (state.completion_event_.signaledValue < state.next_sequence_ - 1U) {
-            if (std::chrono::steady_clock::now() >= deadline) return SACCADE_ERROR_TIMEOUT;
+            if (std::chrono::steady_clock::now() >= deadline)
+                return SACCADE_ERROR_TIMEOUT;
             std::this_thread::yield();
         }
     }
@@ -664,16 +652,15 @@ SaccadeResult OverlayExpander::submit_internal(const SaccadeOverlayFrameDesc& fr
     if (slot == nullptr) {
         return SACCADE_ERROR_BUSY;
     }
-    const bool expand_static = !slot->scene_valid_ || slot->scene_epoch_ != header.scene_epoch ||
-                               slot->transform_epoch_ != header.transform_epoch;
+    const bool expand_static =
+        !slot->scene_valid_ || slot->scene_epoch_ != header.scene_epoch || slot->transform_epoch_ != header.transform_epoch;
     if (expand_static) {
         std::memcpy(slot->packet_.contents, state.validated_packet_.contents, state.validated_packet_size_);
         state.stats_.packet_upload_bytes += frame.packet.size;
     }
 
     const bool has_active = (frame.flags & SACCADE_OVERLAY_FRAME_HAS_ACTIVE_TARGET) != 0;
-    const ExpandParameters parameters{header.target_count,
-                                      has_active ? frame.active_target_index : SACCADE_OVERLAY_ACTIVE_TARGET_NONE,
+    const ExpandParameters parameters{header.target_count, has_active ? frame.active_target_index : SACCADE_OVERLAY_ACTIVE_TARGET_NONE,
                                       header.target_count * instances_per_target, has_active ? 1U : 0U};
     std::memcpy(slot->parameters_.contents, &parameters, sizeof(parameters));
     if (target != nullptr) {
@@ -729,8 +716,7 @@ SaccadeResult OverlayExpander::submit_internal(const SaccadeOverlayFrameDesc& fr
 
 SaccadeResult OverlayExpander::poll(const Submission& submission, bool* out_complete) const noexcept {
     const Impl& state = impl();
-    if (!state.initialized_ || out_complete == nullptr || submission.sequence == 0 ||
-        submission.slot_index >= slot_count) {
+    if (!state.initialized_ || out_complete == nullptr || submission.sequence == 0 || submission.slot_index >= slot_count) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     const Impl::Slot& slot = state.slots_[submission.slot_index];
@@ -752,8 +738,7 @@ SaccadeResult OverlayExpander::wait(const Submission& submission, uint64_t timeo
         if (timeout_ns == 0) {
             return SACCADE_ERROR_TIMEOUT;
         }
-        const auto elapsed =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin);
+        const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - begin);
         if (static_cast<uint64_t>(elapsed.count()) >= timeout_ns) {
             return SACCADE_ERROR_TIMEOUT;
         }
@@ -761,8 +746,7 @@ SaccadeResult OverlayExpander::wait(const Submission& submission, uint64_t timeo
     }
 }
 
-SaccadeResult OverlayExpander::copy_instances(const Submission& submission, InstanceSpan output,
-                                              size_t* out_count) const noexcept {
+SaccadeResult OverlayExpander::copy_instances(const Submission& submission, InstanceSpan output, size_t* out_count) const noexcept {
     const Impl& state = impl();
     if (out_count == nullptr || submission.slot_index >= slot_count || submission.sequence == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -782,8 +766,7 @@ SaccadeResult OverlayExpander::copy_instances(const Submission& submission, Inst
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     if (slot.instance_count_ != 0) {
-        std::memcpy(output.rects, slot.rects_.contents,
-                    static_cast<size_t>(slot.instance_count_) * sizeof(SaccadeOverlayRect));
+        std::memcpy(output.rects, slot.rects_.contents, static_cast<size_t>(slot.instance_count_) * sizeof(SaccadeOverlayRect));
         std::memcpy(output.metadata, slot.metadata_.contents,
                     static_cast<size_t>(slot.instance_count_) * sizeof(SaccadeOverlayInstanceMeta));
     }
@@ -799,8 +782,7 @@ SaccadeResult OverlayExpander::memory_stats(SaccadeMemoryStats* output) const no
     uint64_t device_owned = buffer_bytes(state.validated_packet_) + buffer_bytes(state.glyph_atlas_buffer_);
     for (const Impl::Slot& slot : state.slots_) {
         device_owned += buffer_bytes(slot.packet_) + buffer_bytes(slot.rects_) + buffer_bytes(slot.metadata_) +
-                        buffer_bytes(slot.parameters_) + buffer_bytes(slot.arguments_) +
-                        buffer_bytes(slot.display_constants_);
+                        buffer_bytes(slot.parameters_) + buffer_bytes(slot.arguments_) + buffer_bytes(slot.display_constants_);
     }
     uint64_t framework_opaque = 0;
     if (@available(macOS 26.0, *)) {

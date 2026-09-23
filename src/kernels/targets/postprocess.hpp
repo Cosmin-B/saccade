@@ -64,10 +64,9 @@ static_assert(sizeof(DenseCandidate) == 16);
 static_assert(sizeof(PostprocessStats) == 56);
 
 constexpr bool confidence_band_valid(const PostprocessConfig& config) noexcept {
-    const bool disabled = config.band_minimum_confidence_q16 == 0 && config.band_min_short_side_q3 == 0 &&
-                          config.band_max_short_side_q3 == 0;
-    const bool enabled = config.band_minimum_confidence_q16 != 0 &&
-                         config.band_minimum_confidence_q16 <= config.minimum_confidence_q16 &&
+    const bool disabled =
+        config.band_minimum_confidence_q16 == 0 && config.band_min_short_side_q3 == 0 && config.band_max_short_side_q3 == 0;
+    const bool enabled = config.band_minimum_confidence_q16 != 0 && config.band_minimum_confidence_q16 <= config.minimum_confidence_q16 &&
                          config.band_min_short_side_q3 < config.band_max_short_side_q3;
     return disabled || enabled;
 }
@@ -85,8 +84,8 @@ constexpr bool has_safe_interior(const DenseCandidate& candidate) noexcept {
     return candidate.width_q3 > safe_inset_q3 * 2U && candidate.height_q3 > safe_inset_q3 * 2U;
 }
 
-SaccadeResult postprocess(const DenseCandidate*, uint32_t, const PostprocessConfig&, const PostprocessEpochs&,
-                          PostprocessWorkspace*, SaccadeMutableSpanU8, size_t*, PostprocessStats*) noexcept;
+SaccadeResult postprocess(const DenseCandidate*, uint32_t, const PostprocessConfig&, const PostprocessEpochs&, PostprocessWorkspace*,
+                          SaccadeMutableSpanU8, size_t*, PostprocessStats*) noexcept;
 
 } // namespace saccade::kernels::targets
 

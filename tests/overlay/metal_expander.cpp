@@ -25,8 +25,7 @@ constexpr int to_process_exit_code(ExitCode code) noexcept {
     return static_cast<int>(code);
 }
 
-constexpr size_t max_packet_size = sizeof(SaccadeOverlayPacketHeader) +
-                                   SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
+constexpr size_t max_packet_size = sizeof(SaccadeOverlayPacketHeader) + SACCADE_OVERLAY_MAX_TARGETS * sizeof(SaccadeOverlayTarget) +
                                    SACCADE_OVERLAY_MAX_STYLES * sizeof(SaccadeOverlayStyle);
 constexpr size_t max_instance_count = SACCADE_OVERLAY_MAX_TARGETS * 5U + 1U;
 
@@ -43,10 +42,9 @@ template <class Record> void store(size_t offset, const Record& record) noexcept
 SaccadeSpanU8 build_packet(uint32_t target_count, uint64_t scene_epoch, uint64_t transform_epoch = 7) noexcept {
     const uint32_t style_count = target_count == 0 ? 0 : 4;
     const size_t targets_offset = target_count == 0 ? 0 : sizeof(SaccadeOverlayPacketHeader);
-    const size_t styles_offset =
-        target_count == 0 ? 0 : targets_offset + static_cast<size_t>(target_count) * sizeof(SaccadeOverlayTarget);
-    const size_t packet_size = target_count == 0 ? sizeof(SaccadeOverlayPacketHeader)
-                                                 : styles_offset + style_count * sizeof(SaccadeOverlayStyle);
+    const size_t styles_offset = target_count == 0 ? 0 : targets_offset + static_cast<size_t>(target_count) * sizeof(SaccadeOverlayTarget);
+    const size_t packet_size =
+        target_count == 0 ? sizeof(SaccadeOverlayPacketHeader) : styles_offset + style_count * sizeof(SaccadeOverlayStyle);
 
     SaccadeOverlayPacketHeader header{};
     header.struct_size = sizeof(header);
@@ -94,8 +92,8 @@ SaccadeSpanU8 build_packet(uint32_t target_count, uint64_t scene_epoch, uint64_t
     return {packet_bytes.data(), packet_size};
 }
 
-bool compare_case(saccade::backend::metal::OverlayExpander* expander, uint32_t target_count, uint64_t scene_epoch,
-                  bool has_active, uint64_t transform_epoch = 7) noexcept {
+bool compare_case(saccade::backend::metal::OverlayExpander* expander, uint32_t target_count, uint64_t scene_epoch, bool has_active,
+                  uint64_t transform_epoch = 7) noexcept {
     const SaccadeSpanU8 packet = build_packet(target_count, scene_epoch, transform_epoch);
     saccade::overlay::PacketView view{};
     if (saccade::overlay::validate_packet(packet, &view) != SACCADE_OK) {
@@ -103,8 +101,7 @@ bool compare_case(saccade::backend::metal::OverlayExpander* expander, uint32_t t
     }
 
     size_t static_count = 0;
-    const saccade::overlay::ExpandedInstanceSpan expected{expected_rects.data(), expected_metadata.data(),
-                                                          expected_rects.size()};
+    const saccade::overlay::ExpandedInstanceSpan expected{expected_rects.data(), expected_metadata.data(), expected_rects.size()};
     if (saccade::overlay::expand_static(view, expected, &static_count) != SACCADE_OK) {
         return false;
     }
@@ -129,20 +126,18 @@ bool compare_case(saccade::backend::metal::OverlayExpander* expander, uint32_t t
     }
 
     saccade::backend::metal::Submission submission{};
-    if (expander->submit(frame, &submission) != SACCADE_OK ||
-        expander->wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
+    if (expander->submit(frame, &submission) != SACCADE_OK || expander->wait(submission, UINT64_C(1000000000)) != SACCADE_OK) {
         return false;
     }
 
     size_t actual_count = 0;
-    if (expander->copy_instances(submission, {actual_rects.data(), actual_metadata.data(), actual_rects.size()},
-                                 &actual_count) != SACCADE_OK ||
+    if (expander->copy_instances(submission, {actual_rects.data(), actual_metadata.data(), actual_rects.size()}, &actual_count) !=
+            SACCADE_OK ||
         actual_count != static_count + active_count) {
         return false;
     }
     return std::memcmp(actual_rects.data(), expected_rects.data(), actual_count * sizeof(SaccadeOverlayRect)) == 0 &&
-           std::memcmp(actual_metadata.data(), expected_metadata.data(),
-                       actual_count * sizeof(SaccadeOverlayInstanceMeta)) == 0;
+           std::memcmp(actual_metadata.data(), expected_metadata.data(), actual_count * sizeof(SaccadeOverlayInstanceMeta)) == 0;
 }
 
 bool exercise_path(const char* metallib_path, saccade::backend::metal::PathPreference preference) noexcept {
@@ -163,17 +158,15 @@ bool exercise_path(const char* metallib_path, saccade::backend::metal::PathPrefe
     }
     const saccade::backend::metal::Stats stats = expander.stats();
     if (stats.path == saccade::backend::metal::Path::unavailable || stats.slot_count != 3 ||
-        stats.target_capacity != SACCADE_OVERLAY_MAX_TARGETS || stats.instance_capacity != max_instance_count ||
-        stats.submissions != 7 || stats.static_dispatches != 6 || stats.active_dispatches != 7 ||
-        stats.packet_upload_bytes == 0) {
+        stats.target_capacity != SACCADE_OVERLAY_MAX_TARGETS || stats.instance_capacity != max_instance_count || stats.submissions != 7 ||
+        stats.static_dispatches != 6 || stats.active_dispatches != 7 || stats.packet_upload_bytes == 0) {
         return false;
     }
 
     SaccadeMemoryStats memory{};
     memory.struct_size = sizeof(memory);
     memory.api_version = SACCADE_API_VERSION;
-    return expander.memory_stats(&memory) == SACCADE_OK && memory.device_owned != 0 &&
-           memory.high_water_bytes >= memory.device_owned;
+    return expander.memory_stats(&memory) == SACCADE_OK && memory.device_owned != 0 && memory.high_water_bytes >= memory.device_owned;
 }
 
 bool exercise_contract(const char* metallib_path) noexcept {
@@ -241,8 +234,7 @@ bool exercise_contract(const char* metallib_path) noexcept {
     frame.transform_epoch = 7;
     frame.packet = stable_packet;
     Submission stable_first{};
-    if (expander.submit(frame, &stable_first) != SACCADE_OK ||
-        expander.wait(stable_first, UINT64_C(1000000000)) != SACCADE_OK) {
+    if (expander.submit(frame, &stable_first) != SACCADE_OK || expander.wait(stable_first, UINT64_C(1000000000)) != SACCADE_OK) {
         return false;
     }
     SaccadeOverlayTarget mutated{};
@@ -250,13 +242,11 @@ bool exercise_contract(const char* metallib_path) noexcept {
     mutated.style_index = UINT8_MAX;
     store(sizeof(SaccadeOverlayPacketHeader), mutated);
     Submission stable_second{};
-    if (expander.submit(frame, &stable_second) != SACCADE_OK ||
-        expander.wait(stable_second, UINT64_C(1000000000)) != SACCADE_OK) {
+    if (expander.submit(frame, &stable_second) != SACCADE_OK || expander.wait(stable_second, UINT64_C(1000000000)) != SACCADE_OK) {
         return false;
     }
     size_t stable_count = 0;
-    if (expander.copy_instances(stable_second, {actual_rects.data(), actual_metadata.data(), 5}, &stable_count) !=
-            SACCADE_OK ||
+    if (expander.copy_instances(stable_second, {actual_rects.data(), actual_metadata.data(), 5}, &stable_count) != SACCADE_OK ||
         stable_count != 5 || saccade_overlay_instance_meta_style(actual_metadata[0]) != 0) {
         return false;
     }
@@ -273,8 +263,7 @@ bool exercise_contract(const char* metallib_path) noexcept {
 
     for (uint32_t index = 0; index < 3; ++index) {
         Submission replacement{};
-        if (expander.submit(frame, &replacement) != SACCADE_OK ||
-            expander.wait(replacement, UINT64_C(1000000000)) != SACCADE_OK) {
+        if (expander.submit(frame, &replacement) != SACCADE_OK || expander.wait(replacement, UINT64_C(1000000000)) != SACCADE_OK) {
             return false;
         }
     }
@@ -293,8 +282,7 @@ int main(int argc, char** argv) {
         return to_process_exit_code(ExitCode::invalid_arguments);
     }
     saccade::backend::metal::OverlayExpander available;
-    const SaccadeResult availability =
-        available.initialize(argv[1], saccade::backend::metal::PathPreference::automatic);
+    const SaccadeResult availability = available.initialize(argv[1], saccade::backend::metal::PathPreference::automatic);
     if (availability == SACCADE_ERROR_UNSUPPORTED) {
         return to_process_exit_code(ExitCode::unsupported);
     }

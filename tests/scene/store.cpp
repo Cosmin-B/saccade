@@ -22,6 +22,9 @@ constexpr int to_process_exit_code(ExitCode code) noexcept {
     return static_cast<int>(code);
 }
 
+constexpr uint8_t target_text[] = "Button";
+constexpr size_t target_text_size = sizeof(target_text) - 1U;
+
 void write_scene(const saccade::scene::MutableScenePacket& packet, uint64_t epoch) noexcept {
     SaccadeTargetPacketHeader header{};
     header.struct_size = sizeof(header);
@@ -37,7 +40,7 @@ void write_scene(const saccade::scene::MutableScenePacket& packet, uint64_t epoc
     header.topology_epoch = 1;
     header.source_id = 1;
     header.targets_offset = sizeof(header);
-    header.total_size = sizeof(header) + sizeof(SaccadeTargetRecord);
+    header.total_size = sizeof(header) + sizeof(SaccadeTargetRecord) + target_text_size;
     SaccadeTargetRecord target{};
     target.target_id = epoch;
     target.width_q8 = 256;
@@ -48,8 +51,10 @@ void write_scene(const saccade::scene::MutableScenePacket& packet, uint64_t epoc
     target.source_bits = SACCADE_TARGET_SOURCE_NEURAL;
     target.capability_bits = SACCADE_TARGET_CAPABILITY_POINTER_MOVE;
     target.flags = SACCADE_TARGET_ACTIONABLE;
+    target.text.size = target_text_size;
     std::memcpy(packet.data, &header, sizeof(header));
     std::memcpy(packet.data + sizeof(header), &target, sizeof(target));
+    std::memcpy(packet.data + sizeof(header) + sizeof(target), target_text, target_text_size);
 }
 
 } // namespace
@@ -70,10 +75,11 @@ int main() {
         return to_process_exit_code(ExitCode::begin_write);
     }
     write_scene(packet, 1);
-    constexpr size_t one_target_size = sizeof(SaccadeTargetPacketHeader) + sizeof(SaccadeTargetRecord);
+    constexpr size_t one_target_size = sizeof(SaccadeTargetPacketHeader) + sizeof(SaccadeTargetRecord) + target_text_size;
     if (store.commit_checked(packet, one_target_size) != SACCADE_OK || store.acquire_latest(&view) != SACCADE_OK ||
-        view.header->scene_epoch != 1 || view.targets[0].target_id != 1 || store.acquire_latest(&view) != SACCADE_OK ||
-        view.header->scene_epoch != 1) {
+        view.header->scene_epoch != 1 || view.targets[0].target_id != 1 || view.text_size != target_text_size ||
+        view.target_text(0).size != target_text_size || std::memcmp(view.target_text(0).data, target_text, target_text_size) != 0 ||
+        store.acquire_latest(&view) != SACCADE_OK || view.header->scene_epoch != 1) {
         return to_process_exit_code(ExitCode::commit);
     }
 

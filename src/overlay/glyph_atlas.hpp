@@ -31,8 +31,7 @@ struct GlyphAtlasStorage {
 };
 
 inline bool glyph_atlas_valid(GlyphAtlasView atlas) noexcept {
-    return atlas.pixels != nullptr && atlas.symbols != nullptr && atlas.glyph_count >= 2 &&
-           atlas.glyph_count <= glyph_atlas_capacity;
+    return atlas.pixels != nullptr && atlas.symbols != nullptr && atlas.glyph_count >= 2 && atlas.glyph_count <= glyph_atlas_capacity;
 }
 
 static_assert(glyph_atlas_capacity == glyph_atlas_columns * glyph_atlas_rows);

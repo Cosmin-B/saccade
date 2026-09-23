@@ -45,10 +45,8 @@ bool overlap(const void* left, size_t left_size, const void* right, size_t right
     return left_begin < right_end && right_begin < left_end;
 }
 
-bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destination,
-                     ValidatedLayout* out_layout) noexcept {
-    if (source.data == nullptr || destination.data == nullptr || out_layout == nullptr || source.width == 0 ||
-        source.height == 0) {
+bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destination, ValidatedLayout* out_layout) noexcept {
+    if (source.data == nullptr || destination.data == nullptr || out_layout == nullptr || source.width == 0 || source.height == 0) {
         return false;
     }
 
@@ -71,18 +69,15 @@ bool validate_layout(const InterleavedU8View& source, const PlaneU8View& destina
     }
     ValidatedLayout layout{};
     layout.source_row_bytes = static_cast<size_t>(source.width) * pixel_size;
-    if (!required_bytes(source.height, source.row_stride_bytes, layout.source_row_bytes,
-                        &layout.source_required_bytes) ||
-        !required_bytes(source.height, destination.row_stride_bytes, source.width,
-                        &layout.destination_required_bytes) ||
+    if (!required_bytes(source.height, source.row_stride_bytes, layout.source_row_bytes, &layout.source_required_bytes) ||
+        !required_bytes(source.height, destination.row_stride_bytes, source.width, &layout.destination_required_bytes) ||
         source.size < layout.source_required_bytes || destination.size < layout.destination_required_bytes) {
         return false;
     }
 
     const bool exact_r8_alias = source.pixel_format == SACCADE_FORMAT_R8 && source.data == destination.data &&
                                 source.row_stride_bytes == destination.row_stride_bytes;
-    if (!exact_r8_alias &&
-        overlap(source.data, layout.source_required_bytes, destination.data, layout.destination_required_bytes)) {
+    if (!exact_r8_alias && overlap(source.data, layout.source_required_bytes, destination.data, layout.destination_required_bytes)) {
         return false;
     }
 

@@ -19,8 +19,8 @@ struct PacketStorage {
     std::array<SaccadeTargetRecord, SACCADE_TARGET_PACKET_MAX_TARGETS> targets{};
 };
 
-constexpr size_t packet_bytes = sizeof(SaccadeTargetPacketHeader) +
-                                static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
+constexpr size_t packet_bytes =
+    sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
 constexpr size_t output_bytes = packet_bytes + SACCADE_TARGET_PACKET_MAX_TEXT_BYTES;
 
 void initialize(PacketStorage* packet, uint16_t source, int32_t offset, uint64_t model_epoch) {
@@ -50,8 +50,8 @@ void initialize(PacketStorage* packet, uint16_t source, int32_t offset, uint64_t
         target.safe_x_q8 = target.x_q8 + 10 * 256;
         target.safe_y_q8 = target.y_q8 + 8 * 256;
         target.confidence_q16 = static_cast<uint32_t>(50000U + index % 1000U);
-        target.role = static_cast<SaccadeTargetRole>(
-            source == SACCADE_TARGET_SOURCE_ACCESSIBILITY ? SACCADE_TARGET_ROLE_BUTTON : SACCADE_TARGET_ROLE_UNKNOWN);
+        target.role = static_cast<SaccadeTargetRole>(source == SACCADE_TARGET_SOURCE_ACCESSIBILITY ? SACCADE_TARGET_ROLE_BUTTON
+                                                                                                   : SACCADE_TARGET_ROLE_UNKNOWN);
         target.source_bits = source;
         target.capability_bits = SACCADE_TARGET_CAPABILITY_POINTER_MOVE | SACCADE_TARGET_CAPABILITY_BUTTON;
         target.flags = SACCADE_TARGET_ACTIONABLE;
@@ -69,8 +69,7 @@ int main() {
     initialize(&semantic, SACCADE_TARGET_SOURCE_ACCESSIBILITY, 0, 100);
     initialize(&neural, SACCADE_TARGET_SOURCE_NEURAL, 1, 200);
     const std::array<saccade::scene::PacketView, 2> packets = {
-        {{&semantic.header, semantic.targets.data(), packet_bytes},
-         {&neural.header, neural.targets.data(), packet_bytes}}};
+        {{&semantic.header, semantic.targets.data(), packet_bytes}, {&neural.header, neural.targets.data(), packet_bytes}}};
     saccade::scene::FusionConfig config{};
     saccade::scene::FusionEpochs epochs{};
     epochs.scene_epoch = 10;
@@ -88,12 +87,10 @@ int main() {
         size_t required = 0;
         saccade::scene::FusionStats stats{};
         const auto start = std::chrono::steady_clock::now();
-        const SaccadeResult result =
-            saccade::scene::fuse(packets.data(), static_cast<uint32_t>(packets.size()), config, epochs, &workspace,
-                                 {output.data(), output.size()}, &required, &stats);
+        const SaccadeResult result = saccade::scene::fuse(packets.data(), static_cast<uint32_t>(packets.size()), config, epochs, &workspace,
+                                                          {output.data(), output.size()}, &required, &stats);
         const auto finish = std::chrono::steady_clock::now();
-        if (result != SACCADE_OK || stats.targets_written != 10000 || stats.duplicates_merged != 10000 ||
-            required != packet_bytes) {
+        if (result != SACCADE_OK || stats.targets_written != 10000 || stats.duplicates_merged != 10000 || required != packet_bytes) {
             return exit_code(ExitCode::fusion_failed);
         }
         if (iteration >= warmups) {
@@ -106,7 +103,7 @@ int main() {
     const uint64_t p95 = times[samples * 95 / 100];
     std::printf("scene_fusion candidates=20000 targets=10000 median_ns=%llu p95_ns=%llu "
                 "interaction_budget_pct=%.3f scene_budget_pct=%.3f\n",
-                static_cast<unsigned long long>(median), static_cast<unsigned long long>(p95),
-                static_cast<double>(p95) / 8333333.0 * 100.0, static_cast<double>(p95) / 33333333.0 * 100.0);
+                static_cast<unsigned long long>(median), static_cast<unsigned long long>(p95), static_cast<double>(p95) / 8333333.0 * 100.0,
+                static_cast<double>(p95) / 33333333.0 * 100.0);
     return exit_code(ExitCode::success);
 }

@@ -41,8 +41,7 @@ class DebugTrace final {
   public:
     void reset() noexcept { *this = {}; }
 
-    void record(DebugTraceCode code, uint64_t timestamp_ns, uint64_t argument = 0, int32_t result = 0,
-                uint16_t flags = 0) noexcept {
+    void record(DebugTraceCode code, uint64_t timestamp_ns, uint64_t argument = 0, int32_t result = 0, uint16_t flags = 0) noexcept {
         DebugTraceEvent& event = events_[write_index_];
         event = {next_sequence_++, timestamp_ns, argument, code, flags, result};
         write_index_ = (write_index_ + 1U) % debug_trace_capacity;

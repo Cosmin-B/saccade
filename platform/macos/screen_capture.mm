@@ -1,5 +1,7 @@
 #include "platform/macos/screen_capture.hpp"
 
+#include "platform/macos/screen_capture_lifecycle.hpp"
+
 #include "core/stack_string_builder.hpp"
 
 #import <CoreGraphics/CoreGraphics.h>
@@ -59,8 +61,7 @@ uint64_t frame_handle(uint32_t stream_slot, uint32_t frame_slot, uint32_t genera
 bool decode_stream(uint64_t handle, uint32_t* slot, uint32_t* generation) noexcept {
     const uint32_t encoded_slot = static_cast<uint32_t>(handle);
     const uint32_t encoded_generation = static_cast<uint32_t>(handle >> 32U);
-    if (slot == nullptr || generation == nullptr || encoded_slot == 0 || encoded_slot > maximum_streams ||
-        encoded_generation == 0) {
+    if (slot == nullptr || generation == nullptr || encoded_slot == 0 || encoded_slot > maximum_streams || encoded_generation == 0) {
         return false;
     }
     *slot = encoded_slot - 1U;
@@ -74,8 +75,7 @@ bool decode_frame(uint64_t handle, uint32_t* stream_slot, uint32_t* frame_slot, 
     const uint32_t encoded_stream = (low >> 8U) & UINT32_C(0xFF);
     const uint32_t encoded_generation = static_cast<uint32_t>(handle >> 32U);
     if (stream_slot == nullptr || frame_slot == nullptr || generation == nullptr || encoded_stream == 0 ||
-        encoded_stream > maximum_streams || encoded_frame == 0 || encoded_frame > frame_slots ||
-        encoded_generation == 0) {
+        encoded_stream > maximum_streams || encoded_frame == 0 || encoded_frame > frame_slots || encoded_generation == 0) {
         return false;
     }
     *stream_slot = encoded_stream - 1U;
@@ -94,14 +94,14 @@ uint64_t saturating_add(uint64_t left, uint64_t right) noexcept {
 }
 
 uint64_t timestamp_ns(uint64_t ticks, mach_timebase_info_data_t timebase) noexcept {
-    if (ticks == 0 || timebase.numer == 0 || timebase.denom == 0) return 0;
+    if (ticks == 0 || timebase.numer == 0 || timebase.denom == 0)
+        return 0;
     const uint64_t whole = ticks / timebase.denom;
     const uint64_t remainder = ticks % timebase.denom;
     return whole * timebase.numer + remainder * timebase.numer / timebase.denom;
 }
 
-template <size_t Capacity>
-void copy_source_name(std::array<char, Capacity>* destination, std::string_view value) noexcept {
+template <size_t Capacity> void copy_source_name(std::array<char, Capacity>* destination, std::string_view value) noexcept {
     static_assert(Capacity > 0);
     saccade::core::StackStringBuilder<Capacity - 1U> name;
     (void)name.append(value);
@@ -115,11 +115,9 @@ template <typename Structure> bool valid_output(const Structure* output) noexcep
     uint32_t size = 0;
     uint32_t version = 0;
     std::memcpy(&size, output, sizeof(size));
-    std::memcpy(&version,
-                static_cast<const uint8_t*>(static_cast<const void*>(output)) + offsetof(Structure, api_version),
+    std::memcpy(&version, static_cast<const uint8_t*>(static_cast<const void*>(output)) + offsetof(Structure, api_version),
                 sizeof(version));
-    return static_cast<size_t>(size) >= offsetof(Structure, reserved) &&
-           (version >> 16U) == (SACCADE_API_VERSION >> 16U);
+    return static_cast<size_t>(size) >= offsetof(Structure, reserved) && (version >> 16U) == (SACCADE_API_VERSION >> 16U);
 }
 
 template <typename Structure> SaccadeResult write_output(Structure* output, Structure value) noexcept {
@@ -169,8 +167,8 @@ dispatch_time_t wait_time(uint64_t timeout_ns) noexcept {
 
 @interface SaccadeScreenCaptureOutput : NSObject <SCStreamOutput, SCStreamDelegate> {
   @public
-    void* owner_;
-    uint32_t stream_slot_;
+    __strong SaccadeScreenCaptureSessionState* state_;
+    saccade::platform::macos::ScreenCaptureSessionIdentity session_;
 }
 @end
 
@@ -254,6 +252,7 @@ struct ScreenCaptureProvider::Impl {
     struct Frame {
         std::atomic<uint32_t> state_{frame_free};
         uint32_t generation_ = 1;
+        __strong SaccadeScreenCaptureSessionState* session_state_ = nil;
         CVPixelBufferRef pixel_buffer_ = nullptr;
         CVMetalTextureRef metal_texture_ = nullptr;
         IOSurfaceRef iosurface_ = nullptr;
@@ -273,35 +272,72 @@ struct ScreenCaptureProvider::Impl {
     struct Stream {
         bool active_ = false;
         std::atomic<bool> started_{false};
-        std::atomic<bool> failed_{false};
         uint32_t generation_ = 1;
+        uint32_t session_generation_ = 1;
         uint32_t slot_ = 0;
         uint64_t source_id_ = 0;
         uint64_t next_frame_id_ = 1;
         uint64_t transform_epoch_ = 1;
         std::atomic<uint32_t> pending_{0};
         std::array<Frame, frame_slots> frames_{};
-        dispatch_semaphore_t available_ = nullptr;
+        CVMetalTextureCacheRef texture_cache_ = nullptr;
+        mach_timebase_info_data_t timebase_{};
+        __strong SCContentFilter* filter_ = nil;
+        __strong SCStreamConfiguration* config_ = nil;
         dispatch_queue_t callback_queue_ = nullptr;
+        __strong SaccadeScreenCaptureSessionState* state_ = nil;
         __strong SCStream* stream_ = nil;
         __strong SaccadeScreenCaptureOutput* output_ = nil;
         AtomicStats stats_{};
     };
 
     explicit Impl(id<MTLDevice> device) noexcept : device_(device) {
-        if (mach_timebase_info(&timebase_) != KERN_SUCCESS) timebase_ = {};
+        if (mach_timebase_info(&timebase_) != KERN_SUCCESS)
+            timebase_ = {};
     }
 
     ~Impl() noexcept {
         for (Stream& stream : streams_) {
-            destroy(stream);
+            if (!stream.active_)
+                continue;
+            SaccadeScreenCaptureSessionState* state = stream.state_;
+            if (state != nil) {
+                // Close callback admission and detach the raw inline Stream
+                // context before touching any frame slot. Acquired frame
+                // leases may outlive this native session and retain `state`.
+                SaccadeResult retired = retire_session(stream, cold_wait_ns);
+                if (retired != SACCADE_OK && stream.state_ == state)
+                    retired = retire_session(stream, cold_wait_ns);
+                if (stream.state_ == state) {
+                    (void)retired;
+                    (void)[state cancel];
+                    if (stream.callback_queue_ != nullptr)
+                        dispatch_sync(stream.callback_queue_, ^{});
+                    // Inline Stream storage cannot be destroyed while a
+                    // delegate owns its callback context. Once admission is
+                    // closed, the existing borrowers are finite; shutdown
+                    // therefore drains them without a timeout.
+                    (void)wait_for_callback_quiescence(state, UINT64_MAX);
+                    (void)detach_session(stream, state);
+                }
+            }
+            for (Frame& frame : stream.frames_) {
+                if (frame.state_.load(std::memory_order_acquire) != frame_free)
+                    release_frame(frame);
+            }
+            (void)destroy(stream);
+            if (stream.texture_cache_ != nullptr) {
+                CFRelease(stream.texture_cache_);
+                stream.texture_cache_ = nullptr;
+            }
         }
         if (texture_cache_ != nullptr) {
             CFRelease(texture_cache_);
         }
     }
 
-    void release_frame(Frame& frame) noexcept {
+    static void release_frame(Frame& frame) noexcept {
+        const uint32_t previous_state = frame.state_.load(std::memory_order_acquire);
         if (frame.metal_texture_ != nullptr) {
             CFRelease(frame.metal_texture_);
             frame.metal_texture_ = nullptr;
@@ -314,50 +350,187 @@ struct ScreenCaptureProvider::Impl {
         frame.iosurface_id_ = 0;
         frame.imported_bytes_ = 0;
         frame.damage_count_ = 0;
+        if (previous_state == frame_acquired && frame.session_state_ != nil) {
+            (void)[frame.session_state_ releaseFrameLease];
+        }
+        frame.session_state_ = nil;
         frame.generation_ = next_generation(frame.generation_);
         frame.state_.store(frame_free, std::memory_order_release);
     }
 
-    void discard_pending(Stream& stream) noexcept {
+    void discard_pending(Stream& stream, SaccadeScreenCaptureSessionState* state) noexcept {
         const uint32_t pending = stream.pending_.exchange(0, std::memory_order_acq_rel);
         if (pending != 0) {
             Frame& frame = stream.frames_[pending - 1U];
             update_imported(stream, frame.imported_bytes_, 0);
             release_frame(frame);
         }
-        while (dispatch_semaphore_wait(stream.available_, DISPATCH_TIME_NOW) == 0) {}
+        [state drainAvailable];
     }
 
-    void destroy(Stream& stream) noexcept {
-        if (!stream.active_) {
-            return;
+    bool has_acquired_frames(const Stream& stream) const noexcept {
+        for (const Frame& frame : stream.frames_) {
+            if (frame.state_.load(std::memory_order_acquire) == frame_acquired) {
+                return true;
+            }
         }
-        if (stream.started_.load(std::memory_order_acquire)) {
-            dispatch_semaphore_t stopped = dispatch_semaphore_create(0);
-            [stream.stream_ stopCaptureWithCompletionHandler:^(NSError*) { dispatch_semaphore_signal(stopped); }];
-            (void)dispatch_semaphore_wait(stopped, wait_time(cold_wait_ns));
-            stream.started_.store(false, std::memory_order_release);
+        return false;
+    }
+
+    SaccadeResult prepare_session(Stream& stream) noexcept {
+        const ScreenCaptureSessionIdentity session{stream.slot_, stream.session_generation_, stream.source_id_};
+        stream.session_generation_ = next_generation(stream.session_generation_);
+        stream.state_ = [[SaccadeScreenCaptureSessionState alloc] initWithSession:session];
+        [stream.state_ setCallbackContext:&stream];
+        stream.callback_queue_ = dispatch_queue_create("dev.saccade.capture.output", DISPATCH_QUEUE_SERIAL);
+        stream.output_ = [SaccadeScreenCaptureOutput new];
+        stream.output_->state_ = stream.state_;
+        stream.output_->session_ = session;
+        stream.stream_ = [[SCStream alloc] initWithFilter:stream.filter_ configuration:stream.config_ delegate:stream.output_];
+        NSError* output_error = nil;
+        const BOOL added = [stream.stream_ addStreamOutput:stream.output_
+                                                      type:SCStreamOutputTypeScreen
+                                        sampleHandlerQueue:stream.callback_queue_
+                                                     error:&output_error];
+        if (!added || output_error != nil) {
+            (void)[stream.state_ cancel];
+            (void)detach_session(stream, stream.state_);
+            return SACCADE_ERROR_BACKEND;
+        }
+        return SACCADE_OK;
+    }
+
+    static void stop_native(SCStream* native_stream, SaccadeScreenCaptureSessionState* state, ScreenCaptureOperation operation) noexcept {
+        [state drainAvailable];
+        [native_stream stopCaptureWithCompletionHandler:^(NSError* error) {
+          const SaccadeResult result = error == nil ? SACCADE_OK : SACCADE_ERROR_BACKEND;
+          (void)[state completeStop:operation result:result];
+          if (error != nil) {
+              [state markNativeStopError];
+          }
+          [state signalAvailable];
+        }];
+    }
+
+    SaccadeResult wait_for_retirement(SaccadeScreenCaptureSessionState* state, uint64_t timeout_ns) noexcept {
+        const uint64_t start = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+        for (;;) {
+            const ScreenCaptureLifecycleSnapshot snapshot = [state snapshot];
+            // Native capture is stopped once draining begins. Frame leases may
+            // intentionally outlive the stream and retain their session state,
+            // but the Stream callback context cannot be detached or reused
+            // until every callback borrower has returned.
+            if (snapshot.phase == ScreenCaptureLifecyclePhase::retired ||
+                (snapshot.phase == ScreenCaptureLifecyclePhase::draining && snapshot.callback_borrowers == 0)) {
+                return SACCADE_OK;
+            }
+            if ([state nativeStopFailed]) {
+                return SACCADE_ERROR_BACKEND;
+            }
+
+            const uint64_t elapsed = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - start;
+            if (elapsed >= timeout_ns) {
+                return SACCADE_ERROR_TIMEOUT;
+            }
+            const uint64_t remaining = timeout_ns - elapsed;
+            if ([state waitAvailable:wait_time(remaining)] != 0) {
+                return SACCADE_ERROR_TIMEOUT;
+            }
+        }
+    }
+
+    SaccadeResult wait_for_callback_quiescence(SaccadeScreenCaptureSessionState* state, uint64_t timeout_ns) noexcept {
+        const uint64_t start = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+        for (;;) {
+            if ([state snapshot].callback_borrowers == 0)
+                return SACCADE_OK;
+            const uint64_t elapsed = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - start;
+            if (elapsed >= timeout_ns)
+                return SACCADE_ERROR_TIMEOUT;
+            if ([state waitAvailable:wait_time(timeout_ns - elapsed)] != 0)
+                return SACCADE_ERROR_TIMEOUT;
+        }
+    }
+
+    SaccadeResult detach_session(Stream& stream, SaccadeScreenCaptureSessionState* state) noexcept {
+        if (state == nil) {
+            return SACCADE_OK;
         }
         if (stream.callback_queue_ != nullptr) {
             dispatch_sync(stream.callback_queue_, ^{});
         }
-        discard_pending(stream);
+        if (![state clearCallbackContext])
+            return SACCADE_ERROR_BUSY;
+        discard_pending(stream, state);
+        SaccadeResult result = SACCADE_OK;
+        if (stream.stream_ != nil && stream.output_ != nil) {
+            NSError* error = nil;
+            const BOOL removed = [stream.stream_ removeStreamOutput:stream.output_ type:SCStreamOutputTypeScreen error:&error];
+            if (!removed || error != nil)
+                result = SACCADE_ERROR_BACKEND;
+        }
+        stream.stream_ = nil;
+        stream.output_ = nil;
+        stream.callback_queue_ = nullptr;
+        if (stream.state_ == state) {
+            stream.state_ = nil;
+        }
+        stream.started_.store(false, std::memory_order_release);
+        [state releaseDetachedLifetimeHold];
+        return result;
+    }
+
+    SaccadeResult retire_session(Stream& stream, uint64_t timeout_ns) noexcept {
+        SaccadeScreenCaptureSessionState* state = stream.state_;
+        if (state == nil) {
+            return SACCADE_OK;
+        }
+
+        const ScreenCaptureLifecycleTransition retirement = [state cancel];
+        if (retirement.action == ScreenCaptureLifecycleAction::stop_native) {
+            [state clearNativeStopError];
+            stop_native(stream.stream_, state, retirement.operation);
+        }
+
+        const SaccadeResult waited = wait_for_retirement(state, timeout_ns);
+        if (waited != SACCADE_OK) {
+            return waited;
+        }
+        return detach_session(stream, state);
+    }
+
+    SaccadeResult destroy(Stream& stream) noexcept {
+        if (!stream.active_) {
+            return SACCADE_OK;
+        }
+        if (has_acquired_frames(stream)) {
+            return SACCADE_ERROR_BUSY;
+        }
+
+        const SaccadeResult retired = retire_session(stream, cold_wait_ns);
+        if (retired != SACCADE_OK) {
+            return retired;
+        }
         for (Frame& frame : stream.frames_) {
             if (frame.state_.load(std::memory_order_acquire) != frame_free) {
                 release_frame(frame);
             }
         }
-        stream.stream_ = nil;
-        stream.output_ = nil;
-        stream.callback_queue_ = nullptr;
-        stream.available_ = nullptr;
+        if (stream.texture_cache_ != nullptr) {
+            CFRelease(stream.texture_cache_);
+            stream.texture_cache_ = nullptr;
+        }
+        stream.filter_ = nil;
+        stream.config_ = nil;
         stream.source_id_ = 0;
         stream.active_ = false;
         stream.generation_ = next_generation(stream.generation_);
+        return SACCADE_OK;
     }
 
     SaccadeResult refresh_sources() noexcept {
-        if (!CGPreflightScreenCaptureAccess()) return SACCADE_ERROR_PERMISSION;
+        if (!CGPreflightScreenCaptureAccess())
+            return SACCADE_ERROR_PERMISSION;
 
         __block SCShareableContent* content = nil;
         __block NSError* failure = nil;
@@ -382,9 +555,8 @@ struct ScreenCaptureProvider::Impl {
             source = {};
             source.kind_ = SACCADE_CAPTURE_SOURCE_DISPLAY;
             source.stable_id_ = source_id(source.kind_, display.displayID);
-            source.bounds_ = {
-                static_cast<int32_t>(display.frame.origin.x), static_cast<int32_t>(display.frame.origin.y),
-                static_cast<int32_t>(display.frame.size.width), static_cast<int32_t>(display.frame.size.height)};
+            source.bounds_ = {static_cast<int32_t>(display.frame.origin.x), static_cast<int32_t>(display.frame.origin.y),
+                              static_cast<int32_t>(display.frame.size.width), static_cast<int32_t>(display.frame.size.height)};
             saccade::core::StackStringBuilder<source_name_capacity - 1U> name;
             (void)name.append("Display ");
             (void)name.append_unsigned(display.displayID);
@@ -403,8 +575,7 @@ struct ScreenCaptureProvider::Impl {
             source.kind_ = SACCADE_CAPTURE_SOURCE_WINDOW;
             source.stable_id_ = source_id(source.kind_, window.windowID);
             source.bounds_ = {static_cast<int32_t>(window.frame.origin.x), static_cast<int32_t>(window.frame.origin.y),
-                              static_cast<int32_t>(window.frame.size.width),
-                              static_cast<int32_t>(window.frame.size.height)};
+                              static_cast<int32_t>(window.frame.size.width), static_cast<int32_t>(window.frame.size.height)};
             NSString* title = window.title.length != 0 ? window.title : @"Window";
             const char* utf8 = title.UTF8String;
             if (utf8 != nullptr) {
@@ -437,7 +608,7 @@ struct ScreenCaptureProvider::Impl {
 
     const Stream* find_stream(uint64_t handle) const noexcept { return const_cast<Impl*>(this)->find_stream(handle); }
 
-    void update_imported(Stream& stream, uint64_t removed, uint64_t added) noexcept {
+    static void update_imported(Stream& stream, uint64_t removed, uint64_t added) noexcept {
         uint64_t current = stream.stats_.imported_bytes.load(std::memory_order_relaxed);
         current = current >= removed ? current - removed : 0;
         current = saturating_add(current, added);
@@ -448,17 +619,12 @@ struct ScreenCaptureProvider::Impl {
         }
     }
 
-    void publish(uint32_t stream_slot, CMSampleBufferRef sample) noexcept {
-        if (stream_slot >= maximum_streams) {
-            return;
-        }
-        Stream& stream = streams_[stream_slot];
+    static void publish(Stream& stream, SaccadeScreenCaptureSessionState* state, CMSampleBufferRef sample) noexcept {
         if (!stream.active_ || !stream.started_.load(std::memory_order_acquire)) {
             return;
         }
         stream.stats_.callbacks.fetch_add(1, std::memory_order_relaxed);
-        const uint64_t callback_sequence =
-            stream.stats_.callback_sequence_.fetch_add(1, std::memory_order_relaxed) + 1U;
+        const uint64_t callback_sequence = stream.stats_.callback_sequence_.fetch_add(1, std::memory_order_relaxed) + 1U;
 
         NSArray* attachments = (__bridge NSArray*)CMSampleBufferGetSampleAttachmentsArray(sample, false);
         NSDictionary* metadata = attachments.count != 0 ? attachments[0] : nil;
@@ -498,7 +664,7 @@ struct ScreenCaptureProvider::Impl {
         const size_t width = CVPixelBufferGetWidth(pixel_buffer);
         const size_t height = CVPixelBufferGetHeight(pixel_buffer);
         const CVReturn import_result =
-            CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, texture_cache_, pixel_buffer, nullptr,
+            CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, stream.texture_cache_, pixel_buffer, nullptr,
                                                       MTLPixelFormatBGRA8Unorm, width, height, 0, &metal_texture);
         if (import_result != kCVReturnSuccess || metal_texture == nullptr) {
             CVPixelBufferRelease(pixel_buffer);
@@ -508,16 +674,16 @@ struct ScreenCaptureProvider::Impl {
 
         frame.pixel_buffer_ = pixel_buffer;
         frame.metal_texture_ = metal_texture;
+        frame.session_state_ = state;
         frame.iosurface_ = surface;
         frame.iosurface_id_ = IOSurfaceGetID(surface);
         frame.frame_id_ = stream.next_frame_id_++;
         frame.display_time_ = [metadata[SCStreamFrameInfoDisplayTime] unsignedLongLongValue];
-        frame.timestamp_ns_ = timestamp_ns(frame.display_time_, timebase_);
+        frame.timestamp_ns_ = timestamp_ns(frame.display_time_, stream.timebase_);
         if (frame.timestamp_ns_ == 0) {
             const CMTime presentation = CMSampleBufferGetPresentationTimeStamp(sample);
             if (CMTIME_IS_NUMERIC(presentation) && presentation.value >= 0) {
-                const CMTime nanoseconds =
-                    CMTimeConvertScale(presentation, INT32_C(1'000'000'000), kCMTimeRoundingMethod_Default);
+                const CMTime nanoseconds = CMTimeConvertScale(presentation, INT32_C(1'000'000'000), kCMTimeRoundingMethod_Default);
                 frame.timestamp_ns_ = static_cast<uint64_t>(nanoseconds.value);
             }
         }
@@ -543,9 +709,8 @@ struct ScreenCaptureProvider::Impl {
             } else {
                 continue;
             }
-            frame.damage_[frame.damage_count_++] = {
-                static_cast<int32_t>(rect.origin.x), static_cast<int32_t>(rect.origin.y),
-                static_cast<int32_t>(rect.size.width), static_cast<int32_t>(rect.size.height)};
+            frame.damage_[frame.damage_count_++] = {static_cast<int32_t>(rect.origin.x), static_cast<int32_t>(rect.origin.y),
+                                                    static_cast<int32_t>(rect.size.width), static_cast<int32_t>(rect.size.height)};
         }
         update_imported(stream, 0, frame.imported_bytes_);
         frame.state_.store(frame_published, std::memory_order_release);
@@ -560,24 +725,10 @@ struct ScreenCaptureProvider::Impl {
         stream.stats_.last_frame_id.store(frame.frame_id_, std::memory_order_relaxed);
         stream.stats_.last_display_time.store(frame.display_time_, std::memory_order_relaxed);
         stream.stats_.published.fetch_add(1, std::memory_order_relaxed);
-        dispatch_semaphore_signal(stream.available_);
+        [state signalAvailable];
     }
 
-    void record_callback_failure(uint32_t stream_slot) noexcept {
-        if (stream_slot < maximum_streams) {
-            streams_[stream_slot].stats_.import_failures.fetch_add(1, std::memory_order_relaxed);
-        }
-    }
-
-    void record_stop(uint32_t stream_slot, bool with_error) noexcept {
-        if (with_error && stream_slot < maximum_streams) {
-            Stream& stream = streams_[stream_slot];
-            stream.stats_.did_stop_with_error_.store(1, std::memory_order_relaxed);
-            stream.started_.store(false, std::memory_order_release);
-            stream.failed_.store(true, std::memory_order_release);
-            dispatch_semaphore_signal(stream.available_);
-        }
-    }
+    static void record_callback_failure(Stream& stream) noexcept { stream.stats_.import_failures.fetch_add(1, std::memory_order_relaxed); }
 
     id<MTLDevice> device_ = nil;
     CVMetalTextureCacheRef texture_cache_ = nullptr;
@@ -594,21 +745,31 @@ struct ScreenCaptureProvider::Impl {
 
 - (void)stream:(SCStream*)stream didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer ofType:(SCStreamOutputType)type {
     (void)stream;
-    if (type == SCStreamOutputTypeScreen && owner_ != nullptr) {
-        auto* state = static_cast<saccade::platform::macos::ScreenCaptureProvider::Impl*>(owner_);
-        @try {
-            state->publish(stream_slot_, sampleBuffer);
-        } @catch (NSException*) {
-            state->record_callback_failure(stream_slot_);
+    if (type == SCStreamOutputTypeScreen && state_ != nil) {
+        auto* capture =
+            static_cast<saccade::platform::macos::ScreenCaptureProvider::Impl::Stream*>([state_ beginCallbackContextForSession:session_]);
+        if (capture == nullptr) {
+            return;
         }
+        @try {
+            saccade::platform::macos::ScreenCaptureProvider::Impl::publish(*capture, state_, sampleBuffer);
+        } @catch (NSException*) {
+            saccade::platform::macos::ScreenCaptureProvider::Impl::record_callback_failure(*capture);
+        }
+        (void)[state_ endCallbackForSession:session_];
     }
 }
 
 - (void)stream:(SCStream*)stream didStopWithError:(NSError*)error {
     (void)stream;
-    if (owner_ != nullptr) {
-        auto* state = static_cast<saccade::platform::macos::ScreenCaptureProvider::Impl*>(owner_);
-        state->record_stop(stream_slot_, error != nil);
+    if (error != nil && state_ != nil) {
+        auto* capture =
+            static_cast<saccade::platform::macos::ScreenCaptureProvider::Impl::Stream*>([state_ beginCallbackContextForSession:session_]);
+        if (capture != nullptr) {
+            capture->stats_.did_stop_with_error_.store(1, std::memory_order_relaxed);
+            (void)[state_ endCallbackForSession:session_];
+        }
+        [state_ nativeDidStopWithError];
     }
 }
 
@@ -648,8 +809,7 @@ SaccadeResult SACCADE_CALL enumerate_sources(void* context, uint32_t index, Sacc
     return write_output(output, value);
 }
 
-SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStreamDesc* input,
-                                         SaccadeCaptureStreamHandle* output) {
+SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStreamDesc* input, SaccadeCaptureStreamHandle* output) {
     Impl* state = provider(context);
     if (state == nullptr || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
@@ -693,13 +853,7 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
     stream.source_id_ = desc.source_id;
     stream.next_frame_id_ = 1;
     stream.transform_epoch_ = 1;
-    stream.failed_.store(false, std::memory_order_relaxed);
     stream.stats_.reset();
-    stream.available_ = dispatch_semaphore_create(0);
-    stream.callback_queue_ = dispatch_queue_create("dev.saccade.capture.output", DISPATCH_QUEUE_SERIAL);
-    stream.output_ = [SaccadeScreenCaptureOutput new];
-    stream.output_->owner_ = state;
-    stream.output_->stream_slot_ = slot;
 
     SCContentFilter* filter = nil;
     if (source->kind_ == SACCADE_CAPTURE_SOURCE_DISPLAY) {
@@ -710,9 +864,7 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
                 [excluded addObject:app];
             }
         }
-        filter = [[SCContentFilter alloc] initWithDisplay:source->display_
-                                    excludingApplications:excluded
-                                         exceptingWindows:@[]];
+        filter = [[SCContentFilter alloc] initWithDisplay:source->display_ excludingApplications:excluded exceptingWindows:@[]];
         if (@available(macOS 14.2, *)) {
             filter.includeMenuBar = YES;
         }
@@ -724,8 +876,8 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
     const double point_scale = std::max(static_cast<double>(filter.pointPixelScale), 1.0);
     const size_t source_width =
         static_cast<size_t>(std::ceil(std::max(static_cast<double>(filter.contentRect.size.width), 1.0) * point_scale));
-    const size_t source_height = static_cast<size_t>(
-        std::ceil(std::max(static_cast<double>(filter.contentRect.size.height), 1.0) * point_scale));
+    const size_t source_height =
+        static_cast<size_t>(std::ceil(std::max(static_cast<double>(filter.contentRect.size.height), 1.0) * point_scale));
     double fit_scale = 1.0;
     if (desc.max_width != 0) {
         fit_scale = std::min(fit_scale, static_cast<double>(desc.max_width) / static_cast<double>(source_width));
@@ -733,10 +885,8 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
     if (desc.max_height != 0) {
         fit_scale = std::min(fit_scale, static_cast<double>(desc.max_height) / static_cast<double>(source_height));
     }
-    config.width = std::max(static_cast<size_t>(1),
-                            static_cast<size_t>(std::floor(static_cast<double>(source_width) * fit_scale)));
-    config.height = std::max(static_cast<size_t>(1),
-                             static_cast<size_t>(std::floor(static_cast<double>(source_height) * fit_scale)));
+    config.width = std::max(static_cast<size_t>(1), static_cast<size_t>(std::floor(static_cast<double>(source_width) * fit_scale)));
+    config.height = std::max(static_cast<size_t>(1), static_cast<size_t>(std::floor(static_cast<double>(source_height) * fit_scale)));
     config.pixelFormat = kCVPixelFormatType_32BGRA;
     config.minimumFrameInterval = CMTimeMake(1, active_capture_hz);
     config.queueDepth = 3;
@@ -757,15 +907,15 @@ SaccadeResult SACCADE_CALL create_stream(void* context, const SaccadeCaptureStre
     }
     config.streamName = @"Saccade perception";
 
-    stream.stream_ = [[SCStream alloc] initWithFilter:filter configuration:config delegate:stream.output_];
-    NSError* error = nil;
-    const BOOL added = [stream.stream_ addStreamOutput:stream.output_
-                                                  type:SCStreamOutputTypeScreen
-                                    sampleHandlerQueue:stream.callback_queue_
-                                                 error:&error];
-    if (!added || error != nil) {
-        state->destroy(stream);
-        return SACCADE_ERROR_BACKEND;
+    stream.filter_ = filter;
+    stream.config_ = config;
+    stream.texture_cache_ = state->texture_cache_;
+    CFRetain(stream.texture_cache_);
+    stream.timebase_ = state->timebase_;
+    const SaccadeResult prepared = state->prepare_session(stream);
+    if (prepared != SACCADE_OK) {
+        (void)state->destroy(stream);
+        return prepared;
     }
     *output = stream_handle(slot, stream.generation_);
     return SACCADE_OK;
@@ -777,8 +927,7 @@ SaccadeResult SACCADE_CALL destroy_stream(void* context, SaccadeCaptureStreamHan
     if (stream == nullptr) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
-    state->destroy(*stream);
-    return SACCADE_OK;
+    return state->destroy(*stream);
 }
 
 SaccadeResult SACCADE_CALL start_stream(void* context, SaccadeCaptureStreamHandle handle) {
@@ -790,17 +939,61 @@ SaccadeResult SACCADE_CALL start_stream(void* context, SaccadeCaptureStreamHandl
     if (stream->started_.load(std::memory_order_acquire)) {
         return SACCADE_ERROR_ALREADY_EXISTS;
     }
-    stream->failed_.store(false, std::memory_order_release);
+    if (stream->state_ != nil) {
+        const ScreenCaptureLifecyclePhase phase = [stream->state_ snapshot].phase;
+        if (phase == ScreenCaptureLifecyclePhase::retired) {
+            const SaccadeResult detached = state->detach_session(*stream, stream->state_);
+            if (detached != SACCADE_OK)
+                return detached;
+        } else if (phase == ScreenCaptureLifecyclePhase::draining) {
+            return SACCADE_ERROR_BUSY;
+        } else if (phase != ScreenCaptureLifecyclePhase::idle) {
+            return SACCADE_ERROR_BUSY;
+        }
+    }
+
+    if (stream->state_ == nil) {
+        const SaccadeResult prepared = state->prepare_session(*stream);
+        if (prepared != SACCADE_OK) {
+            stream->stats_.start_failures.fetch_add(1, std::memory_order_relaxed);
+            return prepared;
+        }
+    }
+
+    const ScreenCaptureLifecycleTransition start = [stream->state_ requestStart];
+    if (start.action != ScreenCaptureLifecycleAction::start_native) {
+        return SACCADE_ERROR_STATE;
+    }
+
     __block NSError* failure = nil;
     dispatch_semaphore_t complete = dispatch_semaphore_create(0);
-    [stream->stream_ startCaptureWithCompletionHandler:^(NSError* error) {
+    SaccadeScreenCaptureSessionState* session_state = stream->state_;
+    SCStream* native_stream = stream->stream_;
+    [native_stream startCaptureWithCompletionHandler:^(NSError* error) {
       failure = error;
+      const SaccadeResult result = error == nil ? SACCADE_OK : SACCADE_ERROR_BACKEND;
+      const ScreenCaptureLifecycleTransition transition = [session_state completeStart:start.operation result:result];
+      if (transition.action == ScreenCaptureLifecycleAction::stop_native) {
+          Impl::stop_native(native_stream, session_state, transition.operation);
+      }
+      [session_state signalAvailable];
       dispatch_semaphore_signal(complete);
     }];
-    if (dispatch_semaphore_wait(complete, wait_time(cold_wait_ns)) != 0 || failure != nil) {
+    if (dispatch_semaphore_wait(complete, wait_time(cold_wait_ns)) != 0) {
+        (void)[session_state timeout:start.operation];
+        const ScreenCaptureLifecycleTransition cancelled = [session_state cancel];
+        if (cancelled.action == ScreenCaptureLifecycleAction::stop_native) {
+            Impl::stop_native(native_stream, session_state, cancelled.operation);
+        }
+        stream->stats_.start_failures.fetch_add(1, std::memory_order_relaxed);
+        return SACCADE_ERROR_TIMEOUT;
+    }
+    if (failure != nil) {
+        (void)state->detach_session(*stream, session_state);
         stream->stats_.start_failures.fetch_add(1, std::memory_order_relaxed);
         return SACCADE_ERROR_BACKEND;
     }
+    [session_state drainAvailable];
     stream->started_.store(true, std::memory_order_release);
     return SACCADE_OK;
 }
@@ -811,24 +1004,14 @@ SaccadeResult SACCADE_CALL stop_stream(void* context, SaccadeCaptureStreamHandle
     if (stream == nullptr) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
-    if (!stream->started_.load(std::memory_order_acquire)) {
-        dispatch_sync(stream->callback_queue_, ^{});
-        state->discard_pending(*stream);
+    if (stream->state_ == nil) {
         return SACCADE_OK;
     }
-    __block NSError* failure = nil;
-    dispatch_semaphore_t complete = dispatch_semaphore_create(0);
-    [stream->stream_ stopCaptureWithCompletionHandler:^(NSError* error) {
-      failure = error;
-      dispatch_semaphore_signal(complete);
-    }];
-    if (dispatch_semaphore_wait(complete, wait_time(cold_wait_ns)) != 0 || failure != nil) {
+    const SaccadeResult result = state->retire_session(*stream, cold_wait_ns);
+    if (result != SACCADE_OK) {
         stream->stats_.stop_failures.fetch_add(1, std::memory_order_relaxed);
-        return SACCADE_ERROR_BACKEND;
+        return result;
     }
-    stream->started_.store(false, std::memory_order_release);
-    dispatch_sync(stream->callback_queue_, ^{});
-    state->discard_pending(*stream);
     return SACCADE_OK;
 }
 
@@ -842,13 +1025,17 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
     if (!valid_output(output)) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
-    if (!stream->started_.load(std::memory_order_acquire)) return SACCADE_ERROR_STATE;
-    if (stream->failed_.load(std::memory_order_acquire)) return SACCADE_ERROR_BACKEND;
+    SaccadeScreenCaptureSessionState* session_state = stream->state_;
+    if (!stream->started_.load(std::memory_order_acquire) || session_state == nil)
+        return SACCADE_ERROR_STATE;
+    if ([session_state nativeStopFailed])
+        return SACCADE_ERROR_BACKEND;
 
     uint32_t pending = stream->pending_.exchange(0, std::memory_order_acq_rel);
     if (pending == 0 && timeout_ns != 0) {
-        (void)dispatch_semaphore_wait(stream->available_, wait_time(timeout_ns));
-        if (stream->failed_.load(std::memory_order_acquire)) return SACCADE_ERROR_BACKEND;
+        (void)[session_state waitAvailable:wait_time(timeout_ns)];
+        if ([session_state nativeStopFailed])
+            return SACCADE_ERROR_BACKEND;
         pending = stream->pending_.exchange(0, std::memory_order_acq_rel);
     }
     if (pending == 0) {
@@ -856,6 +1043,11 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
     }
 
     Impl::Frame& frame = stream->frames_[pending - 1U];
+    if (frame.session_state_ != session_state || [session_state acquireFrameLease] != SACCADE_OK) {
+        state->update_imported(*stream, frame.imported_bytes_, 0);
+        state->release_frame(frame);
+        return SACCADE_ERROR_STATE;
+    }
     frame.state_.store(frame_acquired, std::memory_order_release);
     SaccadeCapturedFrame value{};
     value.frame = frame_handle(stream->slot_, pending - 1U, frame.generation_);
@@ -877,9 +1069,8 @@ SaccadeResult SACCADE_CALL acquire_frame(void* context, SaccadeCaptureStreamHand
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL copy_damage(void* context, SaccadeCaptureStreamHandle handle,
-                                       SaccadeFrameHandle frame_handle_value, SaccadeRectI32* output, uint32_t capacity,
-                                       uint32_t* required) {
+SaccadeResult SACCADE_CALL copy_damage(void* context, SaccadeCaptureStreamHandle handle, SaccadeFrameHandle frame_handle_value,
+                                       SaccadeRectI32* output, uint32_t capacity, uint32_t* required) {
     Impl* state = provider(context);
     const Impl::Stream* stream = state != nullptr ? state->find_stream(handle) : nullptr;
     if (stream == nullptr || required == nullptr) {
@@ -906,8 +1097,7 @@ SaccadeResult SACCADE_CALL copy_damage(void* context, SaccadeCaptureStreamHandle
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL release_frame(void* context, SaccadeCaptureStreamHandle handle,
-                                         SaccadeFrameHandle frame_handle_value) {
+SaccadeResult SACCADE_CALL release_frame(void* context, SaccadeCaptureStreamHandle handle, SaccadeFrameHandle frame_handle_value) {
     Impl* state = provider(context);
     Impl::Stream* stream = state != nullptr ? state->find_stream(handle) : nullptr;
     if (stream == nullptr) {
@@ -953,8 +1143,7 @@ SaccadeResult SACCADE_CALL synchronize_capture(void* context, SaccadeCaptureStre
     }
 }
 
-SaccadeResult SACCADE_CALL capture_memory(void* context, SaccadeCaptureStreamHandle handle,
-                                          SaccadeMemoryStats* output) {
+SaccadeResult SACCADE_CALL capture_memory(void* context, SaccadeCaptureStreamHandle handle, SaccadeMemoryStats* output) {
     Impl* state = provider(context);
     const Impl::Stream* stream = state != nullptr ? state->find_stream(handle) : nullptr;
     if (stream == nullptr) {
@@ -969,6 +1158,10 @@ SaccadeResult SACCADE_CALL capture_memory(void* context, SaccadeCaptureStreamHan
 }
 
 } // namespace
+
+uint64_t screen_capture_window_source_id(uint64_t public_window_id) noexcept {
+    return public_window_id == 0 ? 0 : source_id(SACCADE_CAPTURE_SOURCE_WINDOW, public_window_id);
+}
 
 ScreenCaptureProvider::ScreenCaptureProvider() noexcept = default;
 
@@ -996,8 +1189,7 @@ SaccadeResult ScreenCaptureProvider::initialize(void* metal_device) noexcept {
     }
     id<MTLDevice> device = (__bridge id<MTLDevice>)metal_device;
     Impl* state = ::new (static_cast<void*>(storage_.data())) Impl(device);
-    const CVReturn result =
-        CVMetalTextureCacheCreate(kCFAllocatorDefault, nullptr, device, nullptr, &state->texture_cache_);
+    const CVReturn result = CVMetalTextureCacheCreate(kCFAllocatorDefault, nullptr, device, nullptr, &state->texture_cache_);
     if (result != kCVReturnSuccess || state->texture_cache_ == nullptr) {
         state->~Impl();
         std::memset(storage_.data(), 0, storage_.size());
@@ -1039,8 +1231,7 @@ SaccadeCaptureProviderDesc ScreenCaptureProvider::descriptor() noexcept {
     return desc;
 }
 
-SaccadeResult ScreenCaptureProvider::read_stats(SaccadeCaptureStreamHandle handle,
-                                                ScreenCaptureStats* output) const noexcept {
+SaccadeResult ScreenCaptureProvider::read_stats(SaccadeCaptureStreamHandle handle, ScreenCaptureStats* output) const noexcept {
     if (!initialized_) {
         return SACCADE_ERROR_STATE;
     }
@@ -1055,8 +1246,7 @@ SaccadeResult ScreenCaptureProvider::read_stats(SaccadeCaptureStreamHandle handl
     return SACCADE_OK;
 }
 
-SaccadeResult ScreenCaptureProvider::read_native_frame(SaccadeCaptureStreamHandle handle,
-                                                       SaccadeFrameHandle frame_handle_value,
+SaccadeResult ScreenCaptureProvider::read_native_frame(SaccadeCaptureStreamHandle handle, SaccadeFrameHandle frame_handle_value,
                                                        NativeCapturedFrame* output) const noexcept {
     if (!initialized_) {
         return SACCADE_ERROR_STATE;

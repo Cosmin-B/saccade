@@ -28,7 +28,8 @@ constexpr size_t runtime_path_capacity = 32 * 1024;
 HMODULE load_adjacent_runtime(const wchar_t* name) noexcept {
     std::array<wchar_t, runtime_path_capacity> path{};
     const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
-    if (length == 0 || length >= path.size()) return nullptr;
+    if (length == 0 || length >= path.size())
+        return nullptr;
     size_t separator = length;
     while (separator != 0 && path[separator - 1U] != L'\\')
         --separator;
@@ -77,16 +78,16 @@ ONNXTensorElementDataType ort_element_type(TensorElementType type) noexcept {
 }
 
 bool binding_valid(const DirectMlBindingDesc& binding) noexcept {
-    if (binding.name == nullptr || binding.name[0] == '\0' || binding.resource == nullptr || binding.byte_size == 0 ||
-        binding.rank == 0 || binding.rank > directml_shape_capacity) {
+    if (binding.name == nullptr || binding.name[0] == '\0' || binding.resource == nullptr || binding.byte_size == 0 || binding.rank == 0 ||
+        binding.rank > directml_shape_capacity) {
         return false;
     }
     const size_t bytes = element_size(binding.element_type);
-    if (bytes == 0) return false;
+    if (bytes == 0)
+        return false;
     uint64_t elements = 1;
     for (uint32_t index = 0; index < binding.rank; ++index) {
-        if (binding.shape[index] <= 0 ||
-            elements > std::numeric_limits<uint64_t>::max() / static_cast<uint64_t>(binding.shape[index])) {
+        if (binding.shape[index] <= 0 || elements > std::numeric_limits<uint64_t>::max() / static_cast<uint64_t>(binding.shape[index])) {
             return false;
         }
         elements *= static_cast<uint64_t>(binding.shape[index]);
@@ -127,7 +128,8 @@ struct DirectMlInference::Impl {
     [[nodiscard]] bool owns_thread() const noexcept { return owner_thread_ == GetCurrentThreadId(); }
 
     SaccadeResult status(OrtStatus* value) noexcept {
-        if (value == nullptr) return SACCADE_OK;
+        if (value == nullptr)
+            return SACCADE_OK;
         stats_.last_native_code = static_cast<int32_t>(api_->GetErrorCode(value));
         api_->ReleaseStatus(value);
         ++stats_.failures;
@@ -141,13 +143,15 @@ struct DirectMlInference::Impl {
         }
         if (binding.allocation_ != nullptr) {
             OrtStatus* released = dml_api_->FreeGPUAllocation(binding.allocation_);
-            if (released != nullptr) api_->ReleaseStatus(released);
+            if (released != nullptr)
+                api_->ReleaseStatus(released);
             binding.allocation_ = nullptr;
         }
     }
 
     void release() noexcept {
-        if (api_ == nullptr) return;
+        if (api_ == nullptr)
+            return;
         if (io_binding_ != nullptr) {
             api_->ReleaseIoBinding(io_binding_);
             io_binding_ = nullptr;
@@ -194,13 +198,13 @@ struct DirectMlInference::Impl {
     }
 
     SaccadeResult bind(const DirectMlBindingDesc& desc, Binding& binding, bool input) noexcept {
-        SaccadeResult result =
-            status(dml_api_->CreateGPUAllocationFromD3DResource(desc.resource, &binding.allocation_));
-        if (result != SACCADE_OK) return result;
-        result = status(api_->CreateTensorWithDataAsOrtValue(memory_info_, binding.allocation_, desc.byte_size,
-                                                             desc.shape.data(), desc.rank,
-                                                             ort_element_type(desc.element_type), &binding.value_));
-        if (result != SACCADE_OK) return result;
+        SaccadeResult result = status(dml_api_->CreateGPUAllocationFromD3DResource(desc.resource, &binding.allocation_));
+        if (result != SACCADE_OK)
+            return result;
+        result = status(api_->CreateTensorWithDataAsOrtValue(memory_info_, binding.allocation_, desc.byte_size, desc.shape.data(),
+                                                             desc.rank, ort_element_type(desc.element_type), &binding.value_));
+        if (result != SACCADE_OK)
+            return result;
         return status(input ? api_->BindInput(io_binding_, desc.name, binding.value_)
                             : api_->BindOutput(io_binding_, desc.name, binding.value_));
     }
@@ -215,7 +219,8 @@ DirectMlInference::DirectMlInference() noexcept {
 
 DirectMlInference::~DirectMlInference() {
     Impl& state = impl();
-    if (state.owns_thread()) state.release();
+    if (state.owns_thread())
+        state.release();
     state.~Impl();
 }
 
@@ -227,12 +232,11 @@ const DirectMlInference::Impl& DirectMlInference::impl() const noexcept {
     return *std::launder(reinterpret_cast<const Impl*>(storage_.data()));
 }
 
-SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQueue* queue,
-                                            const DirectMlSessionDesc& desc) noexcept {
-    if (initialized_) return SACCADE_ERROR_ALREADY_EXISTS;
-    if (device == nullptr || queue == nullptr || desc.model.data == nullptr || desc.model.size == 0 ||
-        desc.inputs == nullptr || desc.outputs == nullptr || desc.input_count == 0 ||
-        desc.input_count > directml_binding_capacity || desc.output_count == 0 ||
+SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQueue* queue, const DirectMlSessionDesc& desc) noexcept {
+    if (initialized_)
+        return SACCADE_ERROR_ALREADY_EXISTS;
+    if (device == nullptr || queue == nullptr || desc.model.data == nullptr || desc.model.size == 0 || desc.inputs == nullptr ||
+        desc.outputs == nullptr || desc.input_count == 0 || desc.input_count > directml_binding_capacity || desc.output_count == 0 ||
         desc.output_count > directml_binding_capacity) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -261,20 +265,20 @@ SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQ
     const auto get_api_base = reinterpret_cast<GetApiBaseFn>(GetProcAddress(state.runtime_module_, "OrtGetApiBase"));
     const OrtApiBase* api_base = get_api_base == nullptr ? nullptr : get_api_base();
     state.api_ = api_base == nullptr ? nullptr : api_base->GetApi(ORT_API_VERSION);
-    if (state.api_ == nullptr) return SACCADE_ERROR_BACKEND;
-    SaccadeResult result = state.status(
-        state.api_->GetExecutionProviderApi("DML", ORT_API_VERSION, reinterpret_cast<const void**>(&state.dml_api_)));
-    if (result != SACCADE_OK) return result;
+    if (state.api_ == nullptr)
+        return SACCADE_ERROR_BACKEND;
+    SaccadeResult result =
+        state.status(state.api_->GetExecutionProviderApi("DML", ORT_API_VERSION, reinterpret_cast<const void**>(&state.dml_api_)));
+    if (result != SACCADE_OK)
+        return result;
     state.directml_module_ = load_adjacent_runtime(L"DirectML.dll");
     using CreateDmlDeviceFn = HRESULT(WINAPI*)(ID3D12Device*, DML_CREATE_DEVICE_FLAGS, REFIID, void**);
-    const auto create_dml_device =
-        state.directml_module_ == nullptr
-            ? nullptr
-            : reinterpret_cast<CreateDmlDeviceFn>(GetProcAddress(state.directml_module_, "DMLCreateDevice"));
-    const HRESULT dml_result =
-        create_dml_device == nullptr
-            ? HRESULT_FROM_WIN32(GetLastError())
-            : create_dml_device(device, DML_CREATE_DEVICE_FLAG_NONE, IID_PPV_ARGS(state.dml_device_.GetAddressOf()));
+    const auto create_dml_device = state.directml_module_ == nullptr
+                                       ? nullptr
+                                       : reinterpret_cast<CreateDmlDeviceFn>(GetProcAddress(state.directml_module_, "DMLCreateDevice"));
+    const HRESULT dml_result = create_dml_device == nullptr
+                                   ? HRESULT_FROM_WIN32(GetLastError())
+                                   : create_dml_device(device, DML_CREATE_DEVICE_FLAG_NONE, IID_PPV_ARGS(state.dml_device_.GetAddressOf()));
     if (FAILED(dml_result)) {
         state.stats_.last_native_code = dml_result;
         ++state.stats_.failures;
@@ -291,8 +295,8 @@ SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQ
         result = state.status(state.api_->CreateRunOptions(&state.run_options_));
     }
     if (result == SACCADE_OK) {
-        result = state.status(state.api_->AddRunConfigEntry(
-            state.run_options_, kOrtRunOptionsConfigDisableSynchronizeExecutionProviders, "1"));
+        result =
+            state.status(state.api_->AddRunConfigEntry(state.run_options_, kOrtRunOptionsConfigDisableSynchronizeExecutionProviders, "1"));
     }
     if (result == SACCADE_OK) {
         result = state.status(state.api_->SetSessionExecutionMode(state.session_options_, ORT_SEQUENTIAL));
@@ -310,20 +314,18 @@ SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQ
         result = state.status(state.api_->SetSessionGraphOptimizationLevel(state.session_options_, ORT_ENABLE_ALL));
     }
     if (result == SACCADE_OK) {
-        result = state.status(
-            state.api_->AddSessionConfigEntry(state.session_options_, kOrtSessionOptionsDisableCPUEPFallback, "1"));
+        result = state.status(state.api_->AddSessionConfigEntry(state.session_options_, kOrtSessionOptionsDisableCPUEPFallback, "1"));
     }
     if (result == SACCADE_OK) {
-        result = state.status(state.dml_api_->SessionOptionsAppendExecutionProvider_DML1(
-            state.session_options_, state.dml_device_.Get(), queue));
+        result = state.status(
+            state.dml_api_->SessionOptionsAppendExecutionProvider_DML1(state.session_options_, state.dml_device_.Get(), queue));
     }
     if (result == SACCADE_OK) {
         result = state.status(state.api_->CreateSessionFromArray(state.environment_, desc.model.data, desc.model.size,
                                                                  state.session_options_, &state.session_));
     }
     if (result == SACCADE_OK) {
-        result = state.status(
-            state.api_->CreateMemoryInfo("DML", OrtDeviceAllocator, 0, OrtMemTypeDefault, &state.memory_info_));
+        result = state.status(state.api_->CreateMemoryInfo("DML", OrtDeviceAllocator, 0, OrtMemTypeDefault, &state.memory_info_));
     }
     if (result == SACCADE_OK) {
         result = state.status(state.api_->CreateIoBinding(state.session_, &state.io_binding_));
@@ -338,8 +340,7 @@ SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQ
     }
     if (result == SACCADE_OK) {
         state.queue_ = queue;
-        const HRESULT fence_result =
-            device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(state.completion_fence_.GetAddressOf()));
+        const HRESULT fence_result = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(state.completion_fence_.GetAddressOf()));
         if (FAILED(fence_result)) {
             state.stats_.last_native_code = fence_result;
             ++state.stats_.failures;
@@ -363,15 +364,17 @@ SaccadeResult DirectMlInference::initialize(ID3D12Device* device, ID3D12CommandQ
 }
 
 SaccadeResult DirectMlInference::run() noexcept {
-    if (!initialized_ || !impl().owns_thread()) return SACCADE_ERROR_STATE;
-    const SaccadeResult result =
-        impl().status(impl().api_->RunWithBinding(impl().session_, impl().run_options_, impl().io_binding_));
-    if (result == SACCADE_OK) ++impl().stats_.runs;
+    if (!initialized_ || !impl().owns_thread())
+        return SACCADE_ERROR_STATE;
+    const SaccadeResult result = impl().status(impl().api_->RunWithBinding(impl().session_, impl().run_options_, impl().io_binding_));
+    if (result == SACCADE_OK)
+        ++impl().stats_.runs;
     return result;
 }
 
 SaccadeResult DirectMlInference::synchronize_outputs() noexcept {
-    if (!initialized_ || !impl().owns_thread()) return SACCADE_ERROR_STATE;
+    if (!initialized_ || !impl().owns_thread())
+        return SACCADE_ERROR_STATE;
     Impl& state = impl();
     const uint64_t completion = state.next_completion_++;
     HRESULT result = state.queue_->Signal(state.completion_fence_.Get(), completion);
@@ -386,21 +389,24 @@ SaccadeResult DirectMlInference::synchronize_outputs() noexcept {
         ++state.stats_.failures;
         return SACCADE_ERROR_BACKEND;
     }
-    if (completed >= completion) return SACCADE_OK;
+    if (completed >= completion)
+        return SACCADE_OK;
     result = state.completion_fence_->SetEventOnCompletion(completion, state.completion_event_);
     if (FAILED(result)) {
         state.stats_.last_native_code = result;
         ++state.stats_.failures;
         return SACCADE_ERROR_BACKEND;
     }
-    if (WaitForSingleObject(state.completion_event_, INFINITE) == WAIT_OBJECT_0) return SACCADE_OK;
+    if (WaitForSingleObject(state.completion_event_, INFINITE) == WAIT_OBJECT_0)
+        return SACCADE_OK;
     state.stats_.last_native_code = static_cast<int32_t>(GetLastError());
     ++state.stats_.failures;
     return SACCADE_ERROR_BACKEND;
 }
 
 SaccadeResult DirectMlInference::adopt_current_thread() noexcept {
-    if (!initialized_) return SACCADE_ERROR_STATE;
+    if (!initialized_)
+        return SACCADE_ERROR_STATE;
     impl().owner_thread_ = GetCurrentThreadId();
     return SACCADE_OK;
 }

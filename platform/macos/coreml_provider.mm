@@ -27,13 +27,11 @@ constexpr uint64_t provider_id = UINT64_C(0x434F52454D4C0001);
 constexpr uint64_t device_id = UINT64_C(0x434F52454D4C1001);
 constexpr uint32_t slot = 1;
 constexpr uint32_t maximum_path_bytes = 1024;
-constexpr uint32_t provider_base_capabilities = SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT |
-                                                SACCADE_PROVIDER_CAPABILITY_ASYNC |
-                                                SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
+constexpr uint32_t provider_base_capabilities =
+    SACCADE_PROVIDER_CAPABILITY_NATIVE_IMPORT | SACCADE_PROVIDER_CAPABILITY_ASYNC | SACCADE_PROVIDER_CAPABILITY_CANCELLATION;
 constexpr uint32_t supported_precision_bits = SACCADE_PRECISION_FP16 | SACCADE_PRECISION_FP32;
 constexpr size_t maximum_packet_bytes =
-    sizeof(SaccadeTargetPacketHeader) +
-    static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
+    sizeof(SaccadeTargetPacketHeader) + static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord);
 
 constexpr uint32_t api_major(uint32_t version) noexcept {
     return version >> 16U;
@@ -44,8 +42,7 @@ uint64_t make_handle(uint32_t generation) noexcept {
 }
 
 bool decode_handle(uint64_t handle, uint32_t generation) noexcept {
-    return static_cast<uint32_t>(handle) == slot && static_cast<uint32_t>(handle >> 32U) == generation &&
-           generation != 0;
+    return static_cast<uint32_t>(handle) == slot && static_cast<uint32_t>(handle >> 32U) == generation && generation != 0;
 }
 
 uint32_t next_generation(uint32_t value) noexcept {
@@ -58,10 +55,12 @@ SaccadeSpanU8 literal_span(const char* text) noexcept {
 }
 
 template <typename Structure> SaccadeResult read_structure(const Structure* source, Structure* output) noexcept {
-    if (source == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (source == nullptr || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     uint32_t size = 0;
     std::memcpy(&size, source, sizeof(size));
-    if (size < offsetof(Structure, reserved)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (size < offsetof(Structure, reserved))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *output = {};
     const size_t copied = std::min(static_cast<size_t>(size), sizeof(*output));
     std::memcpy(output, source, copied);
@@ -70,20 +69,22 @@ template <typename Structure> SaccadeResult read_structure(const Structure* sour
     }
     const auto* bytes = static_cast<const uint8_t*>(static_cast<const void*>(output));
     for (size_t index = offsetof(Structure, reserved); index < copied; ++index) {
-        if (bytes[index] != 0) return SACCADE_ERROR_INVALID_ARGUMENT;
+        if (bytes[index] != 0)
+            return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     return SACCADE_OK;
 }
 
 template <typename Structure> SaccadeResult write_structure(Structure* output, Structure value) noexcept {
-    if (output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     uint32_t size = 0;
     uint32_t version = 0;
     std::memcpy(&size, output, sizeof(size));
-    std::memcpy(&version,
-                static_cast<const uint8_t*>(static_cast<const void*>(output)) + offsetof(Structure, api_version),
+    std::memcpy(&version, static_cast<const uint8_t*>(static_cast<const void*>(output)) + offsetof(Structure, api_version),
                 sizeof(version));
-    if (size < offsetof(Structure, reserved)) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (size < offsetof(Structure, reserved))
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (api_major(version) != api_major(SACCADE_API_VERSION)) {
         return SACCADE_ERROR_VERSION;
     }
@@ -95,24 +96,26 @@ template <typename Structure> SaccadeResult write_structure(Structure* output, S
 }
 
 bool copy_model_root(const char* source, std::array<char, maximum_path_bytes>* output) noexcept {
-    if (source == nullptr || output == nullptr) return false;
+    if (source == nullptr || output == nullptr)
+        return false;
     size_t size = 0;
     while (source[size] != '\0') {
-        if (size + 1U == output->size()) return false;
+        if (size + 1U == output->size())
+            return false;
         ++size;
     }
-    if (size == 0) return false;
+    if (size == 0)
+        return false;
     std::memcpy(output->data(), source, size + 1U);
     return true;
 }
 
 bool config_valid(const CoreMlProviderConfig& config) noexcept {
-    const bool compute_policy_valid = config.compute_policy == CoreMlComputePolicy::all ||
-                                      config.compute_policy == CoreMlComputePolicy::cpu_and_gpu ||
-                                      config.compute_policy == CoreMlComputePolicy::cpu_only ||
-                                      config.compute_policy == CoreMlComputePolicy::cpu_and_neural_engine;
-    return config.model_root != nullptr && config.verifier.verify != nullptr && compute_policy_valid &&
-           config.reserved[0] == 0 && config.reserved[1] == 0 && config.reserved[2] == 0;
+    const bool compute_policy_valid =
+        config.compute_policy == CoreMlComputePolicy::all || config.compute_policy == CoreMlComputePolicy::cpu_and_gpu ||
+        config.compute_policy == CoreMlComputePolicy::cpu_only || config.compute_policy == CoreMlComputePolicy::cpu_and_neural_engine;
+    return config.model_root != nullptr && config.verifier.verify != nullptr && compute_policy_valid && config.reserved[0] == 0 &&
+           config.reserved[1] == 0 && config.reserved[2] == 0;
 }
 
 uint32_t available_compute_capabilities() noexcept {
@@ -132,8 +135,7 @@ uint32_t capabilities_for_policy(CoreMlComputePolicy policy, uint32_t available)
     uint32_t allowed = 0;
     switch (policy) {
     case CoreMlComputePolicy::all:
-        allowed =
-            SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_GPU | SACCADE_PROVIDER_CAPABILITY_ACCELERATOR;
+        allowed = SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_GPU | SACCADE_PROVIDER_CAPABILITY_ACCELERATOR;
         break;
     case CoreMlComputePolicy::cpu_and_gpu:
         allowed = SACCADE_PROVIDER_CAPABILITY_CPU | SACCADE_PROVIDER_CAPABILITY_GPU;
@@ -150,17 +152,17 @@ uint32_t capabilities_for_policy(CoreMlComputePolicy policy, uint32_t available)
 
 bool frame_valid(const SaccadeInferenceDispatchDesc& desc) noexcept {
     return desc.frame.storage == SACCADE_FRAME_STORAGE_IOSURFACE && desc.frame.native_id != 0 &&
-           desc.frame.pixel_format == SACCADE_FORMAT_BGRA8 && desc.frame.width != 0 && desc.frame.height != 0 &&
-           desc.frame.frame_id != 0 && desc.scope.x == 0 && desc.scope.y == 0 &&
-           desc.scope.width == static_cast<int32_t>(desc.frame.width) &&
-           desc.scope.height == static_cast<int32_t>(desc.frame.height) && desc.model_epoch != 0 &&
-           desc.session_epoch != 0 && desc.transform_epoch != 0 && desc.topology_epoch != 0 && desc.source_id != 0 &&
-           desc.flags == 0 && desc.priority_region_count == 0 && desc.priority_regions == nullptr;
+           desc.frame.pixel_format == SACCADE_FORMAT_BGRA8 && desc.frame.width != 0 && desc.frame.height != 0 && desc.frame.frame_id != 0 &&
+           desc.scope.x == 0 && desc.scope.y == 0 && desc.scope.width == static_cast<int32_t>(desc.frame.width) &&
+           desc.scope.height == static_cast<int32_t>(desc.frame.height) && desc.model_epoch != 0 && desc.session_epoch != 0 &&
+           desc.transform_epoch != 0 && desc.topology_epoch != 0 && desc.source_id != 0 && desc.flags == 0 &&
+           desc.priority_region_count == 0 && desc.priority_regions == nullptr;
 }
 
 CVPixelBufferRef pixel_buffer_from_iosurface(const SaccadeFrameResourceView& frame) noexcept {
     IOSurfaceRef surface = IOSurfaceLookup(static_cast<IOSurfaceID>(frame.native_id));
-    if (surface == nullptr) return nullptr;
+    if (surface == nullptr)
+        return nullptr;
     if (IOSurfaceGetWidth(surface) != frame.width || IOSurfaceGetHeight(surface) != frame.height) {
         CFRelease(surface);
         return nullptr;
@@ -187,8 +189,7 @@ struct CoreMlInferenceProvider::Impl {
         std::atomic<uint32_t> state_{0};
         std::atomic<bool> cancel_requested_{false};
         std::atomic<bool> stop_requested_{false};
-        std::array<std::byte,
-                   core::destructive_interference_size - sizeof(std::atomic<uint32_t>) - 2U * sizeof(std::atomic<bool>)>
+        std::array<std::byte, core::destructive_interference_size - sizeof(std::atomic<uint32_t>) - 2U * sizeof(std::atomic<bool>)>
             padding_{};
     };
 
@@ -221,9 +222,8 @@ struct CoreMlInferenceProvider::Impl {
         prediction.height = ticket_.dispatch_.frame.height;
         prediction.pixel_format = ticket_.dispatch_.frame.pixel_format;
         prediction.scope = ticket_.dispatch_.scope;
-        prediction.epochs = {ticket_.dispatch_.frame.frame_id, ticket_.dispatch_.model_epoch,
-                             ticket_.dispatch_.session_epoch,  ticket_.dispatch_.transform_epoch,
-                             ticket_.dispatch_.topology_epoch, ticket_.dispatch_.source_id};
+        prediction.epochs = {ticket_.dispatch_.frame.frame_id,  ticket_.dispatch_.model_epoch,    ticket_.dispatch_.session_epoch,
+                             ticket_.dispatch_.transform_epoch, ticket_.dispatch_.topology_epoch, ticket_.dispatch_.source_id};
         CoreMlPredictionResult output{};
         ticket_.result_ = model_.predict(prediction, {ticket_.output_.data(), ticket_.output_.size()}, &output);
         if (ticket_.result_ != SACCADE_OK) {
@@ -246,7 +246,8 @@ struct CoreMlInferenceProvider::Impl {
     void worker_loop() noexcept {
         for (;;) {
             command_.acquire();
-            if (control_.stop_requested_.load(std::memory_order_acquire)) return;
+            if (control_.stop_requested_.load(std::memory_order_acquire))
+                return;
             if (control_.state_.load(std::memory_order_acquire) == SACCADE_TICKET_QUEUED) {
                 process_ticket();
             }
@@ -254,7 +255,8 @@ struct CoreMlInferenceProvider::Impl {
     }
 
     void stop_worker() noexcept {
-        if (!worker_.joinable()) return;
+        if (!worker_.joinable())
+            return;
         control_.stop_requested_.store(true, std::memory_order_release);
         command_.release();
         worker_.join();
@@ -283,17 +285,13 @@ struct CoreMlInferenceProvider::Impl {
     static SaccadeResult SACCADE_CALL query_model(void*, SaccadeSpanU8, SaccadeModelInfo*);
     static SaccadeResult SACCADE_CALL create_model(void*, const SaccadeModelDesc*, SaccadeModelHandle*);
     static SaccadeResult SACCADE_CALL destroy_model(void*, SaccadeModelHandle);
-    static SaccadeResult SACCADE_CALL create_context(void*, const SaccadeExecutionContextDesc*,
-                                                     SaccadeExecutionContextHandle*);
+    static SaccadeResult SACCADE_CALL create_context(void*, const SaccadeExecutionContextDesc*, SaccadeExecutionContextHandle*);
     static SaccadeResult SACCADE_CALL destroy_context(void*, SaccadeExecutionContextHandle);
     static SaccadeResult SACCADE_CALL submit(void*, SaccadeExecutionContextHandle, const SaccadeInferenceDispatchDesc*,
                                              SaccadeTicketHandle*);
-    static SaccadeResult SACCADE_CALL poll(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                                           SaccadeInferenceStatus*);
-    static SaccadeResult SACCADE_CALL wait(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t,
-                                           SaccadeInferenceStatus*);
-    static SaccadeResult SACCADE_CALL collect(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle,
-                                              SaccadeMutableSpanU8, size_t*);
+    static SaccadeResult SACCADE_CALL poll(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeInferenceStatus*);
+    static SaccadeResult SACCADE_CALL wait(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, uint64_t, SaccadeInferenceStatus*);
+    static SaccadeResult SACCADE_CALL collect(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle, SaccadeMutableSpanU8, size_t*);
     static SaccadeResult SACCADE_CALL cancel(void*, SaccadeExecutionContextHandle, SaccadeTicketHandle);
     static SaccadeResult SACCADE_CALL reset(void*, SaccadeExecutionContextHandle);
     static SaccadeResult SACCADE_CALL synchronize(void*, SaccadeExecutionContextHandle, uint64_t);
@@ -328,8 +326,10 @@ CoreMlInferenceProvider::CoreMlInferenceProvider() noexcept {
 CoreMlInferenceProvider::~CoreMlInferenceProvider() {
     Impl& state = impl();
     state.stop_worker();
-    if (state.ticket_.active_) state.release_ticket();
-    if (state.model_live_) (void)state.model_.shutdown();
+    if (state.ticket_.active_)
+        state.release_ticket();
+    if (state.model_live_)
+        (void)state.model_.shutdown();
     state.~Impl();
 }
 
@@ -356,12 +356,16 @@ SaccadeResult CoreMlInferenceProvider::initialize(CoreMlProviderConfig config) n
 
 SaccadeResult CoreMlInferenceProvider::shutdown() noexcept {
     Impl& state = impl();
-    if (!state.initialized_) return SACCADE_ERROR_STATE;
-    if (state.ticket_.active_) return SACCADE_ERROR_BUSY;
-    if (state.context_live_) return SACCADE_ERROR_BUSY;
+    if (!state.initialized_)
+        return SACCADE_ERROR_STATE;
+    if (state.ticket_.active_)
+        return SACCADE_ERROR_BUSY;
+    if (state.context_live_)
+        return SACCADE_ERROR_BUSY;
     if (state.model_live_) {
         const SaccadeResult result = state.model_.shutdown();
-        if (result != SACCADE_OK) return result;
+        if (result != SACCADE_OK)
+            return result;
         state.model_live_ = false;
     }
     state.verifier_ = {};
@@ -372,11 +376,12 @@ SaccadeResult CoreMlInferenceProvider::shutdown() noexcept {
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::enumerate_devices(void* context, uint32_t index,
-                                                                            SaccadeDeviceInfo* output) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::enumerate_devices(void* context, uint32_t index, SaccadeDeviceInfo* output) {
     Impl* state = from(context);
-    if (state == nullptr || !state->initialized_) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (index != 0) return SACCADE_ERROR_NOT_FOUND;
+    if (state == nullptr || !state->initialized_)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (index != 0)
+        return SACCADE_ERROR_NOT_FOUND;
     SaccadeDeviceInfo info{};
     info.stable_id = device_id;
     info.capability_bits = state->capability_bits_;
@@ -390,20 +395,20 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::enumerate_devices(void
     return write_structure(output, info);
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::query_model(void* context, SaccadeSpanU8 bytes,
-                                                                      SaccadeModelInfo* output) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::query_model(void* context, SaccadeSpanU8 bytes, SaccadeModelInfo* output) {
     Impl* state = from(context);
     if (state == nullptr || !state->initialized_ || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     model::ArtifactView artifact{};
     const SaccadeResult parsed = model::parse_artifact(bytes, &artifact);
-    if (parsed != SACCADE_OK) return parsed;
+    if (parsed != SACCADE_OK)
+        return parsed;
     model::coreml::Contract contract{};
     const SaccadeResult contracted = model::coreml::parse_contract(artifact, &contract);
-    if (contracted != SACCADE_OK) return contracted;
-    if ((artifact.precision_bits & supported_precision_bits) == 0 ||
-        (artifact.precision_bits & ~supported_precision_bits) != 0) {
+    if (contracted != SACCADE_OK)
+        return contracted;
+    if ((artifact.precision_bits & supported_precision_bits) == 0 || (artifact.precision_bits & ~supported_precision_bits) != 0) {
         return SACCADE_ERROR_UNSUPPORTED;
     }
     SaccadeModelInfo info{};
@@ -415,33 +420,38 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::query_model(void* cont
     return write_structure(output, info);
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_model(void* context,
-                                                                       const SaccadeModelDesc* description,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_model(void* context, const SaccadeModelDesc* description,
                                                                        SaccadeModelHandle* output) {
     Impl* state = from(context);
     if (state == nullptr || !state->initialized_ || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     *output = 0;
-    if (state->model_live_) return SACCADE_ERROR_BUSY;
+    if (state->model_live_)
+        return SACCADE_ERROR_BUSY;
     SaccadeModelDesc value{};
     const SaccadeResult read = read_structure(description, &value);
-    if (read != SACCADE_OK) return read;
+    if (read != SACCADE_OK)
+        return read;
     if (value.stable_id == 0 || value.device_id != device_id || value.flags != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     model::ArtifactView artifact{};
     const SaccadeResult parsed = model::parse_artifact(value.bytes, &artifact);
-    if (parsed != SACCADE_OK) return parsed;
-    if (artifact.stable_id != value.stable_id) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (parsed != SACCADE_OK)
+        return parsed;
+    if (artifact.stable_id != value.stable_id)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     const SaccadeResult verified = model::verify_artifact(artifact, state->verifier_);
-    if (verified != SACCADE_OK) return verified;
+    if (verified != SACCADE_OK)
+        return verified;
     CoreMlModelConfig config{};
     config.model_root = state->model_root_.data();
     config.compute_policy = state->compute_policy_;
     config.allow_low_precision_gpu = state->allow_low_precision_gpu_;
     const SaccadeResult initialized = state->model_.initialize(artifact, config);
-    if (initialized != SACCADE_OK) return initialized;
+    if (initialized != SACCADE_OK)
+        return initialized;
     state->model_live_ = true;
     *output = make_handle(state->model_generation_);
     return SACCADE_OK;
@@ -449,20 +459,22 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_model(void* con
 
 SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::destroy_model(void* context, SaccadeModelHandle model) {
     Impl* state = from(context);
-    if (state == nullptr || !state->initialized_) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr || !state->initialized_)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (!state->model_live_ || !decode_handle(model, state->model_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
-    if (state->context_live_ || state->ticket_.active_) return SACCADE_ERROR_BUSY;
+    if (state->context_live_ || state->ticket_.active_)
+        return SACCADE_ERROR_BUSY;
     const SaccadeResult result = state->model_.shutdown();
-    if (result != SACCADE_OK) return result;
+    if (result != SACCADE_OK)
+        return result;
     state->model_live_ = false;
     state->model_generation_ = next_generation(state->model_generation_);
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_context(void* context,
-                                                                         const SaccadeExecutionContextDesc* description,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_context(void* context, const SaccadeExecutionContextDesc* description,
                                                                          SaccadeExecutionContextHandle* output) {
     Impl* state = from(context);
     if (state == nullptr || !state->initialized_ || output == nullptr) {
@@ -471,12 +483,12 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_context(void* c
     *output = 0;
     SaccadeExecutionContextDesc value{};
     const SaccadeResult read = read_structure(description, &value);
-    if (read != SACCADE_OK) return read;
+    if (read != SACCADE_OK)
+        return read;
     if (!state->model_live_ || !decode_handle(value.model, state->model_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
-    if (state->context_live_ || value.device_id != device_id || value.queue_capacity != 1 || value.max_in_flight != 1 ||
-        value.flags != 0) {
+    if (state->context_live_ || value.device_id != device_id || value.queue_capacity != 1 || value.max_in_flight != 1 || value.flags != 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
     state->worker_ = std::thread([state]() noexcept { state->worker_loop(); });
@@ -485,22 +497,22 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::create_context(void* c
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL
-CoreMlInferenceProvider::Impl::destroy_context(void* context, SaccadeExecutionContextHandle execution_context) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::destroy_context(void* context, SaccadeExecutionContextHandle execution_context) {
     Impl* state = from(context);
-    if (state == nullptr || !state->initialized_) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr || !state->initialized_)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
-    if (state->ticket_.active_) return SACCADE_ERROR_BUSY;
+    if (state->ticket_.active_)
+        return SACCADE_ERROR_BUSY;
     state->stop_worker();
     state->context_live_ = false;
     state->context_generation_ = next_generation(state->context_generation_);
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::submit(void* context,
-                                                                 SaccadeExecutionContextHandle execution_context,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::submit(void* context, SaccadeExecutionContextHandle execution_context,
                                                                  const SaccadeInferenceDispatchDesc* description,
                                                                  SaccadeTicketHandle* output) {
     Impl* state = from(context);
@@ -513,13 +525,16 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::submit(void* context,
     }
     SaccadeInferenceDispatchDesc value{};
     const SaccadeResult read = read_structure(description, &value);
-    if (read != SACCADE_OK) return read;
+    if (read != SACCADE_OK)
+        return read;
     if (!frame_valid(value) || value.output_capacity < state->model_.maximum_output_bytes()) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
-    if (state->ticket_.active_) return SACCADE_ERROR_BUSY;
+    if (state->ticket_.active_)
+        return SACCADE_ERROR_BUSY;
     CVPixelBufferRef pixel_buffer = pixel_buffer_from_iosurface(value.frame);
-    if (pixel_buffer == nullptr) return SACCADE_ERROR_BACKEND;
+    if (pixel_buffer == nullptr)
+        return SACCADE_ERROR_BACKEND;
     state->ticket_ = {};
     state->ticket_.pixel_buffer_ = pixel_buffer;
     state->ticket_.dispatch_ = value;
@@ -532,28 +547,27 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::submit(void* context,
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::poll(void* context,
-                                                               SaccadeExecutionContextHandle execution_context,
-                                                               SaccadeTicketHandle handle,
-                                                               SaccadeInferenceStatus* output) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::poll(void* context, SaccadeExecutionContextHandle execution_context,
+                                                               SaccadeTicketHandle handle, SaccadeInferenceStatus* output) {
     Impl* state = from(context);
-    if (state == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) ||
-        !state->ticket_.active_ || !decode_handle(handle, state->ticket_generation_)) {
+    if (state == nullptr || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) || !state->ticket_.active_ ||
+        !decode_handle(handle, state->ticket_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     const uint32_t ticket_state = state->control_.state_.load(std::memory_order_acquire);
     return write_structure(output, status(handle, state->ticket_, ticket_state));
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::wait(void* context,
-                                                               SaccadeExecutionContextHandle execution_context,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::wait(void* context, SaccadeExecutionContextHandle execution_context,
                                                                SaccadeTicketHandle handle, uint64_t timeout_ns,
                                                                SaccadeInferenceStatus* output) {
     Impl* state = from(context);
-    if (state == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) ||
-        !state->ticket_.active_ || !decode_handle(handle, state->ticket_generation_)) {
+    if (state == nullptr || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) || !state->ticket_.active_ ||
+        !decode_handle(handle, state->ticket_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     uint32_t ticket_state = state->control_.state_.load(std::memory_order_acquire);
@@ -575,20 +589,21 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::wait(void* context,
     return write_structure(output, status(handle, state->ticket_, ticket_state));
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::collect(void* context,
-                                                                  SaccadeExecutionContextHandle execution_context,
-                                                                  SaccadeTicketHandle handle,
-                                                                  SaccadeMutableSpanU8 output, size_t* required) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::collect(void* context, SaccadeExecutionContextHandle execution_context,
+                                                                  SaccadeTicketHandle handle, SaccadeMutableSpanU8 output,
+                                                                  size_t* required) {
     Impl* state = from(context);
-    if (state == nullptr || required == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr || required == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     *required = 0;
-    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) ||
-        !state->ticket_.active_ || !decode_handle(handle, state->ticket_generation_)) {
+    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) || !state->ticket_.active_ ||
+        !decode_handle(handle, state->ticket_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     const uint32_t ticket_state = state->control_.state_.load(std::memory_order_acquire);
     *required = state->ticket_.output_size_;
-    if (ticket_state == SACCADE_TICKET_QUEUED || ticket_state == SACCADE_TICKET_RUNNING) return SACCADE_ERROR_BUSY;
+    if (ticket_state == SACCADE_TICKET_QUEUED || ticket_state == SACCADE_TICKET_RUNNING)
+        return SACCADE_ERROR_BUSY;
     if (ticket_state == SACCADE_TICKET_CANCELLED || ticket_state == SACCADE_TICKET_FAILED) {
         const SaccadeResult result = state->ticket_.result_;
         state->release_ticket();
@@ -605,17 +620,18 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::collect(void* context,
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::cancel(void* context,
-                                                                 SaccadeExecutionContextHandle execution_context,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::cancel(void* context, SaccadeExecutionContextHandle execution_context,
                                                                  SaccadeTicketHandle handle) {
     Impl* state = from(context);
-    if (state == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
-    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) ||
-        !state->ticket_.active_ || !decode_handle(handle, state->ticket_generation_)) {
+    if (state == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_) || !state->ticket_.active_ ||
+        !decode_handle(handle, state->ticket_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     const uint32_t ticket_state = state->control_.state_.load(std::memory_order_acquire);
-    if (ticket_state != SACCADE_TICKET_QUEUED && ticket_state != SACCADE_TICKET_RUNNING) return SACCADE_ERROR_STATE;
+    if (ticket_state != SACCADE_TICKET_QUEUED && ticket_state != SACCADE_TICKET_RUNNING)
+        return SACCADE_ERROR_STATE;
     state->control_.cancel_requested_.store(true, std::memory_order_release);
     state->completion_.acquire();
     state->ticket_.output_size_ = 0;
@@ -624,10 +640,10 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::cancel(void* context,
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::reset(void* context,
-                                                                SaccadeExecutionContextHandle execution_context) {
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::reset(void* context, SaccadeExecutionContextHandle execution_context) {
     Impl* state = from(context);
-    if (state == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
@@ -643,18 +659,19 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::reset(void* context,
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::synchronize(void* context,
-                                                                      SaccadeExecutionContextHandle execution_context,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::synchronize(void* context, SaccadeExecutionContextHandle execution_context,
                                                                       uint64_t timeout_ns) {
     Impl* state = from(context);
-    if (state == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     if (state->ticket_.active_) {
         const uint32_t ticket_state = state->control_.state_.load(std::memory_order_acquire);
         if (ticket_state == SACCADE_TICKET_QUEUED || ticket_state == SACCADE_TICKET_RUNNING) {
-            if (timeout_ns == 0) return SACCADE_ERROR_TIMEOUT;
+            if (timeout_ns == 0)
+                return SACCADE_ERROR_TIMEOUT;
             using Duration = std::chrono::nanoseconds;
             const uint64_t maximum = static_cast<uint64_t>(Duration::max().count());
             const Duration timeout(static_cast<Duration::rep>(std::min(timeout_ns, maximum)));
@@ -666,20 +683,20 @@ SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::synchronize(void* cont
     return SACCADE_OK;
 }
 
-SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::memory_stats(void* context,
-                                                                       SaccadeExecutionContextHandle execution_context,
+SaccadeResult SACCADE_CALL CoreMlInferenceProvider::Impl::memory_stats(void* context, SaccadeExecutionContextHandle execution_context,
                                                                        SaccadeMemoryStats* output) {
     Impl* state = from(context);
-    if (state == nullptr || output == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (state == nullptr || output == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
     if (!state->context_live_ || !decode_handle(execution_context, state->context_generation_)) {
         return SACCADE_ERROR_STALE_HANDLE;
     }
     SaccadeMemoryStats stats{};
     stats.host_committed = sizeof(Impl);
     stats.host_reserved = CoreMlInferenceProvider::storage_size;
-    stats.device_imported = state->ticket_.active_ ? static_cast<uint64_t>(state->ticket_.dispatch_.frame.width) *
-                                                         state->ticket_.dispatch_.frame.height * 4U
-                                                   : 0;
+    stats.device_imported = state->ticket_.active_
+                                ? static_cast<uint64_t>(state->ticket_.dispatch_.frame.width) * state->ticket_.dispatch_.frame.height * 4U
+                                : 0;
     stats.copied_bytes = state->copied_bytes_;
     stats.high_water_bytes = stats.host_committed + stats.device_imported;
     return write_structure(output, stats);

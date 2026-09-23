@@ -131,8 +131,7 @@ class OverlaySurfaceSet final {
     OverlaySurfaceSet(OverlaySurfaceSet&&) = delete;
     OverlaySurfaceSet& operator=(OverlaySurfaceSet&&) = delete;
 
-    SaccadeResult initialize(const char* metallib_path, backend::metal::PathPreference,
-                             OverlaySurfaceCallbacks) noexcept;
+    SaccadeResult initialize(const char* metallib_path, backend::metal::PathPreference, OverlaySurfaceCallbacks) noexcept;
     SaccadeResult set_glyph_atlas(overlay::GlyphAtlasView) noexcept;
     SaccadeResult synchronize(const geometry::DisplaySnapshot&) noexcept;
     SaccadeResult start() noexcept;

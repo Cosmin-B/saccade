@@ -87,8 +87,8 @@ class OverlaySurface final {
     OverlaySurface(OverlaySurface&&) = delete;
     OverlaySurface& operator=(OverlaySurface&&) = delete;
 
-    SaccadeResult initialize(const geometry::DisplaySurface&, ID3D12Device*, ID3D12CommandQueue*,
-                             const char* shader_directory, OverlaySurfaceCallbacks) noexcept;
+    SaccadeResult initialize(const geometry::DisplaySurface&, ID3D12Device*, ID3D12CommandQueue*, const char* shader_directory,
+                             OverlaySurfaceCallbacks) noexcept;
     SaccadeResult set_glyph_atlas(overlay::GlyphAtlasView) noexcept;
     SaccadeResult update_display(const geometry::DisplaySurface&) noexcept;
     SaccadeResult start() noexcept;
@@ -137,8 +137,7 @@ class OverlaySurfaceSet final {
     OverlaySurfaceSet(OverlaySurfaceSet&&) = delete;
     OverlaySurfaceSet& operator=(OverlaySurfaceSet&&) = delete;
 
-    SaccadeResult initialize(ID3D12Device*, ID3D12CommandQueue*, const char* shader_directory,
-                             OverlaySurfaceCallbacks) noexcept;
+    SaccadeResult initialize(ID3D12Device*, ID3D12CommandQueue*, const char* shader_directory, OverlaySurfaceCallbacks) noexcept;
     SaccadeResult shutdown() noexcept;
     SaccadeResult set_glyph_atlas(overlay::GlyphAtlasView) noexcept;
     SaccadeResult synchronize(const geometry::DisplaySnapshot&) noexcept;

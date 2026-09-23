@@ -43,25 +43,27 @@ constexpr uint16_t scan_alt = UINT16_C(0x38);
 constexpr uint16_t scan_left_gui = UINT16_C(0x5b);
 constexpr uint16_t scan_right_gui = UINT16_C(0x5c);
 
-constexpr std::array<uint8_t, 26> letter_scans{0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17,
-                                               0x24, 0x25, 0x26, 0x32, 0x31, 0x18, 0x19, 0x10, 0x13,
-                                               0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c};
+constexpr std::array<uint8_t, 26> letter_scans{0x1e, 0x30, 0x2e, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
+                                               0x31, 0x18, 0x19, 0x10, 0x13, 0x1f, 0x14, 0x16, 0x2f, 0x11, 0x2d, 0x15, 0x2c};
 constexpr std::array<uint8_t, 10> digit_scans{0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b};
 
 uint16_t symbol_from_layout(HKL layout, uint32_t usage) noexcept {
     KeyScan scan{};
-    if (layout == nullptr || !scan_from_hid_usage(usage, &scan)) return 0;
+    if (layout == nullptr || !scan_from_hid_usage(usage, &scan))
+        return 0;
 
     const UINT scan_code = scan.value | (scan.extended ? UINT32_C(0xe000) : 0);
     const UINT virtual_key = MapVirtualKeyExW(scan_code, MAPVK_VSC_TO_VK_EX, layout);
-    if (virtual_key == 0 || virtual_key > UINT8_MAX) return 0;
+    if (virtual_key == 0 || virtual_key > UINT8_MAX)
+        return 0;
 
     std::array<BYTE, 256> state{};
     std::array<wchar_t, 4> symbols{};
     constexpr UINT preserve_keyboard_state = 4;
-    const int symbol_count = ToUnicodeEx(virtual_key, scan.value, state.data(), symbols.data(),
-                                         static_cast<int>(symbols.size()), preserve_keyboard_state, layout);
-    if (symbol_count != 1 || (symbols[0] >= 0xd800 && symbols[0] <= 0xdfff)) return 0;
+    const int symbol_count = ToUnicodeEx(virtual_key, scan.value, state.data(), symbols.data(), static_cast<int>(symbols.size()),
+                                         preserve_keyboard_state, layout);
+    if (symbol_count != 1 || (symbols[0] >= 0xd800 && symbols[0] <= 0xdfff))
+        return 0;
     return static_cast<uint16_t>(symbols[0]);
 }
 
@@ -73,17 +75,16 @@ size_t primary_language_size(const wchar_t* language) noexcept {
 bool language_match(const wchar_t* requested, const wchar_t* candidate, bool exact) noexcept {
     const size_t requested_size = exact ? std::wcslen(requested) : primary_language_size(requested);
     const size_t candidate_size = exact ? std::wcslen(candidate) : primary_language_size(candidate);
-    return requested_size == candidate_size &&
-           CompareStringOrdinal(requested, static_cast<int>(requested_size), candidate,
-                                static_cast<int>(candidate_size), TRUE) == CSTR_EQUAL;
+    return requested_size == candidate_size && CompareStringOrdinal(requested, static_cast<int>(requested_size), candidate,
+                                                                    static_cast<int>(candidate_size), TRUE) == CSTR_EQUAL;
 }
 
 HKL layout_for_language(const char* language) noexcept {
-    if (std::strcmp(language, "und") == 0) return GetKeyboardLayout(0);
+    if (std::strcmp(language, "und") == 0)
+        return GetKeyboardLayout(0);
 
     std::array<wchar_t, application::language_tag_capacity> requested{};
-    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, language, -1, requested.data(),
-                            static_cast<int>(requested.size())) == 0) {
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, language, -1, requested.data(), static_cast<int>(requested.size())) == 0) {
         return nullptr;
     }
 
@@ -94,8 +95,7 @@ HKL layout_for_language(const char* language) noexcept {
         for (int index = 0; index < layout_count; ++index) {
             const LANGID language_id = LOWORD(reinterpret_cast<ULONG_PTR>(layouts[index]));
             std::array<wchar_t, LOCALE_NAME_MAX_LENGTH> candidate{};
-            if (LCIDToLocaleName(MAKELCID(language_id, SORT_DEFAULT), candidate.data(),
-                                 static_cast<int>(candidate.size()), 0) == 0 ||
+            if (LCIDToLocaleName(MAKELCID(language_id, SORT_DEFAULT), candidate.data(), static_cast<int>(candidate.size()), 0) == 0 ||
                 !language_match(requested.data(), candidate.data(), exact)) {
                 continue;
             }
@@ -105,8 +105,7 @@ HKL layout_for_language(const char* language) noexcept {
     return nullptr;
 }
 
-constexpr std::array<uint8_t, 12> function_scans{0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40,
-                                                 0x41, 0x42, 0x43, 0x44, 0x57, 0x58};
+constexpr std::array<uint8_t, 12> function_scans{0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41, 0x42, 0x43, 0x44, 0x57, 0x58};
 
 bool same(KeyScan left, KeyScan right) noexcept {
     return left.value == right.value && left.extended == right.extended;
@@ -120,7 +119,8 @@ struct ScanUsage {
 } // namespace
 
 bool scan_from_hid_usage(uint32_t usage, KeyScan* output) noexcept {
-    if (output == nullptr) return false;
+    if (output == nullptr)
+        return false;
     if (usage >= hid_keyboard_a && usage <= hid_keyboard_z) {
         *output = {letter_scans[usage - hid_keyboard_a], false};
         return true;
@@ -191,7 +191,8 @@ bool scan_from_hid_usage(uint32_t usage, KeyScan* output) noexcept {
 }
 
 bool hid_usage_from_scan(KeyScan scan, uint32_t* output) noexcept {
-    if (output == nullptr) return false;
+    if (output == nullptr)
+        return false;
     for (uint32_t index = 0; index < letter_scans.size(); ++index) {
         if (same(scan, {letter_scans[index], false})) {
             *output = hid_keyboard_a + index;
@@ -237,7 +238,8 @@ bool hid_usage_from_scan(KeyScan scan, uint32_t* output) noexcept {
 }
 
 bool scan_from_modifier(uint32_t modifier, KeyScan* output) noexcept {
-    if (output == nullptr) return false;
+    if (output == nullptr)
+        return false;
     if (modifier == SACCADE_INPUT_MODIFIER_SHIFT)
         *output = {scan_left_shift, false};
     else if (modifier == SACCADE_INPUT_MODIFIER_CONTROL)
@@ -252,11 +254,13 @@ bool scan_from_modifier(uint32_t modifier, KeyScan* output) noexcept {
 }
 
 uint32_t modifier_from_scan(KeyScan scan) noexcept {
-    if (scan.value == scan_left_shift || scan.value == scan_right_shift) return SACCADE_INPUT_MODIFIER_SHIFT;
-    if (scan.value == scan_control) return SACCADE_INPUT_MODIFIER_CONTROL;
-    if (scan.value == scan_alt) return SACCADE_INPUT_MODIFIER_ALT;
-    return (scan.value == scan_left_gui || scan.value == scan_right_gui) && scan.extended ? SACCADE_INPUT_MODIFIER_META
-                                                                                          : 0;
+    if (scan.value == scan_left_shift || scan.value == scan_right_shift)
+        return SACCADE_INPUT_MODIFIER_SHIFT;
+    if (scan.value == scan_control)
+        return SACCADE_INPUT_MODIFIER_CONTROL;
+    if (scan.value == scan_alt)
+        return SACCADE_INPUT_MODIFIER_ALT;
+    return (scan.value == scan_left_gui || scan.value == scan_right_gui) && scan.extended ? SACCADE_INPUT_MODIFIER_META : 0;
 }
 
 uint16_t logical_symbol_from_hid_usage(uint32_t usage) noexcept {
@@ -269,16 +273,19 @@ uint64_t active_keyboard_layout_token() noexcept {
 
 SaccadeResult resolve_hint_language(const application::HintSettings& input, application::HintSettings* output,
                                     uint64_t* layout_token) noexcept {
-    if (output == nullptr || layout_token == nullptr) return SACCADE_ERROR_INVALID_ARGUMENT;
+    if (output == nullptr || layout_token == nullptr)
+        return SACCADE_ERROR_INVALID_ARGUMENT;
 
     const HKL layout = layout_for_language(input.language.data());
-    if (layout == nullptr) return SACCADE_ERROR_NOT_FOUND;
+    if (layout == nullptr)
+        return SACCADE_ERROR_NOT_FOUND;
     std::array<uint16_t, interaction::maximum_hint_alphabet> translated{};
     for (uint32_t index = 0; index < input.alphabet_count; ++index)
         translated[index] = symbol_from_layout(layout, input.physical_keys[index]);
 
     const SaccadeResult result = application::resolve_hint_alphabet(input, translated.data(), output);
-    if (result == SACCADE_OK) *layout_token = static_cast<uint64_t>(reinterpret_cast<ULONG_PTR>(layout));
+    if (result == SACCADE_OK)
+        *layout_token = static_cast<uint64_t>(reinterpret_cast<ULONG_PTR>(layout));
     return result;
 }
 

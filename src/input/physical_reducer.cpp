@@ -28,8 +28,8 @@ bool remove_key(std::array<uint32_t, maximum_held_keys>* keys, uint32_t* count, 
     return true;
 }
 
-bool apply_transition(const SaccadeInputCommand& command, uint32_t* buttons,
-                      std::array<uint32_t, maximum_held_keys>* keys, uint32_t* key_count) noexcept {
+bool apply_transition(const SaccadeInputCommand& command, uint32_t* buttons, std::array<uint32_t, maximum_held_keys>* keys,
+                      uint32_t* key_count) noexcept {
     switch (command.kind) {
     case SACCADE_INPUT_COMMAND_BUTTON_DOWN:
         if ((*buttons & command.data0) != 0) {
@@ -54,8 +54,7 @@ bool apply_transition(const SaccadeInputCommand& command, uint32_t* buttons,
 
 } // namespace
 
-SaccadeResult PhysicalInputReducer::initialize(uint64_t permission_epoch, int32_t pointer_x_q8,
-                                               int32_t pointer_y_q8) noexcept {
+SaccadeResult PhysicalInputReducer::initialize(uint64_t permission_epoch, int32_t pointer_x_q8, int32_t pointer_y_q8) noexcept {
     if (initialized_ || permission_epoch == 0) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }
@@ -79,8 +78,7 @@ bool PhysicalInputReducer::preflight(const PlanView& plan) const noexcept {
     return true;
 }
 
-SaccadeResult PhysicalInputReducer::begin(const PlanView& plan, uint32_t available_permissions,
-                                          uint64_t now_ns) noexcept {
+SaccadeResult PhysicalInputReducer::begin(const PlanView& plan, uint32_t available_permissions, uint64_t now_ns) noexcept {
     if (!initialized_ || active_header_ != nullptr || plan.header == nullptr || plan.commands == nullptr) {
         return SACCADE_ERROR_STATE;
     }
@@ -195,8 +193,7 @@ SaccadeResult PhysicalInputReducer::expire(uint64_t now_ns, SyntheticRelease* ou
     return SACCADE_OK;
 }
 
-SaccadeResult PhysicalInputReducer::physical_override(int32_t pointer_x_q8, int32_t pointer_y_q8,
-                                                      SyntheticRelease* output) noexcept {
+SaccadeResult PhysicalInputReducer::physical_override(int32_t pointer_x_q8, int32_t pointer_y_q8, SyntheticRelease* output) noexcept {
     if (!initialized_ || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }

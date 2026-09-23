@@ -15,15 +15,18 @@ bool priority_class_sufficient(DWORD priority_class) noexcept {
 } // namespace
 
 RuntimeScheduling::~RuntimeScheduling() {
-    if (initialized() && owner_thread_id_ == GetCurrentThreadId()) (void)shutdown();
+    if (initialized() && owner_thread_id_ == GetCurrentThreadId())
+        (void)shutdown();
 }
 
 SaccadeResult RuntimeScheduling::initialize() noexcept {
-    if (initialized()) return SACCADE_ERROR_ALREADY_EXISTS;
+    if (initialized())
+        return SACCADE_ERROR_ALREADY_EXISTS;
 
     const HANDLE process = GetCurrentProcess();
     const DWORD previous_priority_class = GetPriorityClass(process);
-    if (previous_priority_class == 0) return SACCADE_ERROR_BACKEND;
+    if (previous_priority_class == 0)
+        return SACCADE_ERROR_BACKEND;
     const bool process_priority_elevated = !priority_class_sufficient(previous_priority_class);
     if (process_priority_elevated && SetPriorityClass(process, ABOVE_NORMAL_PRIORITY_CLASS) == 0)
         return SACCADE_ERROR_BACKEND;
@@ -31,12 +34,14 @@ SaccadeResult RuntimeScheduling::initialize() noexcept {
     DWORD task_index = 0;
     HANDLE task = AvSetMmThreadCharacteristicsW(runtime_task, &task_index);
     if (task == nullptr) {
-        if (process_priority_elevated) (void)SetPriorityClass(process, previous_priority_class);
+        if (process_priority_elevated)
+            (void)SetPriorityClass(process, previous_priority_class);
         return SACCADE_ERROR_BACKEND;
     }
     if (AvSetMmThreadPriority(task, AVRT_PRIORITY_HIGH) == 0) {
         (void)AvRevertMmThreadCharacteristics(task);
-        if (process_priority_elevated) (void)SetPriorityClass(process, previous_priority_class);
+        if (process_priority_elevated)
+            (void)SetPriorityClass(process, previous_priority_class);
         return SACCADE_ERROR_BACKEND;
     }
 
@@ -48,7 +53,8 @@ SaccadeResult RuntimeScheduling::initialize() noexcept {
 }
 
 SaccadeResult RuntimeScheduling::shutdown() noexcept {
-    if (!initialized() || owner_thread_id_ != GetCurrentThreadId()) return SACCADE_ERROR_STATE;
+    if (!initialized() || owner_thread_id_ != GetCurrentThreadId())
+        return SACCADE_ERROR_STATE;
     bool reverted = true;
     if (task_ != nullptr) {
         if (AvRevertMmThreadCharacteristics(task_) != 0) {
@@ -65,7 +71,8 @@ SaccadeResult RuntimeScheduling::shutdown() noexcept {
             reverted = false;
         }
     }
-    if (!initialized()) owner_thread_id_ = 0;
+    if (!initialized())
+        owner_thread_id_ = 0;
     return reverted ? SACCADE_OK : SACCADE_ERROR_BACKEND;
 }
 

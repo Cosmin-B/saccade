@@ -74,10 +74,10 @@ class ImagePreprocessor final {
 
     SaccadeResult initialize(void* metal_device, const char* metallib_path, PathPreference, const TensorSpec&) noexcept;
     SaccadeResult direct_texture(void* texture, uint32_t width, uint32_t height, DirectTextureView*) noexcept;
-    SaccadeResult submit(void* texture, uint32_t width, uint32_t height, SourceRegion, uint64_t frame_id,
-                         uint64_t transform_epoch, PreprocessSubmission*) noexcept;
-    SaccadeResult submit_atlas(const AtlasSource*, uint32_t source_count, SourceRegion content, AtlasLoad,
-                               uint64_t frame_id, uint64_t transform_epoch, PreprocessSubmission*) noexcept;
+    SaccadeResult submit(void* texture, uint32_t width, uint32_t height, SourceRegion, uint64_t frame_id, uint64_t transform_epoch,
+                         PreprocessSubmission*) noexcept;
+    SaccadeResult submit_atlas(const AtlasSource*, uint32_t source_count, SourceRegion content, AtlasLoad, uint64_t frame_id,
+                               uint64_t transform_epoch, PreprocessSubmission*) noexcept;
     SaccadeResult poll(const PreprocessSubmission&, bool*) noexcept;
     SaccadeResult wait(const PreprocessSubmission&, uint64_t timeout_ns) noexcept;
     SaccadeResult tensor(const PreprocessSubmission&, TensorView*) noexcept;

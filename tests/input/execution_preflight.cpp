@@ -10,6 +10,7 @@ enum class TestResult : int {
     valid_failed,
     deadline_failed,
     stale_failed,
+    followed_failed,
     secure_failed,
     window_failed,
     target_failed
@@ -52,6 +53,10 @@ struct Fixture {
         scene_header.source_id = source_id;
         targets[0].target_id = target_id;
         targets[0].window_id = window_id;
+        targets[0].x_q8 = 100;
+        targets[0].y_q8 = 200;
+        targets[0].width_q8 = 300;
+        targets[0].height_q8 = 400;
         targets[0].flags = SACCADE_TARGET_ACTIONABLE;
 
         plan_header.command_count = static_cast<uint32_t>(commands.size());
@@ -66,7 +71,11 @@ struct Fixture {
         plan_header.focus_id = focus_id;
         plan_header.window_id = window_id;
         plan_header.deadline_ns = deadline_ns;
+        commands[0].kind = SACCADE_INPUT_COMMAND_POINTER_MOVE;
+        commands[0].flags = SACCADE_INPUT_COMMAND_ABSOLUTE;
         commands[0].target_id = target_id;
+        commands[0].x_q8 = 250;
+        commands[0].y_q8 = 300;
         plan = {&plan_header, commands.data(), sizeof(plan_header) + sizeof(commands)};
 
         state.scene.header = &scene_header;
@@ -92,6 +101,21 @@ int main() {
 
     if (saccade::input::validate_execution_preflight(fixture.plan, fixture.state, deadline_ns) != SACCADE_ERROR_TIMEOUT)
         return result(TestResult::deadline_failed);
+
+    ++fixture.scene_header.scene_epoch;
+    ++fixture.scene_header.frame_id;
+    if (saccade::input::validate_execution_preflight(fixture.plan, fixture.state, now_ns) != SACCADE_ERROR_STALE_HANDLE)
+        return result(TestResult::stale_failed);
+    fixture.plan_header.flags = SACCADE_INPUT_PLAN_FOLLOW_TARGETS;
+    if (saccade::input::validate_execution_preflight(fixture.plan, fixture.state, now_ns) != SACCADE_OK)
+        return result(TestResult::followed_failed);
+    fixture.targets[0].x_q8 = 300;
+    if (saccade::input::validate_execution_preflight(fixture.plan, fixture.state, now_ns) != SACCADE_ERROR_STALE_HANDLE)
+        return result(TestResult::followed_failed);
+    fixture.targets[0].x_q8 = 100;
+    fixture.scene_header.scene_epoch = scene_epoch;
+    fixture.scene_header.frame_id = frame_id;
+    fixture.plan_header.flags = 0;
 
     fixture.state.focus_id = focus_id + 1U;
     if (saccade::input::validate_execution_preflight(fixture.plan, fixture.state, now_ns) != SACCADE_ERROR_STALE_HANDLE)

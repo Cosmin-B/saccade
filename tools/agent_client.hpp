@@ -31,7 +31,7 @@ class AgentClient final {
   private:
     bool transact_once(const void*, size_t, AgentClientStorage*, size_t*) noexcept;
     bool transact_fresh(const void*, size_t, const SaccadeAgentFreshness&, AgentClientStorage*, size_t*) noexcept;
-    bool verify_action(const SaccadeAgentActionBatch&, AgentClientStorage*, size_t*) noexcept;
+    bool verify_action(const SaccadeAgentActionBatch&, bool explicit_window, AgentClientStorage*, size_t*) noexcept;
 
 #if defined(__APPLE__)
     bool send_all(const uint8_t*, size_t) noexcept;

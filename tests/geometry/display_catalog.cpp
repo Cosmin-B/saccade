@@ -34,41 +34,36 @@ int main() {
     DisplayCatalog catalog;
     std::array<DisplaySurface, 2> displays{display(9, 1512, 1920, 1080), display(3, 0, 1512, 982)};
     displays[1].flags |= display_surface_main | display_surface_builtin;
-    if (catalog.publish(displays.data(), static_cast<uint32_t>(displays.size()), display_topology_separate_spaces) !=
-        SACCADE_OK) {
+    if (catalog.publish(displays.data(), static_cast<uint32_t>(displays.size()), display_topology_separate_spaces) != SACCADE_OK) {
         return 2;
     }
     const DisplaySnapshot& first = catalog.snapshot();
     if (first.epoch != 1 || first.count != displays.size() || first.flags != display_topology_separate_spaces ||
-        first.displays[0].display_id != 3 || first.displays[1].display_id != 9 ||
-        catalog.find(3) != &first.displays[0] || catalog.find(99) != nullptr) {
+        first.displays[0].display_id != 3 || first.displays[1].display_id != 9 || catalog.find(3) != &first.displays[0] ||
+        catalog.find(99) != nullptr) {
         return 3;
     }
 
     const uint64_t unchanged_epoch = first.epoch;
     std::array<DisplaySurface, 2> reordered{displays[1], displays[0]};
-    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), display_topology_separate_spaces) !=
-            SACCADE_OK ||
+    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), display_topology_separate_spaces) != SACCADE_OK ||
         catalog.snapshot().epoch != unchanged_epoch) {
         return 4;
     }
 
     reordered[0].work_bounds.y += q8(32);
     reordered[0].work_bounds.height -= q8(32);
-    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), display_topology_separate_spaces) !=
-            SACCADE_OK ||
+    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), display_topology_separate_spaces) != SACCADE_OK ||
         catalog.snapshot().epoch != unchanged_epoch + 1U) {
         return 5;
     }
 
     CoordinateTransform transform;
     const DisplaySurface* main = catalog.find(3);
-    if (main == nullptr ||
-        make_desktop_to_surface_transform(*main, catalog.snapshot().epoch, &transform) != SACCADE_OK ||
+    if (main == nullptr || make_desktop_to_surface_transform(*main, catalog.snapshot().epoch, &transform) != SACCADE_OK ||
         transform.descriptor().source_space != CoordinateSpace::desktop ||
         transform.descriptor().destination_space != CoordinateSpace::surface ||
-        transform.descriptor().destination.width !=
-            static_cast<int32_t>(main->backing_width << coordinate_fraction_bits)) {
+        transform.descriptor().destination.width != static_cast<int32_t>(main->backing_width << coordinate_fraction_bits)) {
         return 6;
     }
 
@@ -91,8 +86,7 @@ int main() {
 
     const DisplaySnapshot before_invalid = catalog.snapshot();
     reordered[1].display_id = reordered[0].display_id;
-    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), 0) !=
-            SACCADE_ERROR_INVALID_ARGUMENT ||
+    if (catalog.publish(reordered.data(), static_cast<uint32_t>(reordered.size()), 0) != SACCADE_ERROR_INVALID_ARGUMENT ||
         catalog.snapshot().epoch != before_invalid.epoch || catalog.snapshot().count != before_invalid.count) {
         return 8;
     }
@@ -117,8 +111,7 @@ int main() {
     removed.flags |= display_surface_main | display_surface_builtin;
     removed.flags |= display_surface_asleep;
     saccade::test::begin_allocation_tracking();
-    if (catalog.publish(&removed, 1, 0) != SACCADE_OK || catalog.snapshot().count != 1 ||
-        catalog.snapshot().epoch != 3) {
+    if (catalog.publish(&removed, 1, 0) != SACCADE_OK || catalog.snapshot().count != 1 || catalog.snapshot().epoch != 3) {
         return 11;
     }
     return saccade::test::end_allocation_tracking() == 0 ? 0 : 12;

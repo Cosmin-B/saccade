@@ -73,8 +73,7 @@ struct InteractionControllerStats {
 
 class InteractionController final {
   public:
-    SaccadeResult initialize(SessionEngine*, InteractionProfile, InteractionStateSource,
-                             InteractionControllerSink) noexcept;
+    SaccadeResult initialize(SessionEngine*, InteractionProfile, InteractionStateSource, InteractionControllerSink) noexcept;
     SaccadeResult set_profile(InteractionProfile) noexcept;
     SaccadeResult set_text(SaccadeSpanU8) noexcept;
     SaccadeResult dispatch(Command, uint64_t timestamp_ns, InteractionCommandResult*) noexcept;
@@ -87,8 +86,7 @@ class InteractionController final {
     [[nodiscard]] InteractionControllerStats stats() const noexcept { return stats_; }
 
   private:
-    SaccadeResult begin_action(const SessionAction&, interaction::SelectionMode, uint64_t timestamp_ns,
-                               InteractionCommandResult*) noexcept;
+    SaccadeResult begin_action(const SessionAction&, interaction::SelectionMode, uint64_t timestamp_ns, InteractionCommandResult*) noexcept;
     SaccadeResult change_mode(interaction::SelectionMode, InteractionCommandResult*) noexcept;
     SaccadeResult forward(Command, uint64_t, InteractionCommandResult*) noexcept;
     [[nodiscard]] bool input_lease_active() const noexcept;
@@ -112,7 +110,7 @@ class InteractionController final {
 SaccadeResult start_interaction_command(void*, Command, uint64_t) noexcept;
 void observe_interaction_input(void*, uint64_t timestamp_ns) noexcept;
 
-static_assert(sizeof(InteractionState) == 88);
+static_assert(sizeof(InteractionState) == 112);
 static_assert(sizeof(InteractionCommandResult) == 32);
 static_assert(sizeof(InteractionControllerStats) == 72);
 

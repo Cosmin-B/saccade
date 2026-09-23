@@ -30,8 +30,7 @@ constexpr uint64_t permission_epoch = 8;
 constexpr uint64_t source_id = 9;
 constexpr uint64_t execution_time_ns = 1;
 constexpr uint64_t interaction_budget_ns = UINT64_C(8333333);
-constexpr size_t packet_size =
-    sizeof(SaccadeInputPlanHeader) + static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand);
+constexpr size_t packet_size = sizeof(SaccadeInputPlanHeader) + static_cast<size_t>(command_count) * sizeof(SaccadeInputCommand);
 
 struct alignas(SaccadeInputPlanHeader) PlanStorage {
     std::array<uint8_t, packet_size> bytes{};
@@ -98,11 +97,9 @@ int main() {
     for (uint32_t iteration = 0; iteration < warmup_count + sample_count; ++iteration) {
         saccade::platform::macos::InputExecutionResult execution{};
         const auto start = std::chrono::steady_clock::now();
-        const SaccadeResult executed =
-            executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution);
+        const SaccadeResult executed = executor.execute(plan, SACCADE_INPUT_PERMISSION_POINTER, execution_time_ns, &execution);
         const auto finish = std::chrono::steady_clock::now();
-        if (executed != SACCADE_OK || execution.commands_completed != command_count ||
-            execution.native_events != command_count)
+        if (executed != SACCADE_OK || execution.commands_completed != command_count || execution.native_events != command_count)
             return exit_code(BenchmarkResult::execution_failed);
         if (iteration >= warmup_count) {
             samples[iteration - warmup_count] =
@@ -116,6 +113,5 @@ int main() {
                 "per_event_ns=%.1f interaction_budget_pct=%.3f\n",
                 command_count, static_cast<unsigned long long>(median), static_cast<unsigned long long>(p95),
                 static_cast<double>(p95) / command_count, static_cast<double>(p95) / interaction_budget_ns * 100.0);
-    return executor.shutdown() == SACCADE_OK ? exit_code(BenchmarkResult::success)
-                                             : exit_code(BenchmarkResult::shutdown_failed);
+    return executor.shutdown() == SACCADE_OK ? exit_code(BenchmarkResult::success) : exit_code(BenchmarkResult::shutdown_failed);
 }

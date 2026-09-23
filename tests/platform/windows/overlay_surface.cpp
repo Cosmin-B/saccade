@@ -13,8 +13,7 @@ namespace {
 
 using Microsoft::WRL::ComPtr;
 
-constexpr size_t packet_size =
-    sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
+constexpr size_t packet_size = sizeof(SaccadeOverlayPacketHeader) + sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 
 struct CallbackState {
     alignas(8) std::array<uint8_t, packet_size> packet{};
@@ -129,8 +128,7 @@ void report_native_error(const saccade::platform::windows::OverlaySurface& surfa
     }
     *error_text.ptr++ = '\n';
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.data(), static_cast<DWORD>(error_text.ptr - text.data()),
-                    &written, nullptr);
+    (void)WriteFile(GetStdHandle(STD_ERROR_HANDLE), text.data(), static_cast<DWORD>(error_text.ptr - text.data()), &written, nullptr);
 }
 
 } // namespace
@@ -159,8 +157,8 @@ int main(int argc, char** argv) {
     callbacks.display_id = display.display_id;
     make_packet(&callbacks);
     saccade::platform::windows::OverlaySurface surface;
-    const SaccadeResult initialized = surface.initialize(display, graphics.device(), graphics.queue(), argv[1],
-                                                         {&callbacks, load_frame, observe_frame});
+    const SaccadeResult initialized =
+        surface.initialize(display, graphics.device(), graphics.queue(), argv[1], {&callbacks, load_frame, observe_frame});
     if (initialized != SACCADE_OK) {
         int32_t error = 0;
         saccade::platform::windows::OverlaySurfaceNativeStage stage{};
@@ -177,21 +175,15 @@ int main(int argc, char** argv) {
         return 3;
     }
     saccade::platform::windows::OverlaySurfaceInfo info{};
-    if (surface.read_info(&info) != SACCADE_OK || info.window_handle == 0 || info.frame_latency_handle == 0 ||
-        info.buffer_count != 3 ||
-        (info.flags & (saccade::platform::windows::overlay_surface_initialized |
-                       saccade::platform::windows::overlay_surface_click_through |
-                       saccade::platform::windows::overlay_surface_nonactivating |
-                       saccade::platform::windows::overlay_surface_topmost |
-                       saccade::platform::windows::overlay_surface_excluded_from_capture |
-                       saccade::platform::windows::overlay_surface_color_managed |
-                       saccade::platform::windows::overlay_surface_display_paced)) !=
-            (saccade::platform::windows::overlay_surface_initialized |
-             saccade::platform::windows::overlay_surface_click_through |
-             saccade::platform::windows::overlay_surface_nonactivating |
-             saccade::platform::windows::overlay_surface_topmost |
-             saccade::platform::windows::overlay_surface_excluded_from_capture |
-             saccade::platform::windows::overlay_surface_color_managed |
+    if (surface.read_info(&info) != SACCADE_OK || info.window_handle == 0 || info.frame_latency_handle == 0 || info.buffer_count != 3 ||
+        (info.flags &
+         (saccade::platform::windows::overlay_surface_initialized | saccade::platform::windows::overlay_surface_click_through |
+          saccade::platform::windows::overlay_surface_nonactivating | saccade::platform::windows::overlay_surface_topmost |
+          saccade::platform::windows::overlay_surface_excluded_from_capture | saccade::platform::windows::overlay_surface_color_managed |
+          saccade::platform::windows::overlay_surface_display_paced)) !=
+            (saccade::platform::windows::overlay_surface_initialized | saccade::platform::windows::overlay_surface_click_through |
+             saccade::platform::windows::overlay_surface_nonactivating | saccade::platform::windows::overlay_surface_topmost |
+             saccade::platform::windows::overlay_surface_excluded_from_capture | saccade::platform::windows::overlay_surface_color_managed |
              saccade::platform::windows::overlay_surface_display_paced)) {
         return 4;
     }
@@ -213,12 +205,11 @@ int main(int argc, char** argv) {
     saccade::platform::windows::OverlaySurfaceStats stats{};
     saccade::backend::d3d12::OverlayStats renderer_stats{};
     saccade::platform::windows::OverlaySurfaceMemoryStats memory{};
-    if (presented != SACCADE_OK || callbacks.loads == 0 || callbacks.observations == 0 ||
-        callbacks.last_result != SACCADE_OK || callbacks.last_submission.sequence == 0 ||
-        surface.read_stats(&stats) != SACCADE_OK || stats.rendered_frames == 0 || stats.presented_frames == 0 ||
-        surface.read_renderer_stats(&renderer_stats) != SACCADE_OK || renderer_stats.draw_calls == 0 ||
-        surface.read_memory_stats(&memory) != SACCADE_OK ||
-        memory.swapchain_bytes_estimate != UINT64_C(512) * 512U * 4U * 3U || surface.stop() != SACCADE_OK) {
+    if (presented != SACCADE_OK || callbacks.loads == 0 || callbacks.observations == 0 || callbacks.last_result != SACCADE_OK ||
+        callbacks.last_submission.sequence == 0 || surface.read_stats(&stats) != SACCADE_OK || stats.rendered_frames == 0 ||
+        stats.presented_frames == 0 || surface.read_renderer_stats(&renderer_stats) != SACCADE_OK || renderer_stats.draw_calls == 0 ||
+        surface.read_memory_stats(&memory) != SACCADE_OK || memory.swapchain_bytes_estimate != UINT64_C(512) * 512U * 4U * 3U ||
+        surface.stop() != SACCADE_OK) {
         return 7;
     }
     (void)SetThreadDpiAwarenessContext(previous);

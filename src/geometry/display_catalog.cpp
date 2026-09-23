@@ -8,27 +8,25 @@
 namespace saccade::geometry {
 namespace {
 
-constexpr uint32_t surface_flag_mask = display_surface_main | display_surface_builtin | display_surface_active |
-                                       display_surface_asleep | display_surface_mirrored;
+constexpr uint32_t surface_flag_mask =
+    display_surface_main | display_surface_builtin | display_surface_active | display_surface_asleep | display_surface_mirrored;
 constexpr uint32_t topology_flag_mask = display_topology_separate_spaces;
 constexpr uint32_t maximum_backing_extent = static_cast<uint32_t>(INT32_MAX) >> coordinate_fraction_bits;
 
 bool rotation_valid(QuarterTurn rotation) noexcept {
-    return rotation == QuarterTurn::clockwise_0 || rotation == QuarterTurn::clockwise_90 ||
-           rotation == QuarterTurn::clockwise_180 || rotation == QuarterTurn::clockwise_270;
+    return rotation == QuarterTurn::clockwise_0 || rotation == QuarterTurn::clockwise_90 || rotation == QuarterTurn::clockwise_180 ||
+           rotation == QuarterTurn::clockwise_270;
 }
 
 bool surface_valid(const DisplaySurface& surface) noexcept {
     return surface.display_id != 0 && rect_valid(surface.desktop_bounds) && rect_valid(surface.work_bounds) &&
-           rect_contains(surface.desktop_bounds, surface.work_bounds) && surface.safe_insets.top >= 0 &&
-           surface.safe_insets.left >= 0 && surface.safe_insets.bottom >= 0 && surface.safe_insets.right >= 0 &&
+           rect_contains(surface.desktop_bounds, surface.work_bounds) && surface.safe_insets.top >= 0 && surface.safe_insets.left >= 0 &&
+           surface.safe_insets.bottom >= 0 && surface.safe_insets.right >= 0 &&
            static_cast<int64_t>(surface.safe_insets.left) + surface.safe_insets.right <= surface.desktop_bounds.width &&
-           static_cast<int64_t>(surface.safe_insets.top) + surface.safe_insets.bottom <=
-               surface.desktop_bounds.height &&
-           surface.backing_width != 0 && surface.backing_height != 0 &&
-           surface.backing_width <= maximum_backing_extent && surface.backing_height <= maximum_backing_extent &&
-           surface.maximum_fps != 0 && rotation_valid(surface.rotation) && (surface.flags & ~surface_flag_mask) == 0 &&
-           surface.reserved == 0;
+           static_cast<int64_t>(surface.safe_insets.top) + surface.safe_insets.bottom <= surface.desktop_bounds.height &&
+           surface.backing_width != 0 && surface.backing_height != 0 && surface.backing_width <= maximum_backing_extent &&
+           surface.backing_height <= maximum_backing_extent && surface.maximum_fps != 0 && rotation_valid(surface.rotation) &&
+           (surface.flags & ~surface_flag_mask) == 0 && surface.reserved == 0;
 }
 
 void sort_displays(DisplaySurface* displays, uint32_t count) noexcept {
@@ -74,9 +72,8 @@ SaccadeResult DisplayCatalog::publish(const DisplaySurface* displays, uint32_t c
         }
     }
 
-    const bool unchanged =
-        snapshot_.count == candidate.count && snapshot_.flags == candidate.flags &&
-        std::memcmp(snapshot_.displays.data(), candidate.displays.data(), sizeof(DisplaySurface) * count) == 0;
+    const bool unchanged = snapshot_.count == candidate.count && snapshot_.flags == candidate.flags &&
+                           std::memcmp(snapshot_.displays.data(), candidate.displays.data(), sizeof(DisplaySurface) * count) == 0;
     if (unchanged) {
         return SACCADE_OK;
     }
@@ -107,8 +104,7 @@ const DisplaySurface* DisplayCatalog::find(uint64_t display_id) const noexcept {
     return nullptr;
 }
 
-SaccadeResult make_desktop_to_surface_transform(const DisplaySurface& display, uint64_t epoch,
-                                                CoordinateTransform* output) noexcept {
+SaccadeResult make_desktop_to_surface_transform(const DisplaySurface& display, uint64_t epoch, CoordinateTransform* output) noexcept {
     if (!surface_valid(display) || epoch == 0 || output == nullptr) {
         return SACCADE_ERROR_INVALID_ARGUMENT;
     }

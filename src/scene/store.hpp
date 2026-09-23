@@ -11,10 +11,9 @@
 
 namespace saccade::scene {
 
-constexpr size_t target_packet_max_bytes =
-    sizeof(SaccadeTargetPacketHeader) +
-    static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord) +
-    SACCADE_TARGET_PACKET_MAX_TEXT_BYTES;
+constexpr size_t target_packet_max_bytes = sizeof(SaccadeTargetPacketHeader) +
+                                           static_cast<size_t>(SACCADE_TARGET_PACKET_MAX_TARGETS) * sizeof(SaccadeTargetRecord) +
+                                           SACCADE_TARGET_PACKET_MAX_TEXT_BYTES;
 constexpr size_t scene_slot_alignment = 64;
 constexpr size_t scene_slot_payload_bytes = target_packet_max_bytes + sizeof(size_t);
 constexpr size_t scene_slot_padding_bytes = scene_slot_alignment - scene_slot_payload_bytes % scene_slot_alignment;

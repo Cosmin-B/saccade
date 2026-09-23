@@ -26,9 +26,8 @@ constexpr uint32_t warmup_count = 20;
 constexpr uint32_t sample_count = 200;
 constexpr uint64_t scene_budget_ns = UINT64_C(33333333);
 constexpr uint16_t glyph_symbol = static_cast<uint16_t>('A');
-constexpr size_t output_capacity = sizeof(SaccadeOverlayPacketHeader) +
-                                   static_cast<size_t>(target_count) * sizeof(SaccadeOverlayTarget) +
-                                   sizeof(SaccadeOverlayStyle);
+constexpr size_t output_capacity =
+    sizeof(SaccadeOverlayPacketHeader) + static_cast<size_t>(target_count) * sizeof(SaccadeOverlayTarget) + sizeof(SaccadeOverlayStyle);
 
 int exit_code(BenchmarkResult value) noexcept {
     return static_cast<int>(value);
@@ -74,10 +73,8 @@ int main() {
         SaccadeTargetRecord& target = targets[index];
         target.target_id = index + 1U;
         target.display_id = display_id;
-        target.x_q8 =
-            static_cast<int32_t>((static_cast<uint64_t>(column) * desktop_width / grid_columns) * coordinate_scale);
-        target.y_q8 =
-            static_cast<int32_t>((static_cast<uint64_t>(row) * desktop_height / grid_rows) * coordinate_scale);
+        target.x_q8 = static_cast<int32_t>((static_cast<uint64_t>(column) * desktop_width / grid_columns) * coordinate_scale);
+        target.y_q8 = static_cast<int32_t>((static_cast<uint64_t>(row) * desktop_height / grid_rows) * coordinate_scale);
         target.width_q8 = target_width * coordinate_scale;
         target.height_q8 = target_height * coordinate_scale;
         target.safe_x_q8 = target.x_q8 + target.width_q8 / 2;
@@ -101,7 +98,8 @@ int main() {
     transform_desc.source_space = saccade::geometry::CoordinateSpace::desktop;
     transform_desc.destination_space = saccade::geometry::CoordinateSpace::surface;
     saccade::geometry::CoordinateTransform transform;
-    if (transform.initialize(transform_desc) != SACCADE_OK) return exit_code(BenchmarkResult::transform_failed);
+    if (transform.initialize(transform_desc) != SACCADE_OK)
+        return exit_code(BenchmarkResult::transform_failed);
     const SaccadeOverlayStyle packet_style = style();
     saccade::application::OverlayComposeConfig config{};
     config.display_id = display_id;
@@ -116,8 +114,8 @@ int main() {
     std::array<uint64_t, sample_count> samples{};
     for (uint32_t iteration = 0; iteration < warmup_count + sample_count; ++iteration) {
         const auto start = std::chrono::steady_clock::now();
-        const SaccadeResult result = composer.compose(scene, labels.data(), target_count, config, &workspace,
-                                                      {output.data(), output.size()}, &composed);
+        const SaccadeResult result =
+            composer.compose(scene, labels.data(), target_count, config, &workspace, {output.data(), output.size()}, &composed);
         const auto finish = std::chrono::steady_clock::now();
         if (result != SACCADE_OK || composed.target_count != target_count)
             return exit_code(BenchmarkResult::compose_failed);

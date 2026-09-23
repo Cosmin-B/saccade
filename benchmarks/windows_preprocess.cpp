@@ -55,13 +55,15 @@ template <typename T> T output_structure() noexcept {
 }
 
 bool parse_u32(const char* text, uint32_t minimum, uint32_t maximum, uint32_t* output) noexcept {
-    if (text == nullptr || output == nullptr) return false;
+    if (text == nullptr || output == nullptr)
+        return false;
     const char* end = text;
     while (*end != '\0')
         ++end;
     uint32_t value = 0;
     const auto parsed = std::from_chars(text, end, value);
-    if (parsed.ec != std::errc{} || parsed.ptr != end || value < minimum || value > maximum) return false;
+    if (parsed.ec != std::errc{} || parsed.ptr != end || value < minimum || value > maximum)
+        return false;
     *output = value;
     return true;
 }
@@ -73,8 +75,7 @@ uint64_t nanoseconds(uint64_t ticks, uint64_t frequency) noexcept {
 
 void emit(const StackStringBuilder<1024>& text) noexcept {
     DWORD written = 0;
-    (void)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written,
-                    nullptr);
+    (void)WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text.view().data(), static_cast<DWORD>(text.size()), &written, nullptr);
 }
 
 SaccadeResult acquire_frame(const SaccadeCaptureProviderDesc& backend, SaccadeCaptureStreamHandle stream,
@@ -91,7 +92,8 @@ SaccadeResult acquire_frame(const SaccadeCaptureProviderDesc& backend, SaccadeCa
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 6 || argc > 7) return result(ToolResult::usage);
+    if (argc < 6 || argc > 7)
+        return result(ToolResult::usage);
     uint32_t frame_count = default_frame_count;
     uint32_t source_index = 0;
     uint32_t output_width = 0;
@@ -150,15 +152,14 @@ int main(int argc, char** argv) {
     TextureLease texture{};
     if (acquire_frame(backend, stream, &frame) != SACCADE_OK) {
         tool_result = ToolResult::acquire_failed;
-    } else if (provider.read_native_frame(stream, frame.frame, &native) != SACCADE_OK ||
-               native.d3d11_texture == nullptr || native.width < frame.width || native.height < frame.height) {
+    } else if (provider.read_native_frame(stream, frame.frame, &native) != SACCADE_OK || native.d3d11_texture == nullptr ||
+               native.width < frame.width || native.height < frame.height) {
         tool_result = ToolResult::native_frame_failed;
     }
     if (tool_result == ToolResult::success) {
         const SaccadeResult unwrapped = graphics.unwrap(static_cast<ID3D11Texture2D*>(native.d3d11_texture), &texture);
         const SaccadeResult initialized =
-            unwrapped == SACCADE_OK ? preprocessor.initialize(graphics.device(), graphics.queue(), argv[1], spec)
-                                    : unwrapped;
+            unwrapped == SACCADE_OK ? preprocessor.initialize(graphics.device(), graphics.queue(), argv[1], spec) : unwrapped;
         if (initialized != SACCADE_OK) {
             tool_result = ToolResult::preprocessor_failed;
         }
@@ -168,11 +169,9 @@ int main(int argc, char** argv) {
         LARGE_INTEGER end{};
         (void)QueryPerformanceCounter(&begin);
         PreprocessSubmission submission{};
-        const SaccadeResult submitted =
-            preprocessor.submit(texture.texture, native.width, native.height, {0, 0, frame.width, frame.height},
-                                frame.frame_id, frame.transform_epoch, &submission);
-        const SaccadeResult waited =
-            submitted == SACCADE_OK ? preprocessor.wait(&submission, UINT64_C(1'000'000'000)) : submitted;
+        const SaccadeResult submitted = preprocessor.submit(texture.texture, native.width, native.height, {0, 0, frame.width, frame.height},
+                                                            frame.frame_id, frame.transform_epoch, &submission);
+        const SaccadeResult waited = submitted == SACCADE_OK ? preprocessor.wait(&submission, UINT64_C(1'000'000'000)) : submitted;
         (void)QueryPerformanceCounter(&end);
         if (waited != SACCADE_OK || end.QuadPart < begin.QuadPart) {
             StackStringBuilder<1024> failure;
@@ -185,21 +184,19 @@ int main(int argc, char** argv) {
             tool_result = ToolResult::submission_failed;
             break;
         }
-        latencies[completed] = nanoseconds(static_cast<uint64_t>(end.QuadPart - begin.QuadPart),
-                                           static_cast<uint64_t>(frequency.QuadPart));
+        latencies[completed] = nanoseconds(static_cast<uint64_t>(end.QuadPart - begin.QuadPart), static_cast<uint64_t>(frequency.QuadPart));
     }
 
-    const bool texture_returned =
-        texture.texture == nullptr || graphics.return_texture(&texture, nullptr, 0) == SACCADE_OK;
+    const bool texture_returned = texture.texture == nullptr || graphics.return_texture(&texture, nullptr, 0) == SACCADE_OK;
     const bool frame_released =
-        texture_returned &&
-        (frame.frame == 0 || backend.ops.release(backend.context, stream, frame.frame) == SACCADE_OK);
+        texture_returned && (frame.frame == 0 || backend.ops.release(backend.context, stream, frame.frame) == SACCADE_OK);
     const bool cleaned = frame_released && backend.ops.stop(backend.context, stream) == SACCADE_OK &&
                          backend.ops.destroy(backend.context, stream) == SACCADE_OK;
     if (tool_result == ToolResult::success && !cleaned) {
         tool_result = ToolResult::cleanup_failed;
     }
-    if (tool_result != ToolResult::success) return result(tool_result);
+    if (tool_result != ToolResult::success)
+        return result(tool_result);
 
     std::sort(latencies.begin(), latencies.begin() + completed);
     const auto stats = preprocessor.stats();

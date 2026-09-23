@@ -37,7 +37,8 @@ SaccadeResult apply(void* context, const saccade::application::SettingsDocument&
 const saccade::application::HotkeyBinding* binding_for(const saccade::application::SettingsDocument& settings,
                                                        saccade::application::Command command) noexcept {
     for (uint32_t index = 0; index < settings.binding_count; ++index)
-        if (settings.bindings[index].command == command) return &settings.bindings[index];
+        if (settings.bindings[index].command == command)
+            return &settings.bindings[index];
     return nullptr;
 }
 
@@ -111,9 +112,8 @@ int main() {
         Command::backspace,
         Command::cancel,
     };
-    if (validate_settings(settings) != SACCADE_OK || settings.detector.confidence_q16 != 1 ||
-        settings.detector.text_sensitivity_q16 != 1 || settings.hints.physical_keys[0] != 0x04 ||
-        settings.hints.physical_keys[1] != 0x16 ||
+    if (validate_settings(settings) != SACCADE_OK || settings.detector.confidence_q16 != 1 || settings.detector.text_sensitivity_q16 != 1 ||
+        settings.hints.physical_keys[0] != 0x04 || settings.hints.physical_keys[1] != 0x16 ||
         settings.binding_count != global_commands.size() + session_commands.size()) {
         return result(TestResult::defaults_failed);
     }
@@ -126,7 +126,8 @@ int main() {
     }
     for (Command command : session_commands) {
         const HotkeyBinding* binding = binding_for(settings, command);
-        if (binding == nullptr || binding->flags != hotkey_session_only) return result(TestResult::defaults_failed);
+        if (binding == nullptr || binding->flags != hotkey_session_only)
+            return result(TestResult::defaults_failed);
     }
 
     BindingKeyboardLayout keyboard{};
@@ -141,9 +142,10 @@ int main() {
         }
         for (uint32_t previous = 0; previous < index; ++previous) {
             const BindingKeyRect& other = keyboard.keys[previous];
-            const bool separated = key.x + key.width <= other.x || other.x + other.width <= key.x ||
-                                   key.y + key.height <= other.y || other.y + other.height <= key.y;
-            if (key.usage == other.usage || !separated) return result(TestResult::keyboard_layout_failed);
+            const bool separated = key.x + key.width <= other.x || other.x + other.width <= key.x || key.y + key.height <= other.y ||
+                                   other.y + other.height <= key.y;
+            if (key.usage == other.usage || !separated)
+                return result(TestResult::keyboard_layout_failed);
         }
     }
 
@@ -151,15 +153,14 @@ int main() {
     for (uint32_t index = 0; index < settings.hints.alphabet_count; ++index)
         translated[index] = static_cast<uint16_t>(0x03b1 + index);
     HintSettings resolved{};
-    if (resolve_hint_alphabet(settings.hints, translated.data(), &resolved) != SACCADE_OK ||
-        resolved.alphabet[0] != translated[0] || resolved.physical_keys[0] != settings.hints.physical_keys[0]) {
+    if (resolve_hint_alphabet(settings.hints, translated.data(), &resolved) != SACCADE_OK || resolved.alphabet[0] != translated[0] ||
+        resolved.physical_keys[0] != settings.hints.physical_keys[0]) {
         return result(TestResult::hint_mapping_failed);
     }
     InteractionProfile profile = make_interaction_profile(settings, resolved, 1, 2, 3, 4, 5);
     resolved.alphabet[0] = 'Z';
     if (profile.hints.alphabet[0] != translated[0] ||
-        saccade::interaction::symbol_for_physical_key(profile.hints, settings.hints.physical_keys[0]) !=
-            translated[0]) {
+        saccade::interaction::symbol_for_physical_key(profile.hints, settings.hints.physical_keys[0]) != translated[0]) {
         return result(TestResult::hint_mapping_failed);
     }
 
@@ -174,9 +175,8 @@ int main() {
     const SaccadeOverlayStyle large = resolve_overlay_style(custom, settings.flags | settings_reduced_motion, false);
     if (dark.label_background_rgba8 == light.label_background_rgba8 || dark.glyph_height_q3 != 14U * 8U ||
         dark.label_height_q3 != 18U * 8U || large.label_foreground_rgba8 != custom.label_rgba ||
-        dark.flags != SACCADE_OVERLAY_STYLE_ANIMATED || large.glyph_height_q3 != 28U * 8U ||
-        large.target_stroke_q3 != 2U * 8U || large.active_stroke_q3 != 6U * 8U ||
-        large.glyph_advance_q3 <= large.glyph_width_q3 || large.flags != 0) {
+        dark.flags != SACCADE_OVERLAY_STYLE_ANIMATED || large.glyph_height_q3 != 28U * 8U || large.target_stroke_q3 != 2U * 8U ||
+        large.active_stroke_q3 != 6U * 8U || large.glyph_advance_q3 <= large.glyph_width_q3 || large.flags != 0) {
         return result(TestResult::appearance_style_failed);
     }
 
@@ -209,20 +209,22 @@ int main() {
         return result(TestResult::migration_failed);
     }
     SettingsDocument decoded{};
-    if (decode_settings({first.data(), first_size}, &decoded) != SACCADE_OK) return result(TestResult::decode_failed);
+    if (decode_settings({first.data(), first_size}, &decoded) != SACCADE_OK)
+        return result(TestResult::decode_failed);
     const HotkeyBinding* decoded_click = binding_for(decoded, Command::left_click);
     if (decoded.source != TargetSource::fused || decoded_click == nullptr || decoded_click->logical_symbol != ' ')
         return result(TestResult::logical_fallback_failed);
     std::array<uint8_t, settings_encoded_capacity> second{};
     size_t second_size = 0;
-    if (encode_settings(decoded, {second.data(), second.size()}, &second_size) != SACCADE_OK ||
-        second_size != first_size || std::memcmp(first.data(), second.data(), first_size) != 0) {
+    if (encode_settings(decoded, {second.data(), second.size()}, &second_size) != SACCADE_OK || second_size != first_size ||
+        std::memcmp(first.data(), second.data(), first_size) != 0) {
         return result(TestResult::roundtrip_failed);
     }
     decoded.bindings[1].physical_key = decoded.bindings[0].physical_key;
     decoded.bindings[1].modifiers = decoded.bindings[0].modifiers;
     decoded.bindings[1].logical_symbol = decoded.bindings[0].logical_symbol;
-    if (validate_settings(decoded) != SACCADE_ERROR_ALREADY_EXISTS) return result(TestResult::conflict_failed);
+    if (validate_settings(decoded) != SACCADE_ERROR_ALREADY_EXISTS)
+        return result(TestResult::conflict_failed);
     decoded = settings;
     decoded.bindings[0].logical_symbol = 0;
     if (validate_settings(decoded) != SACCADE_ERROR_INVALID_ARGUMENT)
@@ -231,11 +233,9 @@ int main() {
         return result(TestResult::reset_failed);
 
     constexpr std::array<uint16_t, 3> replacement_alphabet{'Q', 'W', 'E'};
-    if (set_hint_alphabet(&decoded.hints, replacement_alphabet.data(),
-                          static_cast<uint32_t>(replacement_alphabet.size())) != SACCADE_OK ||
+    if (set_hint_alphabet(&decoded.hints, replacement_alphabet.data(), static_cast<uint32_t>(replacement_alphabet.size())) != SACCADE_OK ||
         decoded.hints.alphabet_count != replacement_alphabet.size() || decoded.hints.physical_keys[0] != 0x14 ||
-        decoded.hints.physical_keys[1] != 0x1a || decoded.hints.physical_keys[2] != 0x08 ||
-        decoded.hints.physical_keys[3] != 0) {
+        decoded.hints.physical_keys[1] != 0x1a || decoded.hints.physical_keys[2] != 0x08 || decoded.hints.physical_keys[3] != 0) {
         return result(TestResult::hint_mapping_failed);
     }
     first[0] = 0;
@@ -249,30 +249,25 @@ int main() {
     SettingsDocument staged = controller.staged();
     staged.source = TargetSource::fused;
     if (controller.stage(staged) != SACCADE_OK || controller.commit() != SACCADE_OK || controller.revision() != 2 ||
-        controller.current().source != TargetSource::fused || apply_count != 2 ||
-        controller.begin_edit() != SACCADE_OK || controller.reset_all() != SACCADE_OK ||
-        controller.cancel() != SACCADE_OK || controller.current().source != TargetSource::fused ||
+        controller.current().source != TargetSource::fused || apply_count != 2 || controller.begin_edit() != SACCADE_OK ||
+        controller.reset_all() != SACCADE_OK || controller.cancel() != SACCADE_OK || controller.current().source != TargetSource::fused ||
         controller.shutdown() != SACCADE_OK) {
         return result(TestResult::controller_failed);
     }
     SettingsDocument edited = settings;
     BindingConflict conflict{};
     uint32_t selected_binding = UINT32_MAX;
-    if (set_binding(&edited, {Command::open_settings, 0x04, SACCADE_INPUT_MODIFIER_CONTROL, 0, 'A'}, &conflict) !=
-            SACCADE_OK ||
+    if (set_binding(&edited, {Command::open_settings, 0x04, SACCADE_INPUT_MODIFIER_CONTROL, 0, 'A'}, &conflict) != SACCADE_OK ||
         edited.binding_count != settings.binding_count + 1U ||
-        set_binding(&edited, {Command::drag, 0x04, SACCADE_INPUT_MODIFIER_CONTROL, 0, 'A'}, &conflict) !=
-            SACCADE_ERROR_ALREADY_EXISTS ||
+        set_binding(&edited, {Command::drag, 0x04, SACCADE_INPUT_MODIFIER_CONTROL, 0, 'A'}, &conflict) != SACCADE_ERROR_ALREADY_EXISTS ||
         conflict.command != Command::open_settings || remove_binding(&edited, Command::open_settings) != SACCADE_OK ||
         edited.binding_count != settings.binding_count || command_name(Command::drag) == nullptr ||
         command_name(Command::source_fused) == nullptr || command_name(Command::target_position_9) == nullptr ||
         command_name(Command::scroll_up) == nullptr || command_name(Command::scroll_right_continuous) == nullptr ||
-        command_name(Command::scope_toggle) == nullptr || default_logical_symbol(0x2f) != '[' ||
-        default_logical_symbol(0x34) != '\'' || !command_targets_scene(Command::scroll_up) ||
-        !command_targets_scene(Command::scroll_right_continuous) || command_targets_scene(Command::open_settings) ||
-        find_binding(settings, Command::mode_single, &selected_binding) != SACCADE_OK ||
-        settings.bindings[selected_binding].flags != hotkey_session_only ||
-        binding_keys().size() != binding_key_count) {
+        command_name(Command::scope_toggle) == nullptr || default_logical_symbol(0x2f) != '[' || default_logical_symbol(0x34) != '\'' ||
+        !command_targets_scene(Command::scroll_up) || !command_targets_scene(Command::scroll_right_continuous) ||
+        command_targets_scene(Command::open_settings) || find_binding(settings, Command::mode_single, &selected_binding) != SACCADE_OK ||
+        settings.bindings[selected_binding].flags != hotkey_session_only || binding_keys().size() != binding_key_count) {
         return result(TestResult::binding_editor_failed);
     }
     return result(TestResult::success);

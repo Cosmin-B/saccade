@@ -45,14 +45,15 @@ template <typename T> T output_structure() noexcept {
 
 const char* format_name(saccade::backend::metal::TensorFormat format) noexcept {
     using saccade::backend::metal::TensorFormat;
-    if (format == TensorFormat::planar_fp16) return "planar_fp16";
-    if (format == TensorFormat::planar_int8) return "planar_int8";
+    if (format == TensorFormat::planar_fp16)
+        return "planar_fp16";
+    if (format == TensorFormat::planar_int8)
+        return "planar_int8";
     return "image_bgra8";
 }
 
 ExitCode benchmark_preprocessor(void* device, const char* metallib_path, void* texture, uint32_t width, uint32_t height,
-                                saccade::backend::metal::TensorFormat format,
-                                saccade::backend::metal::PathPreference preference) {
+                                saccade::backend::metal::TensorFormat format, saccade::backend::metal::PathPreference preference) {
     namespace metal = saccade::backend::metal;
     metal::TensorSpec spec{};
     spec.width = 1536;
@@ -82,8 +83,7 @@ ExitCode benchmark_preprocessor(void* device, const char* metallib_path, void* t
     const uint64_t begin = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
     for (uint32_t index = 0; index < sample_count; ++index) {
         metal::PreprocessSubmission submission{};
-        if (preprocessor.submit(texture, width, height, region, warmup_count + index + 1, 1, &submission) !=
-                SACCADE_OK ||
+        if (preprocessor.submit(texture, width, height, region, warmup_count + index + 1, 1, &submission) != SACCADE_OK ||
             preprocessor.wait(submission, UINT64_C(3'000'000'000)) != SACCADE_OK) {
             return ExitCode::preprocessor_sample_failed;
         }
@@ -97,9 +97,8 @@ ExitCode benchmark_preprocessor(void* device, const char* metallib_path, void* t
     std::printf("path=%s operation=live_capture_fused_preprocess format=%s "
                 "source_resolution=%ux%u output_resolution=%ux%u samples=%u "
                 "ns_per_frame=%llu output_bytes=%llu command_allocator_bytes=%llu\n",
-                stats.path == metal::Path::metal4 ? "metal4" : "metal3", format_name(format), width, height, spec.width,
-                spec.height, sample_count, static_cast<unsigned long long>(elapsed / sample_count),
-                static_cast<unsigned long long>(stats.output_bytes),
+                stats.path == metal::Path::metal4 ? "metal4" : "metal3", format_name(format), width, height, spec.width, spec.height,
+                sample_count, static_cast<unsigned long long>(elapsed / sample_count), static_cast<unsigned long long>(stats.output_bytes),
                 static_cast<unsigned long long>(stats.command_allocator_bytes));
     return ExitCode::success;
 }
@@ -125,8 +124,7 @@ int main(int argc, char** argv) {
         }
         SaccadeCaptureProviderDesc backend = provider.descriptor();
         SaccadeCaptureSourceInfo source = output_structure<SaccadeCaptureSourceInfo>();
-        if (backend.ops.enumerate_sources(backend.context, 0, &source) != SACCADE_OK ||
-            source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY) {
+        if (backend.ops.enumerate_sources(backend.context, 0, &source) != SACCADE_OK || source.kind != SACCADE_CAPTURE_SOURCE_DISPLAY) {
             return exit_code(ExitCode::source_enumeration_failed);
         }
 
@@ -164,13 +162,11 @@ int main(int argc, char** argv) {
                     "resolution=%ux%u elapsed_ns=%llu iosurface_bytes=%llu "
                     "copied_bytes=%llu queue_depth=3 iosurface_id=%llu\n",
                     frame.width, frame.height, static_cast<unsigned long long>(elapsed),
-                    static_cast<unsigned long long>(memory.device_imported),
-                    static_cast<unsigned long long>(memory.copied_bytes),
+                    static_cast<unsigned long long>(memory.device_imported), static_cast<unsigned long long>(memory.copied_bytes),
                     static_cast<unsigned long long>(native.iosurface_id));
 
         if (backend.ops.release(backend.context, stream, frame.frame) != SACCADE_OK ||
-            backend.ops.stop(backend.context, stream) != SACCADE_OK ||
-            backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
+            backend.ops.stop(backend.context, stream) != SACCADE_OK || backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
             return exit_code(ExitCode::stream_cleanup_failed);
         }
 
@@ -200,39 +196,37 @@ int main(int argc, char** argv) {
                     "resolution=%ux%u elapsed_ns=%llu iosurface_bytes=%llu "
                     "copied_bytes=%llu queue_depth=3 iosurface_id=%llu\n",
                     frame.width, frame.height, static_cast<unsigned long long>(fit_elapsed),
-                    static_cast<unsigned long long>(memory.device_imported),
-                    static_cast<unsigned long long>(memory.copied_bytes),
+                    static_cast<unsigned long long>(memory.device_imported), static_cast<unsigned long long>(memory.copied_bytes),
                     static_cast<unsigned long long>(native.iosurface_id));
         const auto device_pointer = (__bridge void*)device;
-        ExitCode benchmark_result = benchmark_preprocessor(
-            device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
-            saccade::backend::metal::TensorFormat::planar_fp16, saccade::backend::metal::PathPreference::automatic);
+        ExitCode benchmark_result =
+            benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
+                                   saccade::backend::metal::TensorFormat::planar_fp16, saccade::backend::metal::PathPreference::automatic);
         if (benchmark_result == ExitCode::success) {
-            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width,
-                                                      frame.height, saccade::backend::metal::TensorFormat::planar_int8,
+            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
+                                                      saccade::backend::metal::TensorFormat::planar_int8,
                                                       saccade::backend::metal::PathPreference::automatic);
         }
         if (benchmark_result == ExitCode::success) {
-            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width,
-                                                      frame.height, saccade::backend::metal::TensorFormat::image_bgra8,
+            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
+                                                      saccade::backend::metal::TensorFormat::image_bgra8,
                                                       saccade::backend::metal::PathPreference::automatic);
         }
         if (benchmark_result == ExitCode::success) {
-            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width,
-                                                      frame.height, saccade::backend::metal::TensorFormat::planar_fp16,
-                                                      saccade::backend::metal::PathPreference::metal3);
+            benchmark_result =
+                benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
+                                       saccade::backend::metal::TensorFormat::planar_fp16, saccade::backend::metal::PathPreference::metal3);
         }
         if (benchmark_result == ExitCode::success) {
-            benchmark_result = benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width,
-                                                      frame.height, saccade::backend::metal::TensorFormat::image_bgra8,
-                                                      saccade::backend::metal::PathPreference::metal3);
+            benchmark_result =
+                benchmark_preprocessor(device_pointer, argv[1], native.metal_texture, frame.width, frame.height,
+                                       saccade::backend::metal::TensorFormat::image_bgra8, saccade::backend::metal::PathPreference::metal3);
         }
         if (benchmark_result != ExitCode::success) {
             return exit_code(benchmark_result);
         }
         if (backend.ops.release(backend.context, stream, frame.frame) != SACCADE_OK ||
-            backend.ops.stop(backend.context, stream) != SACCADE_OK ||
-            backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
+            backend.ops.stop(backend.context, stream) != SACCADE_OK || backend.ops.destroy(backend.context, stream) != SACCADE_OK) {
             return exit_code(ExitCode::final_stream_cleanup_failed);
         }
         return exit_code(ExitCode::success);

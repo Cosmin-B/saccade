@@ -154,6 +154,9 @@ if(SACCADE_BUILD_APPLICATION AND (APPLE OR WIN32))
 endif()
 if(SACCADE_BUILD_TESTS)
     add_subdirectory(tests)
+    if(SACCADE_BUILD_STATIC)
+        add_subdirectory(integrations/jev)
+    endif()
     add_test(
         NAME cmake.packaging_contract
         COMMAND "${CMAKE_COMMAND}"

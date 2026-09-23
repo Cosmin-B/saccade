@@ -56,8 +56,7 @@ class ScreenCaptureProvider final {
     SaccadeResult initialize(ID3D11Device*) noexcept;
     [[nodiscard]] SaccadeCaptureProviderDesc descriptor() noexcept;
     SaccadeResult read_stats(SaccadeCaptureStreamHandle, ScreenCaptureStats*) const noexcept;
-    SaccadeResult read_native_frame(SaccadeCaptureStreamHandle, SaccadeFrameHandle,
-                                    NativeCapturedFrame*) const noexcept;
+    SaccadeResult read_native_frame(SaccadeCaptureStreamHandle, SaccadeFrameHandle, NativeCapturedFrame*) const noexcept;
     SaccadeResult read_last_native_error(int32_t*) const noexcept;
     [[nodiscard]] ID3D11Device* device() const noexcept;
     [[nodiscard]] ID3D11DeviceContext* context() const noexcept;
