@@ -1,0 +1,21 @@
+:root {
+  --blume-background: #f1eee7;
+  --blume-foreground: #0b0d0f;
+  --blume-muted: #e7e3da;
+  --blume-muted-foreground: #575d5b;
+  --blume-accent: #276f61;
+  --blume-code-background: #e7e3da;
+  --blume-radius: 0.25rem;
+  --blume-font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --blume-font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --blume-font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+:root[data-theme="dark"] {
+  --blume-background: #0b0d0f;
+  --blume-foreground: #f1eee7;
+  --blume-muted: #171c20;
+  --blume-muted-foreground: #b5b3ac;
+  --blume-accent: #66d6bd;
+  --blume-code-background: #111519;
+}
