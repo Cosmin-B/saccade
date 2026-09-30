@@ -1,0 +1,80 @@
+{
+  "revision": "d126ab2b05465839bf70702026081b2eaef62257",
+  "files": [
+    {
+      "path": "README.md",
+      "route": "",
+      "sha256": "f096a1ffd08c7cd132a54bad4bb976916ab454f1074b46e6d1260ee877a5232a"
+    },
+    {
+      "path": "docs/architecture/abi.md",
+      "route": "architecture/abi",
+      "sha256": "a52df48772b21c0f909c033c7dc9191450b7e968efcde760113886c226eb01b7"
+    },
+    {
+      "path": "docs/architecture/agent-protocol.md",
+      "route": "architecture/agent-protocol",
+      "sha256": "f6b6815bc865037a802628798a5761bc93c09825fdb51f12026400d0bb2c5a68"
+    },
+    {
+      "path": "docs/architecture/backends.md",
+      "route": "architecture/backends",
+      "sha256": "9cbfd60e22b16df8287ff8756353c3db5c5c4efba9aaabe961edd3214421e4b5"
+    },
+    {
+      "path": "docs/architecture/concurrency.md",
+      "route": "architecture/concurrency",
+      "sha256": "a3664eb2acb5618113575a92b4c41eb967e8c7f97f91fb93b589375e07289a41"
+    },
+    {
+      "path": "docs/architecture/coordinates.md",
+      "route": "architecture/coordinates",
+      "sha256": "b7d729460f9db3161947c8c97b6963d25953659150dcb30f4f9c758fcc6d35b2"
+    },
+    {
+      "path": "docs/architecture/fusion.md",
+      "route": "architecture/fusion",
+      "sha256": "cdd09659331377c687c38cddd3aaded65c65a227e23adc5e3ff8af139816161c"
+    },
+    {
+      "path": "docs/architecture/inference.md",
+      "route": "architecture/inference",
+      "sha256": "036a294b5716e9972e45fbe098c6bb0d3374199291b977584cd015d3ec765538"
+    },
+    {
+      "path": "docs/architecture/interaction.md",
+      "route": "architecture/interaction",
+      "sha256": "87e4457cf23b84f0ca8b628f1591ff8164d7bbc45d60ad85fe1a7a40defb3357"
+    },
+    {
+      "path": "docs/architecture/memory.md",
+      "route": "architecture/memory",
+      "sha256": "79b033d8b86e30f4987beea35375c06492e6280e5450ab3e82fea34c9047a96c"
+    },
+    {
+      "path": "docs/architecture/overlay.md",
+      "route": "architecture/overlay",
+      "sha256": "de090e46a60300342abde2a09098bf9e49533ec771c67ac0d99f4439f96cd610"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "route": "architecture/overview",
+      "sha256": "d1b2e4e260824f7f240d3fced539dbf56d5499f1dac90d571d8931a004b34e36"
+    },
+    {
+      "path": "docs/development/building.md",
+      "route": "development/building",
+      "sha256": "ddf8c2b3b0bab2f13177557621785c28a18e1278178fb4a47703394183c68d69"
+    },
+    {
+      "path": "docs/development/writing.md",
+      "route": "development/writing",
+      "sha256": "11238783be4635b5ca44372921cdbd0d6e6a8d56efa2650a060d1b42783b7906"
+    },
+    {
+      "path": "docs/product/version-0.1.md",
+      "route": "product/version-0.1",
+      "sha256": "0c3faddd86b045b094b4a97be7e3e836be20d6584e6e4d2f82b61f04630a8b65"
+    }
+  ]
+}
