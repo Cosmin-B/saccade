@@ -63,6 +63,28 @@ counters are single-writer cache-line-separated fields sampled only while quiesc
 not shared atomic accumulators. A stress test accounts for every handle as either
 replaced or consumed.
 
+The scene store owns three fixed packet slots. One producer writes a slot and publishes
+its index. One consumer acquires the newest slot and borrows its header, targets, and
+text. The consumer can use that view until its next `acquire_latest` call. The caller
+keeps the slot storage alive until both threads have stopped.
+
+```text
+Producer                          Consumer
+writes slot -> pending slot ----> active slot
+                    |             retires previous active slot
+reuses replaced slot              returns retired slot
+                    <------------ returned slot
+```
+
+`begin_write` returns the slot's write descriptor. The producer keeps the descriptor
+unchanged until commit or abort succeeds. Commit and abort reject a descriptor that
+does not identify the current write slot. A rejected descriptor leaves the write slot
+reserved, so the producer can retry with the original descriptor or abort the write.
+`commit_checked` checks the bytes in that slot. `commit_trusted` requires the producer
+to supply an already valid desktop-Q8 packet. If no slot is free, `begin_write` returns
+`SACCADE_ERROR_BUSY`. The scene store adds no allocation or wait. Read scene-store
+statistics only while the producer and consumer are quiescent.
+
 Registry construction obtains domain IDs from a thread-local block. Refilling a block
 uses the same statically stored cold gate. Normal construction does not touch shared
 allocator or atomic state. Repository checks permit CAS only in that gate and reject

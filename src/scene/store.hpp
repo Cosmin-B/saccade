@@ -47,14 +47,19 @@ struct SceneStoreStats {
     uint64_t returned = 0;
 };
 
+// One producer writes and publishes packets. One consumer borrows the latest packet.
+// Storage must outlive both threads. Initialize and read statistics while both threads are quiescent.
 class SceneStore final {
   public:
     SaccadeResult initialize(SceneStoreStorage*) noexcept;
+    // Keep the returned descriptor unchanged until commit or abort succeeds.
     SaccadeResult begin_write(MutableScenePacket*) noexcept;
     SaccadeResult abort_write(const MutableScenePacket&) noexcept;
     SaccadeResult commit_checked(const MutableScenePacket&, size_t) noexcept;
+    // The producer must write a valid desktop-Q8 packet before calling commit_trusted.
     SaccadeResult commit_trusted(const MutableScenePacket&, size_t) noexcept;
     SaccadeResult publish_copy(SaccadeSpanU8) noexcept;
+    // The view remains borrowed until the consumer's next acquire_latest call.
     SaccadeResult acquire_latest(PacketView*) noexcept;
 
     [[nodiscard]] SceneStoreStats stats() const noexcept;
@@ -68,6 +73,7 @@ class SceneStore final {
     static_assert(sizeof(Handoff) == core::destructive_interference_size);
 
     SaccadeResult commit(const MutableScenePacket&, size_t, bool) noexcept;
+    [[nodiscard]] bool owns_write(const MutableScenePacket&) const noexcept;
     void drain_returned() noexcept;
 
     Handoff pending_{};
