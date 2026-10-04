@@ -41,16 +41,22 @@ SaccadeResult SceneStore::begin_write(MutableScenePacket* output) noexcept {
         ++producer_stats_.producer_busy;
         return SACCADE_ERROR_BUSY;
     }
-    const uint32_t bit = static_cast<uint32_t>(std::countr_zero(free_mask_));
-    writing_slot_ = bit + 1U;
-    free_mask_ &= ~(UINT32_C(1) << bit);
+    const uint32_t slot_index = static_cast<uint32_t>(std::countr_zero(free_mask_));
+    writing_slot_ = slot_index + 1U;
+    free_mask_ &= ~(UINT32_C(1) << slot_index);
     ++producer_stats_.write_begins;
-    *output = {storage_->slots[bit].bytes.data(), target_packet_max_bytes, writing_slot_, 0};
+    *output = {storage_->slots[slot_index].bytes.data(), target_packet_max_bytes, writing_slot_, 0};
     return SACCADE_OK;
 }
 
+bool SceneStore::owns_write(const MutableScenePacket& packet) const noexcept {
+    return initialized_ && writing_slot_ != 0 && packet.slot == writing_slot_ &&
+           packet.data == storage_->slots[writing_slot_ - 1U].bytes.data() &&
+           packet.capacity == target_packet_max_bytes && packet.reserved == 0;
+}
+
 SaccadeResult SceneStore::abort_write(const MutableScenePacket& packet) noexcept {
-    if (!initialized_ || packet.slot == 0 || packet.slot != writing_slot_) {
+    if (!owns_write(packet)) {
         return SACCADE_ERROR_STATE;
     }
     free_mask_ |= UINT32_C(1) << (writing_slot_ - 1U);
@@ -58,23 +64,24 @@ SaccadeResult SceneStore::abort_write(const MutableScenePacket& packet) noexcept
     return SACCADE_OK;
 }
 
-SaccadeResult SceneStore::commit(const MutableScenePacket& packet, size_t byte_size, bool checked) noexcept {
-    if (!initialized_ || packet.slot == 0 || packet.slot != writing_slot_ ||
-        byte_size < sizeof(SaccadeTargetPacketHeader) || byte_size > target_packet_max_bytes) {
+SaccadeResult SceneStore::commit(const MutableScenePacket& packet, size_t byte_size, bool check_packet) noexcept {
+    if (!owns_write(packet) || byte_size < sizeof(SaccadeTargetPacketHeader) || byte_size > target_packet_max_bytes) {
         return SACCADE_ERROR_STATE;
     }
-    if (checked) {
+
+    ScenePacketSlot& slot = storage_->slots[writing_slot_ - 1U];
+    if (check_packet) {
         PacketView view{};
-        if (validate_packet({packet.data, byte_size}, &view) != SACCADE_OK ||
+        if (validate_packet({slot.bytes.data(), byte_size}, &view) != SACCADE_OK ||
             view.header->coordinate_space != SACCADE_COORDINATE_SPACE_DESKTOP_Q8) {
             return SACCADE_ERROR_INVALID_ARGUMENT;
         }
     }
-    ScenePacketSlot& slot = storage_->slots[packet.slot - 1U];
+
     slot.byte_size = byte_size;
-    const uint32_t replaced = pending_.slot.exchange(packet.slot, std::memory_order_acq_rel);
-    if (replaced != 0) {
-        free_mask_ |= UINT32_C(1) << (replaced - 1U);
+    const uint32_t replaced_slot = pending_.slot.exchange(writing_slot_, std::memory_order_acq_rel);
+    if (replaced_slot != 0) {
+        free_mask_ |= UINT32_C(1) << (replaced_slot - 1U);
         ++producer_stats_.replaced;
     }
     writing_slot_ = 0;
@@ -120,10 +127,10 @@ SaccadeResult SceneStore::acquire_latest(PacketView* output) noexcept {
         retired_slot_ = 0;
         ++consumer_stats_.returned;
     }
-    const uint32_t latest = pending_.slot.exchange(0, std::memory_order_acq_rel);
-    if (latest != 0) {
+    const uint32_t latest_slot = pending_.slot.exchange(0, std::memory_order_acq_rel);
+    if (latest_slot != 0) {
         retired_slot_ = active_slot_;
-        active_slot_ = latest;
+        active_slot_ = latest_slot;
         ++consumer_stats_.acquired;
     } else if (active_slot_ != 0) {
         ++consumer_stats_.reused_active;
@@ -133,9 +140,12 @@ SaccadeResult SceneStore::acquire_latest(PacketView* output) noexcept {
         return SACCADE_ERROR_NOT_FOUND;
     }
     const ScenePacketSlot& slot = storage_->slots[active_slot_ - 1U];
-    output->header = reinterpret_cast<const SaccadeTargetPacketHeader*>(slot.bytes.data());
-    output->targets = reinterpret_cast<const SaccadeTargetRecord*>(slot.bytes.data() + output->header->targets_offset);
-    output->byte_size = slot.byte_size;
+    const auto* header = reinterpret_cast<const SaccadeTargetPacketHeader*>(slot.bytes.data());
+    const auto* targets = reinterpret_cast<const SaccadeTargetRecord*>(slot.bytes.data() + header->targets_offset);
+    const size_t text_offset =
+        header->targets_offset + static_cast<size_t>(header->target_count) * header->target_stride;
+    *output = {header, targets, slot.byte_size, slot.bytes.data() + text_offset,
+               static_cast<uint32_t>(header->total_size - text_offset)};
     return SACCADE_OK;
 }
 
